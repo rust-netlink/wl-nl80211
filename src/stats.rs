@@ -5,9 +5,7 @@ use byteorder::{ByteOrder, NativeEndian};
 use netlink_packet_utils::{
     nla::{DefaultNla, Nla, NlaBuffer},
     parsers::parse_u32,
-    DecodeError,
-    Emitable,
-    Parseable,
+    DecodeError, Emitable, Parseable,
 };
 
 const NL80211_TXQ_STATS_BACKLOG_BYTES: u16 = 1;
@@ -89,7 +87,9 @@ impl Nla for Nl80211TransmitQueueStat {
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211TransmitQueueStat {
+impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
+    for Nl80211TransmitQueueStat
+{
     fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
@@ -109,50 +109,79 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Transmi
             }
 
             NL80211_TXQ_STATS_FLOWS => {
-                let err_msg = format!("Invalid NL80211_TXQ_STATS_FLOWS value: {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_TXQ_STATS_FLOWS value: {:?}",
+                    payload
+                );
                 Self::Flows(parse_u32(payload).context(err_msg)?)
             }
 
             NL80211_TXQ_STATS_DROPS => {
-                let err_msg = format!("Invalid NL80211_TXQ_STATS_DROPS value: {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_TXQ_STATS_DROPS value: {:?}",
+                    payload
+                );
                 Self::Drops(parse_u32(payload).context(err_msg)?)
             }
 
             NL80211_TXQ_STATS_ECN_MARKS => {
-                let err_msg = format!("Invalid NL80211_TXQ_STATS_ECN_MARKS value: {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_TXQ_STATS_ECN_MARKS value: {:?}",
+                    payload
+                );
                 Self::EcnMarks(parse_u32(payload).context(err_msg)?)
             }
 
             NL80211_TXQ_STATS_OVERLIMIT => {
-                let err_msg = format!("Invalid NL80211_TXQ_STATS_OVERLIMIT value: {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_TXQ_STATS_OVERLIMIT value: {:?}",
+                    payload
+                );
                 Self::Overlimit(parse_u32(payload).context(err_msg)?)
             }
 
             NL80211_TXQ_STATS_OVERMEMORY => {
-                let err_msg = format!("Invalid NL80211_TXQ_STATS_OVERMEMORY value: {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_TXQ_STATS_OVERMEMORY value: {:?}",
+                    payload
+                );
                 Self::Overmemory(parse_u32(payload).context(err_msg)?)
             }
 
             NL80211_TXQ_STATS_COLLISIONS => {
-                let err_msg = format!("Invalid NL80211_TXQ_STATS_COLLISIONS value: {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_TXQ_STATS_COLLISIONS value: {:?}",
+                    payload
+                );
                 Self::Collisions(parse_u32(payload).context(err_msg)?)
             }
 
             NL80211_TXQ_STATS_TX_BYTES => {
-                let err_msg = format!("Invalid NL80211_TXQ_STATS_TX_BYTES value: {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_TXQ_STATS_TX_BYTES value: {:?}",
+                    payload
+                );
                 Self::TxBytes(parse_u32(payload).context(err_msg)?)
             }
 
             NL80211_TXQ_STATS_TX_PACKETS => {
-                let err_msg = format!("Invalid NL80211_TXQ_STATS_TX_PACKETS value: {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_TXQ_STATS_TX_PACKETS value: {:?}",
+                    payload
+                );
                 Self::TxPackets(parse_u32(payload).context(err_msg)?)
             }
 
             NL80211_TXQ_STATS_MAX_FLOWS => {
-                let err_msg = format!("Invalid NL80211_TXQ_STATS_MAX_FLOWS value: {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_TXQ_STATS_MAX_FLOWS value: {:?}",
+                    payload
+                );
                 Self::MaxFlows(parse_u32(payload).context(err_msg)?)
             }
-            _ => Self::Other(DefaultNla::parse(buf).context("invalid NLA (unknown kind)")?),
+            _ => Self::Other(
+                DefaultNla::parse(buf).context("invalid NLA (unknown kind)")?,
+            ),
         })
     }
 }

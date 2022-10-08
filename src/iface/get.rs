@@ -16,7 +16,8 @@ impl Nl80211InterfaceGetRequest {
 
     pub async fn execute(
         self,
-    ) -> impl TryStream<Ok = GenlMessage<Nl80211Message>, Error = Nl80211Error> {
+    ) -> impl TryStream<Ok = GenlMessage<Nl80211Message>, Error = Nl80211Error>
+    {
         let Nl80211InterfaceGetRequest { mut handle } = self;
 
         let nl80211_msg = Nl80211Message::new_interface_get();
