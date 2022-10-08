@@ -36,7 +36,8 @@ pub enum Nl80211InterfaceType {
     P2pGo,
     /// P2P device interface type, this is not a netdev
     P2pDevice,
-    /// Outside Context of a BSS, This mode corresponds to the MIB variable dot11OCBActivated=true
+    /// Outside Context of a BSS, This mode corresponds to the MIB variable
+    /// dot11OCBActivated=true
     Ocb,
     /// NAN device interface type (not a netdev)
     Nan,

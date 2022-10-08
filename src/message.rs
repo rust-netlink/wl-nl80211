@@ -3,7 +3,9 @@
 use anyhow::Context;
 use netlink_packet_core::DecodeError;
 use netlink_packet_generic::{GenlFamily, GenlHeader};
-use netlink_packet_utils::{nla::NlasIterator, Emitable, Parseable, ParseableParametrized};
+use netlink_packet_utils::{
+    nla::NlasIterator, Emitable, Parseable, ParseableParametrized,
+};
 
 use crate::attr::Nl80211Attr;
 
@@ -67,7 +69,8 @@ impl Emitable for Nl80211Message {
 fn parse_nlas(buffer: &[u8]) -> Result<Vec<Nl80211Attr>, DecodeError> {
     let mut nlas = Vec::new();
     for nla in NlasIterator::new(buffer) {
-        let error_msg = format!("Failed to parse nl80211 message attribute {:?}", nla);
+        let error_msg =
+            format!("Failed to parse nl80211 message attribute {:?}", nla);
         let nla = &nla.context(error_msg.clone())?;
         nlas.push(Nl80211Attr::parse(nla).context(error_msg)?);
     }
@@ -75,7 +78,10 @@ fn parse_nlas(buffer: &[u8]) -> Result<Vec<Nl80211Attr>, DecodeError> {
 }
 
 impl ParseableParametrized<[u8], GenlHeader> for Nl80211Message {
-    fn parse_with_param(buffer: &[u8], header: GenlHeader) -> Result<Self, DecodeError> {
+    fn parse_with_param(
+        buffer: &[u8],
+        header: GenlHeader,
+    ) -> Result<Self, DecodeError> {
         Ok(match header.cmd {
             NL80211_CMD_NEW_INTERFACE => Self {
                 cmd: Nl80211Cmd::InterfaceNew,

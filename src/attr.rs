@@ -5,9 +5,7 @@ use byteorder::{ByteOrder, NativeEndian};
 use netlink_packet_utils::{
     nla::{DefaultNla, Nla, NlaBuffer, NlasIterator},
     parsers::{parse_string, parse_u32, parse_u64, parse_u8},
-    DecodeError,
-    Emitable,
-    Parseable,
+    DecodeError, Emitable, Parseable,
 };
 
 use crate::{
@@ -127,8 +125,12 @@ impl Nla for Nl80211Attr {
                 buffer[s.len()] = 0;
             }
             Self::Use4Addr(d) => buffer[0] = *d as u8,
-            Self::WiPhyChannelType(d) => NativeEndian::write_u32(buffer, (*d).into()),
-            Self::ChannelWidth(d) => NativeEndian::write_u32(buffer, (*d).into()),
+            Self::WiPhyChannelType(d) => {
+                NativeEndian::write_u32(buffer, (*d).into())
+            }
+            Self::ChannelWidth(d) => {
+                NativeEndian::write_u32(buffer, (*d).into())
+            }
             Self::TransmitQueueStats(ref nlas) => nlas.as_slice().emit(buffer),
             Self::MloLinks(ref links) => links.as_slice().emit(buffer),
             Self::Other(ref attr) => attr.emit(buffer),
@@ -141,23 +143,28 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_ATTR_IFINDEX => {
-                let err_msg = format!("Invalid NL80211_ATTR_IFINDEX value {:?}", payload);
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_IFINDEX value {:?}", payload);
                 Self::IfIndex(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY => {
-                let err_msg = format!("Invalid NL80211_ATTR_WIPHY value {:?}", payload);
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_WIPHY value {:?}", payload);
                 Self::WiPhy(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_IFNAME => {
-                let err_msg = format!("Invalid NL80211_ATTR_IFNAME value {:?}", payload);
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_IFNAME value {:?}", payload);
                 Self::IfName(parse_string(payload).context(err_msg)?)
             }
             NL80211_ATTR_IFTYPE => {
-                let err_msg = format!("Invalid NL80211_ATTR_IFTYPE value {:?}", payload);
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_IFTYPE value {:?}", payload);
                 Self::IfType(parse_u32(payload).context(err_msg)?.into())
             }
             NL80211_ATTR_WDEV => {
-                let err_msg = format!("Invalid NL80211_ATTR_WDEV value {:?}", payload);
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_WDEV value {:?}", payload);
                 Self::Wdev(parse_u64(payload).context(err_msg)?)
             }
             NL80211_ATTR_MAC => Self::Mac(if payload.len() == ETH_ALEN {
@@ -172,19 +179,29 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 .into());
             }),
             NL80211_ATTR_GENERATION => {
-                let err_msg = format!("Invalid NL80211_ATTR_GENERATION value {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_GENERATION value {:?}",
+                    payload
+                );
                 Self::Generation(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_4ADDR => {
-                let err_msg = format!("Invalid NL80211_ATTR_4ADDR value {:?}", payload);
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_4ADDR value {:?}", payload);
                 Self::Use4Addr(parse_u8(payload).context(err_msg)? > 0)
             }
             NL80211_ATTR_WIPHY_FREQ => {
-                let err_msg = format!("Invalid NL80211_ATTR_WIPHY_FREQ value {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_WIPHY_FREQ value {:?}",
+                    payload
+                );
                 Self::WiPhyFreq(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY_FREQ_OFFSET => {
-                let err_msg = format!("Invalid NL80211_ATTR_WIPHY_FREQ_OFFSET value {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_WIPHY_FREQ_OFFSET value {:?}",
+                    payload
+                );
                 Self::WiPhyFreqOffset(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY_CHANNEL_TYPE => {
@@ -192,18 +209,29 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                     "Invalid NL80211_ATTR_WIPHY_CHANNEL_TYPE value {:?}",
                     payload
                 );
-                Self::WiPhyChannelType(parse_u32(payload).context(err_msg)?.into())
+                Self::WiPhyChannelType(
+                    parse_u32(payload).context(err_msg)?.into(),
+                )
             }
             NL80211_ATTR_CHANNEL_WIDTH => {
-                let err_msg = format!("Invalid NL80211_ATTR_CHANNEL_WIDTH value {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_CHANNEL_WIDTH value {:?}",
+                    payload
+                );
                 Self::ChannelWidth(parse_u32(payload).context(err_msg)?.into())
             }
             NL80211_ATTR_CENTER_FREQ1 => {
-                let err_msg = format!("Invalid NL80211_ATTR_CENTER_FREQ1 value {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_CENTER_FREQ1 value {:?}",
+                    payload
+                );
                 Self::CenterFreq1(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_CENTER_FREQ2 => {
-                let err_msg = format!("Invalid NL80211_ATTR_CENTER_FREQ2 value {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_CENTER_FREQ2 value {:?}",
+                    payload
+                );
                 Self::CenterFreq2(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY_TX_POWER_LEVEL => {
@@ -214,28 +242,42 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 Self::WiPhyTxPowerLevel(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_SSID => {
-                let err_msg = format!("Invalid NL80211_ATTR_SSID value {:?}", payload);
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_SSID value {:?}", payload);
                 Self::Ssid(parse_string(payload).context(err_msg)?)
             }
             NL80211_ATTR_TXQ_STATS => {
-                let err_msg = format!("Invalid NL80211_ATTR_TXQ_STATS value {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_TXQ_STATS value {:?}",
+                    payload
+                );
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
                     let nla = &nla.context(err_msg.clone())?;
-                    nlas.push(Nl80211TransmitQueueStat::parse(nla).context(err_msg.clone())?);
+                    nlas.push(
+                        Nl80211TransmitQueueStat::parse(nla)
+                            .context(err_msg.clone())?,
+                    );
                 }
                 Self::TransmitQueueStats(nlas)
             }
             NL80211_ATTR_MLO_LINKS => {
-                let err_msg = format!("Invalid NL80211_ATTR_MLO_LINKS value {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_MLO_LINKS value {:?}",
+                    payload
+                );
                 let mut links = Vec::new();
                 for nla in NlasIterator::new(payload) {
                     let nla = &nla.context(err_msg.clone())?;
-                    links.push(Nl80211MloLink::parse(nla).context(err_msg.clone())?);
+                    links.push(
+                        Nl80211MloLink::parse(nla).context(err_msg.clone())?,
+                    );
                 }
                 Self::MloLinks(links)
             }
-            _ => Self::Other(DefaultNla::parse(buf).context("invalid NLA (unknown kind)")?),
+            _ => Self::Other(
+                DefaultNla::parse(buf).context("invalid NLA (unknown kind)")?,
+            ),
         })
     }
 }
@@ -273,12 +315,17 @@ impl Nla for Nl80211MloLinkNla {
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211MloLinkNla {
+impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
+    for Nl80211MloLinkNla
+{
     fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_ATTR_MLO_LINK_ID => {
-                let err_msg = format!("Invalid NL80211_ATTR_MLO_LINK_ID value {:?}", payload);
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_MLO_LINK_ID value {:?}",
+                    payload
+                );
                 Self::Id(parse_u8(payload).context(err_msg)?)
             }
             NL80211_ATTR_MAC => Self::Mac(if payload.len() == ETH_ALEN {
@@ -292,7 +339,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211MloLink
                 )
                 .into());
             }),
-            _ => Self::Other(DefaultNla::parse(buf).context("invalid NLA (unknown kind)")?),
+            _ => Self::Other(
+                DefaultNla::parse(buf).context("invalid NLA (unknown kind)")?,
+            ),
         })
     }
 }
@@ -317,18 +366,24 @@ impl Nla for Nl80211MloLink {
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211MloLink {
+impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
+    for Nl80211MloLink
+{
     fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
         let mut ret = Self::default();
         let payload = buf.value();
-        let err_msg = format!("Invalid NL80211_ATTR_MLO_LINKS value {:?}", payload);
+        let err_msg =
+            format!("Invalid NL80211_ATTR_MLO_LINKS value {:?}", payload);
         for nla in NlasIterator::new(payload) {
             let nla = &nla.context(err_msg.clone())?;
             match Nl80211MloLinkNla::parse(nla).context(err_msg.clone())? {
                 Nl80211MloLinkNla::Id(d) => ret.id = d,
                 Nl80211MloLinkNla::Mac(s) => ret.mac = s,
                 Nl80211MloLinkNla::Other(attr) => {
-                    log::warn!("Got unsupported NL80211_ATTR_MLO_LINKS value {:?}", attr)
+                    log::warn!(
+                        "Got unsupported NL80211_ATTR_MLO_LINKS value {:?}",
+                        attr
+                    )
                 }
             }
         }
