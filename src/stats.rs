@@ -3,10 +3,157 @@
 use anyhow::Context;
 use byteorder::{ByteOrder, NativeEndian};
 use netlink_packet_utils::{
-    nla::{DefaultNla, Nla, NlaBuffer},
-    parsers::parse_u32,
+    nla::{DefaultNla, Nla, NlaBuffer, NlasIterator},
+    parsers::{parse_u32, parse_u64},
     DecodeError, Emitable, Parseable,
 };
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct NestedNl80211TidStats(Vec<Nl80211TidStats>);
+
+impl Nla for NestedNl80211TidStats {
+    fn value_len(&self) -> usize {
+        self.0.as_slice().buffer_len()
+    }
+
+    fn kind(&self) -> u16 {
+        unimplemented!("Variable between 0-16")
+    }
+
+    fn emit_value(&self, buffer: &mut [u8]) {
+        self.0.as_slice().emit(buffer);
+    }
+}
+
+impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
+    for NestedNl80211TidStats
+{
+    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+        let payload = buf.value();
+        let err_msg =
+            format!("Invalid NestedNl80211TidStats value {:?}", payload);
+        let mut nlas = Vec::new();
+
+        for nla in NlasIterator::new(payload) {
+            let nla = &nla.context(err_msg.clone())?;
+            nlas.push(Nl80211TidStats::parse(nla).context(err_msg.clone())?);
+        }
+        Ok(Self(nlas))
+    }
+}
+
+const NL80211_TID_STATS_RX_MSDU: u16 = 1;
+const NL80211_TID_STATS_TX_MSDU: u16 = 2;
+const NL80211_TID_STATS_TX_MSDU_RETRIES: u16 = 3;
+const NL80211_TID_STATS_TX_MSDU_FAILED: u16 = 4;
+const NL80211_TID_STATS_TXQ_STATS: u16 = 6;
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Nl80211TidStats {
+    /// Number of MSDUs received
+    RxMsdu(u64),
+    /// Number of MSDUs transmitted
+    TxMsdu(u64),
+    /// Number of retries for transmitted MSDUs (not counting the first
+    /// attempt)
+    TxMsduRetries(u64),
+    /// Number of failed transmitted MSDUs
+    TxMsduFailed(u64),
+    TransmitQueueStats(Vec<Nl80211TransmitQueueStat>),
+
+    Other(DefaultNla),
+}
+
+impl Nla for Nl80211TidStats {
+    fn value_len(&self) -> usize {
+        match self {
+            Self::RxMsdu(_)
+            | Self::TxMsdu(_)
+            | Self::TxMsduRetries(_)
+            | Self::TxMsduFailed(_) => 4,
+            Self::TransmitQueueStats(ref nlas) => nlas.as_slice().buffer_len(),
+            Self::Other(attr) => attr.value_len(),
+        }
+    }
+
+    fn kind(&self) -> u16 {
+        match self {
+            Self::RxMsdu(_) => NL80211_TID_STATS_RX_MSDU,
+            Self::TxMsdu(_) => NL80211_TID_STATS_TX_MSDU,
+            Self::TxMsduRetries(_) => NL80211_TID_STATS_TX_MSDU_RETRIES,
+            Self::TxMsduFailed(_) => NL80211_TID_STATS_TX_MSDU_FAILED,
+            Self::TransmitQueueStats(_) => NL80211_TID_STATS_TXQ_STATS,
+            Self::Other(attr) => attr.kind(),
+        }
+    }
+
+    fn emit_value(&self, buffer: &mut [u8]) {
+        match self {
+            Self::RxMsdu(d)
+            | Self::TxMsdu(d)
+            | Self::TxMsduRetries(d)
+            | Self::TxMsduFailed(d) => NativeEndian::write_u64(buffer, *d),
+            Self::TransmitQueueStats(ref nlas) => nlas.as_slice().emit(buffer),
+            Self::Other(ref attr) => attr.emit(buffer),
+        }
+    }
+}
+
+impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
+    for Nl80211TidStats
+{
+    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+        let payload = buf.value();
+        Ok(match buf.kind() {
+            NL80211_TID_STATS_RX_MSDU => {
+                let err_msg = format!(
+                    "Invalid NL80211_TID_STATS_RX_MSDU value: {:?}",
+                    payload
+                );
+                Self::RxMsdu(parse_u64(payload).context(err_msg)?)
+            }
+            NL80211_TID_STATS_TX_MSDU => {
+                let err_msg = format!(
+                    "Invalid NL80211_TID_STATS_TX_MSDU value: {:?}",
+                    payload
+                );
+                Self::TxMsdu(parse_u64(payload).context(err_msg)?)
+            }
+            NL80211_TID_STATS_TX_MSDU_RETRIES => {
+                let err_msg = format!(
+                    "Invalid NL80211_TID_STATS_TX_MSDU_RETRIES value: {:?}",
+                    payload
+                );
+                Self::TxMsduRetries(parse_u64(payload).context(err_msg)?)
+            }
+            NL80211_TID_STATS_TX_MSDU_FAILED => {
+                let err_msg = format!(
+                    "Invalid NL80211_TID_STATS_TX_MSDU_FAILED value: {:?}",
+                    payload
+                );
+                Self::TxMsduFailed(parse_u64(payload).context(err_msg)?)
+            }
+            NL80211_TID_STATS_TXQ_STATS => {
+                let err_msg = format!(
+                    "Invalid NL80211_TID_STATS_TXQ_STATS value {:?}",
+                    payload
+                );
+                let mut nlas = Vec::new();
+                for nla in NlasIterator::new(payload) {
+                    let nla = &nla.context(err_msg.clone())?;
+                    nlas.push(
+                        Nl80211TransmitQueueStat::parse(nla)
+                            .context(err_msg.clone())?,
+                    );
+                }
+                Self::TransmitQueueStats(nlas)
+            }
+            _ => Self::Other(
+                DefaultNla::parse(buf).context("invalid NLA (unknown kind)")?,
+            ),
+        })
+    }
+}
 
 const NL80211_TXQ_STATS_BACKLOG_BYTES: u16 = 1;
 const NL80211_TXQ_STATS_BACKLOG_PACKETS: u16 = 2;
@@ -107,7 +254,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 );
                 Self::BacklogPackets(parse_u32(payload).context(err_msg)?)
             }
-
             NL80211_TXQ_STATS_FLOWS => {
                 let err_msg = format!(
                     "Invalid NL80211_TXQ_STATS_FLOWS value: {:?}",
@@ -115,7 +261,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 );
                 Self::Flows(parse_u32(payload).context(err_msg)?)
             }
-
             NL80211_TXQ_STATS_DROPS => {
                 let err_msg = format!(
                     "Invalid NL80211_TXQ_STATS_DROPS value: {:?}",
@@ -123,7 +268,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 );
                 Self::Drops(parse_u32(payload).context(err_msg)?)
             }
-
             NL80211_TXQ_STATS_ECN_MARKS => {
                 let err_msg = format!(
                     "Invalid NL80211_TXQ_STATS_ECN_MARKS value: {:?}",
@@ -131,7 +275,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 );
                 Self::EcnMarks(parse_u32(payload).context(err_msg)?)
             }
-
             NL80211_TXQ_STATS_OVERLIMIT => {
                 let err_msg = format!(
                     "Invalid NL80211_TXQ_STATS_OVERLIMIT value: {:?}",
@@ -139,7 +282,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 );
                 Self::Overlimit(parse_u32(payload).context(err_msg)?)
             }
-
             NL80211_TXQ_STATS_OVERMEMORY => {
                 let err_msg = format!(
                     "Invalid NL80211_TXQ_STATS_OVERMEMORY value: {:?}",
@@ -147,7 +289,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 );
                 Self::Overmemory(parse_u32(payload).context(err_msg)?)
             }
-
             NL80211_TXQ_STATS_COLLISIONS => {
                 let err_msg = format!(
                     "Invalid NL80211_TXQ_STATS_COLLISIONS value: {:?}",
@@ -155,7 +296,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 );
                 Self::Collisions(parse_u32(payload).context(err_msg)?)
             }
-
             NL80211_TXQ_STATS_TX_BYTES => {
                 let err_msg = format!(
                     "Invalid NL80211_TXQ_STATS_TX_BYTES value: {:?}",
@@ -163,7 +303,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 );
                 Self::TxBytes(parse_u32(payload).context(err_msg)?)
             }
-
             NL80211_TXQ_STATS_TX_PACKETS => {
                 let err_msg = format!(
                     "Invalid NL80211_TXQ_STATS_TX_PACKETS value: {:?}",
@@ -171,7 +310,6 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 );
                 Self::TxPackets(parse_u32(payload).context(err_msg)?)
             }
-
             NL80211_TXQ_STATS_MAX_FLOWS => {
                 let err_msg = format!(
                     "Invalid NL80211_TXQ_STATS_MAX_FLOWS value: {:?}",

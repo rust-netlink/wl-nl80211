@@ -21,6 +21,8 @@ pub use iface::{
     Nl80211InterfaceGetRequest, Nl80211InterfaceHandle, Nl80211InterfaceType,
 };
 pub use message::{Nl80211Cmd, Nl80211Message};
-pub use stats::Nl80211TransmitQueueStat;
+pub use stats::{
+    NestedNl80211TidStats, Nl80211TidStats, Nl80211TransmitQueueStat,
+};
 
 pub(crate) use handle::nl80211_execute;
