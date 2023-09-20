@@ -9,9 +9,8 @@ use netlink_packet_utils::{
 };
 
 use crate::{
-    channel::{Nl80211ChannelWidth, Nl80211WiPhyChannelType},
-    iface::Nl80211InterfaceType,
-    stats::Nl80211TransmitQueueStat,
+    Nl80211ChannelWidth, Nl80211InterfaceType, Nl80211StationInfo,
+    Nl80211TransmitQueueStat, Nl80211WiPhyChannelType,
 };
 
 const NL80211_ATTR_WIPHY: u16 = 1;
@@ -19,6 +18,7 @@ const NL80211_ATTR_IFINDEX: u16 = 3;
 const NL80211_ATTR_IFNAME: u16 = 4;
 const NL80211_ATTR_IFTYPE: u16 = 5;
 const NL80211_ATTR_MAC: u16 = 6;
+const NL80211_ATTR_STA_INFO: u16 = 21;
 const NL80211_ATTR_WIPHY_FREQ: u16 = 38;
 const NL80211_ATTR_WIPHY_CHANNEL_TYPE: u16 = 39;
 const NL80211_ATTR_GENERATION: u16 = 46;
@@ -54,6 +54,7 @@ pub enum Nl80211Attr {
     CenterFreq2(u32),
     WiPhyTxPowerLevel(u32),
     Ssid(String),
+    StationInfo(Vec<Nl80211StationInfo>),
     TransmitQueueStats(Vec<Nl80211TransmitQueueStat>),
     MloLinks(Vec<Nl80211MloLink>),
     Other(DefaultNla),
@@ -78,6 +79,7 @@ impl Nla for Nl80211Attr {
             Self::Mac(_) => ETH_ALEN,
             Self::Use4Addr(_) => 1,
             Self::TransmitQueueStats(ref nlas) => nlas.as_slice().buffer_len(),
+            Self::StationInfo(ref nlas) => nlas.as_slice().buffer_len(),
             Self::MloLinks(ref links) => links.as_slice().buffer_len(),
             Self::Other(attr) => attr.value_len(),
         }
@@ -101,6 +103,7 @@ impl Nla for Nl80211Attr {
             Self::CenterFreq2(_) => NL80211_ATTR_CENTER_FREQ2,
             Self::WiPhyTxPowerLevel(_) => NL80211_ATTR_WIPHY_TX_POWER_LEVEL,
             Self::Ssid(_) => NL80211_ATTR_SSID,
+            Self::StationInfo(_) => NL80211_ATTR_STA_INFO,
             Self::TransmitQueueStats(_) => NL80211_ATTR_TXQ_STATS,
             Self::MloLinks(_) => NL80211_ATTR_MLO_LINKS,
             Self::Other(attr) => attr.kind(),
@@ -131,6 +134,7 @@ impl Nla for Nl80211Attr {
             Self::ChannelWidth(d) => {
                 NativeEndian::write_u32(buffer, (*d).into())
             }
+            Self::StationInfo(ref nlas) => nlas.as_slice().emit(buffer),
             Self::TransmitQueueStats(ref nlas) => nlas.as_slice().emit(buffer),
             Self::MloLinks(ref links) => links.as_slice().emit(buffer),
             Self::Other(ref attr) => attr.emit(buffer),
@@ -245,6 +249,21 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 let err_msg =
                     format!("Invalid NL80211_ATTR_SSID value {:?}", payload);
                 Self::Ssid(parse_string(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_STA_INFO => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_STA_INFO value {:?}",
+                    payload
+                );
+                let mut nlas = Vec::new();
+                for nla in NlasIterator::new(payload) {
+                    let nla = &nla.context(err_msg.clone())?;
+                    nlas.push(
+                        Nl80211StationInfo::parse(nla)
+                            .context(err_msg.clone())?,
+                    );
+                }
+                Self::StationInfo(nlas)
             }
             NL80211_ATTR_TXQ_STATS => {
                 let err_msg = format!(
