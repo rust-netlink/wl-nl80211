@@ -23,7 +23,7 @@ pub use iface::{
 };
 pub use message::{Nl80211Cmd, Nl80211Message};
 pub use station::{
-    Nl80211StationInfo,
+    Nl80211StationGetRequest, Nl80211StationHandle, Nl80211StationInfo,
 };
 pub use stats::{
     NestedNl80211TidStats, Nl80211TidStats, Nl80211TransmitQueueStat,

@@ -10,11 +10,15 @@ use crate::attr::Nl80211Attr;
 
 const NL80211_CMD_GET_INTERFACE: u8 = 5;
 const NL80211_CMD_NEW_INTERFACE: u8 = 7;
+const NL80211_CMD_GET_STATION: u8 = 17;
+const NL80211_CMD_NEW_STATION: u8 = 19;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Nl80211Cmd {
     InterfaceGet,
     InterfaceNew,
+    StationGet,
+    StationNew,
 }
 
 impl From<Nl80211Cmd> for u8 {
@@ -22,6 +26,8 @@ impl From<Nl80211Cmd> for u8 {
         match cmd {
             Nl80211Cmd::InterfaceGet => NL80211_CMD_GET_INTERFACE,
             Nl80211Cmd::InterfaceNew => NL80211_CMD_NEW_INTERFACE,
+            Nl80211Cmd::StationGet => NL80211_CMD_GET_STATION,
+            Nl80211Cmd::StationNew => NL80211_CMD_NEW_STATION,
         }
     }
 }
@@ -51,6 +57,13 @@ impl Nl80211Message {
         Nl80211Message {
             cmd: Nl80211Cmd::InterfaceGet,
             nlas: vec![],
+        }
+    }
+
+    pub fn new_station_get(nlas: Vec<Nl80211Attr>) -> Self {
+        Nl80211Message {
+            cmd: Nl80211Cmd::StationGet,
+            nlas,
         }
     }
 }
@@ -84,6 +97,14 @@ impl ParseableParametrized<[u8], GenlHeader> for Nl80211Message {
         Ok(match header.cmd {
             NL80211_CMD_NEW_INTERFACE => Self {
                 cmd: Nl80211Cmd::InterfaceNew,
+                nlas: parse_nlas(buffer)?,
+            },
+            NL80211_CMD_GET_STATION => Self {
+                cmd: Nl80211Cmd::StationGet,
+                nlas: parse_nlas(buffer)?,
+            },
+            NL80211_CMD_NEW_STATION => Self {
+                cmd: Nl80211Cmd::StationNew,
                 nlas: parse_nlas(buffer)?,
             },
             cmd => {
