@@ -163,7 +163,7 @@ const NL80211_ATTR_MAX_NUM_SCAN_SSIDS: u16 = 43;
 // const NL80211_ATTR_SCAN_FREQUENCIES:u16 = 44;
 // const NL80211_ATTR_SCAN_SSIDS:u16 = 45;
 const NL80211_ATTR_GENERATION: u16 = 46;
-// const NL80211_ATTR_BSS:u16 = 47;
+const NL80211_ATTR_BSS: u16 = 47;
 // const NL80211_ATTR_REG_INITIATOR:u16 = 48;
 // const NL80211_ATTR_REG_TYPE:u16 = 49;
 const NL80211_ATTR_SUPPORTED_COMMANDS: u16 = 50;
@@ -467,6 +467,7 @@ pub enum Nl80211Attr {
     MacAddrs(Vec<[u8; ETH_ALEN]>),
     Wdev(u64),
     Generation(u32),
+    Bss(Vec<Nl80211BssInfo>),
     Use4Addr(bool),
     WiphyFreq(u32),
     WiphyFreqOffset(u32),
@@ -648,6 +649,7 @@ impl Nla for Nl80211Attr {
             Self::MacAddrs(_) => NL80211_ATTR_MAC_ADDRS,
             Self::Wdev(_) => NL80211_ATTR_WDEV,
             Self::Generation(_) => NL80211_ATTR_GENERATION,
+            Self::Bss(_) => NL80211_ATTR_BSS,
             Self::Use4Addr(_) => NL80211_ATTR_4ADDR,
             Self::WiphyFreq(_) => NL80211_ATTR_WIPHY_FREQ,
             Self::WiphyFreqOffset(_) => NL80211_ATTR_WIPHY_FREQ_OFFSET,
@@ -891,6 +893,18 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                     payload
                 );
                 Self::Generation(parse_u32(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_BSS => {
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_BSS value {:?}", payload);
+                let mut nlas = Vec::new();
+                for nla in NlasIterator::new(payload) {
+                    let nla = &nla.context(err_msg.clone())?;
+                    nlas.push(
+                        Nl80211BssInfo::parse(nla).context(err_msg.clone())?,
+                    );
+                }
+                Self::Bss(nlas)
             }
             NL80211_ATTR_4ADDR => {
                 let err_msg =

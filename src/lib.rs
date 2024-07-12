@@ -12,6 +12,7 @@ mod iface;
 mod macros;
 mod message;
 mod mlo;
+mod scan;
 mod station;
 mod stats;
 mod wifi4;
@@ -41,6 +42,10 @@ pub use self::iface::{
 };
 pub use self::message::{Nl80211Cmd, Nl80211Message};
 pub use self::mlo::Nl80211MloLink;
+pub use self::scan::{
+    Nl80211BssInfo, Nl80211InformationElements, Nl80211ScanGetRequest,
+    Nl80211ScanHandle,
+};
 pub use self::station::{
     Nl80211StationGetRequest, Nl80211StationHandle, Nl80211StationInfo,
 };
