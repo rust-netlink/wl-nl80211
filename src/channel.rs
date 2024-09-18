@@ -1,43 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-const NL80211_CHAN_NO_HT: u32 = 0;
-const NL80211_CHAN_HT20: u32 = 1;
-const NL80211_CHAN_HT40MINUS: u32 = 2;
-const NL80211_CHAN_HT40PLUS: u32 = 3;
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Nl80211WiPhyChannelType {
-    NoHT,
-    HT20,
-    HT40Minus,
-    HT40Plus,
-    Other(u32),
-}
-
-impl From<u32> for Nl80211WiPhyChannelType {
-    fn from(d: u32) -> Self {
-        match d {
-            NL80211_CHAN_NO_HT => Self::NoHT,
-            NL80211_CHAN_HT20 => Self::HT20,
-            NL80211_CHAN_HT40MINUS => Self::HT40Plus,
-            NL80211_CHAN_HT40PLUS => Self::HT40Plus,
-            _ => Self::Other(d),
-        }
-    }
-}
-
-impl From<Nl80211WiPhyChannelType> for u32 {
-    fn from(v: Nl80211WiPhyChannelType) -> u32 {
-        match v {
-            Nl80211WiPhyChannelType::NoHT => NL80211_CHAN_NO_HT,
-            Nl80211WiPhyChannelType::HT20 => NL80211_CHAN_HT20,
-            Nl80211WiPhyChannelType::HT40Minus => NL80211_CHAN_HT40MINUS,
-            Nl80211WiPhyChannelType::HT40Plus => NL80211_CHAN_HT40PLUS,
-            Nl80211WiPhyChannelType::Other(d) => d,
-        }
-    }
-}
-
 const NL80211_CHAN_WIDTH_20_NOHT: u32 = 0;
 const NL80211_CHAN_WIDTH_20: u32 = 1;
 const NL80211_CHAN_WIDTH_40: u32 = 2;

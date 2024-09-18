@@ -103,7 +103,7 @@ impl Nla for Nl80211RateInfo {
             | Self::EhtRuAlloc(_) => 1,
             Self::Bitrate(_) => 2,
             Self::Bitrate32(_) => 4,
-            Self::Other(ref nlas) => nlas.value_len(),
+            Self::Other(nlas) => nlas.value_len(),
         }
     }
 
@@ -167,7 +167,7 @@ impl Nla for Nl80211RateInfo {
             Self::HeRuAlloc(d) => buffer[0] = (*d).into(),
             Self::EhtGi(d) => buffer[0] = (*d).into(),
             Self::EhtRuAlloc(d) => buffer[0] = (*d).into(),
-            Self::Other(ref nlas) => nlas.emit(buffer),
+            Self::Other(nlas) => nlas.emit(buffer),
         }
     }
 }

@@ -202,12 +202,12 @@ impl Nla for Nl80211StationInfo {
             | Self::TxDuration(_)
             | Self::RxDuration(_)
             | Self::AssociationAtBoottime(_) => 8,
-            Self::TxBitrate(ref nlas) | Self::RxBitrate(ref nlas) => {
+            Self::TxBitrate(nlas) | Self::RxBitrate(nlas) => {
                 nlas.as_slice().buffer_len()
             }
-            Self::BssParam(ref nlas) => nlas.as_slice().buffer_len(),
+            Self::BssParam(nlas) => nlas.as_slice().buffer_len(),
             Self::ChainSignal(d) | Self::ChainSignalAvg(d) => d.len(),
-            Self::TidStats(ref nlas) => nlas.as_slice().buffer_len(),
+            Self::TidStats(nlas) => nlas.as_slice().buffer_len(),
             Self::Other(attr) => attr.value_len(),
         }
     }
@@ -351,7 +351,7 @@ impl Nla for Nl80211StationInfo {
             | Nl80211StationInfo::ConnectedToAuthServer(d) => {
                 buffer[0] = (*d).into()
             }
-            Self::Other(ref attr) => attr.emit(buffer),
+            Self::Other(attr) => attr.emit(buffer),
         }
     }
 }

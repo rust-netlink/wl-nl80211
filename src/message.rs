@@ -8,6 +8,8 @@ use netlink_packet_utils::{
 
 use crate::attr::Nl80211Attr;
 
+const NL80211_CMD_GET_WIPHY: u8 = 1;
+const NL80211_CMD_NEW_WIPHY: u8 = 3;
 const NL80211_CMD_GET_INTERFACE: u8 = 5;
 const NL80211_CMD_NEW_INTERFACE: u8 = 7;
 const NL80211_CMD_GET_STATION: u8 = 17;
@@ -19,6 +21,8 @@ pub enum Nl80211Cmd {
     InterfaceNew,
     StationGet,
     StationNew,
+    WiphyGet,
+    WiphyNew,
 }
 
 impl From<Nl80211Cmd> for u8 {
@@ -28,6 +32,8 @@ impl From<Nl80211Cmd> for u8 {
             Nl80211Cmd::InterfaceNew => NL80211_CMD_NEW_INTERFACE,
             Nl80211Cmd::StationGet => NL80211_CMD_GET_STATION,
             Nl80211Cmd::StationNew => NL80211_CMD_NEW_STATION,
+            Nl80211Cmd::WiphyGet => NL80211_CMD_GET_WIPHY,
+            Nl80211Cmd::WiphyNew => NL80211_CMD_NEW_WIPHY,
         }
     }
 }
@@ -66,6 +72,13 @@ impl Nl80211Message {
             nlas,
         }
     }
+
+    pub fn new_wiphy_get() -> Self {
+        Nl80211Message {
+            cmd: Nl80211Cmd::WiphyGet,
+            nlas: vec![Nl80211Attr::SplitWiphyDump],
+        }
+    }
 }
 
 impl Emitable for Nl80211Message {
@@ -81,8 +94,7 @@ impl Emitable for Nl80211Message {
 fn parse_nlas(buffer: &[u8]) -> Result<Vec<Nl80211Attr>, DecodeError> {
     let mut nlas = Vec::new();
     for nla in NlasIterator::new(buffer) {
-        let error_msg =
-            format!("Failed to parse nl80211 message attribute {:?}", nla);
+        let error_msg = "Failed to parse nl80211 message attribute".to_string();
         let nla = &nla.context(error_msg.clone())?;
         nlas.push(Nl80211Attr::parse(nla).context(error_msg)?);
     }
@@ -105,6 +117,10 @@ impl ParseableParametrized<[u8], GenlHeader> for Nl80211Message {
             },
             NL80211_CMD_NEW_STATION => Self {
                 cmd: Nl80211Cmd::StationNew,
+                nlas: parse_nlas(buffer)?,
+            },
+            NL80211_CMD_NEW_WIPHY => Self {
+                cmd: Nl80211Cmd::WiphyNew,
                 nlas: parse_nlas(buffer)?,
             },
             cmd => {
