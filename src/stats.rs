@@ -71,7 +71,7 @@ impl Nla for Nl80211TidStats {
             | Self::TxMsdu(_)
             | Self::TxMsduRetries(_)
             | Self::TxMsduFailed(_) => 4,
-            Self::TransmitQueueStats(ref nlas) => nlas.as_slice().buffer_len(),
+            Self::TransmitQueueStats(nlas) => nlas.as_slice().buffer_len(),
             Self::Other(attr) => attr.value_len(),
         }
     }
@@ -93,8 +93,8 @@ impl Nla for Nl80211TidStats {
             | Self::TxMsdu(d)
             | Self::TxMsduRetries(d)
             | Self::TxMsduFailed(d) => NativeEndian::write_u64(buffer, *d),
-            Self::TransmitQueueStats(ref nlas) => nlas.as_slice().emit(buffer),
-            Self::Other(ref attr) => attr.emit(buffer),
+            Self::TransmitQueueStats(nlas) => nlas.as_slice().emit(buffer),
+            Self::Other(attr) => attr.emit(buffer),
         }
     }
 }
@@ -229,7 +229,7 @@ impl Nla for Nl80211TransmitQueueStat {
             | Self::TxBytes(d)
             | Self::TxPackets(d)
             | Self::MaxFlows(d) => NativeEndian::write_u32(buffer, *d),
-            Self::Other(ref attr) => attr.emit(buffer),
+            Self::Other(attr) => attr.emit(buffer),
         }
     }
 }

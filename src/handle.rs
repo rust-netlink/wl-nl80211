@@ -8,7 +8,7 @@ use netlink_packet_utils::DecodeError;
 
 use crate::{
     try_nl80211, Nl80211Error, Nl80211InterfaceHandle, Nl80211Message,
-    Nl80211StationHandle,
+    Nl80211StationHandle, Nl80211WiphyHandle,
 };
 
 #[derive(Clone, Debug)]
@@ -29,6 +29,11 @@ impl Nl80211Handle {
     // equivalent to `iw dev DEVICE station` command
     pub fn station(&self) -> Nl80211StationHandle {
         Nl80211StationHandle::new(self.clone())
+    }
+
+    // equivalent to `iw phy` command
+    pub fn wireless_physic(&self) -> Nl80211WiphyHandle {
+        Nl80211WiphyHandle::new(self.clone())
     }
 
     pub async fn request(
