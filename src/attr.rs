@@ -39,8 +39,8 @@ use netlink_packet_utils::{
 use crate::{
     bytes::{write_u16, write_u32, write_u64},
     wiphy::Nl80211Commands,
-    Nl80211Band, Nl80211BandTypes, Nl80211ChannelWidth, Nl80211CipherSuit,
-    Nl80211Command, Nl80211ExtFeature, Nl80211ExtFeatures,
+    Nl80211Band, Nl80211BandTypes, Nl80211BssInfo, Nl80211ChannelWidth,
+    Nl80211CipherSuit, Nl80211Command, Nl80211ExtFeature, Nl80211ExtFeatures,
     Nl80211ExtendedCapability, Nl80211Features, Nl80211HtCapabilityMask,
     Nl80211HtWiphyChannelType, Nl80211IfMode, Nl80211IfTypeExtCapa,
     Nl80211IfTypeExtCapas, Nl80211IfaceComb, Nl80211IfaceFrameType,
@@ -635,6 +635,7 @@ impl Nla for Nl80211Attr {
             | Self::MaxHwTimestampPeers(_) => 2,
             Self::Bands(_) => Nl80211BandTypes::LENGTH,
             Self::Other(attr) => attr.value_len(),
+            _ => todo!(),
         }
     }
 
@@ -835,6 +836,7 @@ impl Nla for Nl80211Attr {
             | Self::MaxHwTimestampPeers(d) => write_u16(buffer, *d),
             Self::Bands(v) => v.emit(buffer),
             Self::Other(attr) => attr.emit(buffer),
+            _ => todo!(),
         }
     }
 }
