@@ -41,7 +41,7 @@ impl From<Nl80211Cmd> for u8 {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Nl80211Message {
     pub cmd: Nl80211Cmd,
-    pub nlas: Vec<Nl80211Attr>,
+    pub attributes: Vec<Nl80211Attr>,
 }
 
 impl GenlFamily for Nl80211Message {
@@ -62,32 +62,32 @@ impl Nl80211Message {
     pub fn new_interface_get() -> Self {
         Nl80211Message {
             cmd: Nl80211Cmd::InterfaceGet,
-            nlas: vec![],
+            attributes: vec![],
         }
     }
 
-    pub fn new_station_get(nlas: Vec<Nl80211Attr>) -> Self {
+    pub fn new_station_get(attributes: Vec<Nl80211Attr>) -> Self {
         Nl80211Message {
             cmd: Nl80211Cmd::StationGet,
-            nlas,
+            attributes,
         }
     }
 
     pub fn new_wiphy_get() -> Self {
         Nl80211Message {
             cmd: Nl80211Cmd::WiphyGet,
-            nlas: vec![Nl80211Attr::SplitWiphyDump],
+            attributes: vec![Nl80211Attr::SplitWiphyDump],
         }
     }
 }
 
 impl Emitable for Nl80211Message {
     fn buffer_len(&self) -> usize {
-        self.nlas.as_slice().buffer_len()
+        self.attributes.as_slice().buffer_len()
     }
 
     fn emit(&self, buffer: &mut [u8]) {
-        self.nlas.as_slice().emit(buffer)
+        self.attributes.as_slice().emit(buffer)
     }
 }
 
@@ -109,19 +109,19 @@ impl ParseableParametrized<[u8], GenlHeader> for Nl80211Message {
         Ok(match header.cmd {
             NL80211_CMD_NEW_INTERFACE => Self {
                 cmd: Nl80211Cmd::InterfaceNew,
-                nlas: parse_nlas(buffer)?,
+                attributes: parse_nlas(buffer)?,
             },
             NL80211_CMD_GET_STATION => Self {
                 cmd: Nl80211Cmd::StationGet,
-                nlas: parse_nlas(buffer)?,
+                attributes: parse_nlas(buffer)?,
             },
             NL80211_CMD_NEW_STATION => Self {
                 cmd: Nl80211Cmd::StationNew,
-                nlas: parse_nlas(buffer)?,
+                attributes: parse_nlas(buffer)?,
             },
             NL80211_CMD_NEW_WIPHY => Self {
                 cmd: Nl80211Cmd::WiphyNew,
-                nlas: parse_nlas(buffer)?,
+                attributes: parse_nlas(buffer)?,
             },
             cmd => {
                 return Err(DecodeError::from(format!(
