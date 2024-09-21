@@ -76,9 +76,9 @@ pub enum Nl80211StationInfo {
     /// Total received bytes (MPDU length)
     RxBytes64(u64),
     /// Signal strength of last received PPDU (dBm)
-    Signal(u8),
+    Signal(i8),
     /// Signal strength average (u8, dBm)
-    SignalAvg(u8),
+    SignalAvg(i8),
     /// Current unicast transmission rate, nested attribute containing info as
     /// possible, see [`Nl80211RateInfo`]
     TxBitrate(Vec<Nl80211RateInfo>),
@@ -124,16 +124,16 @@ pub enum Nl80211StationInfo {
     NonPeerPowerMode(Nl80211MeshPowerMode),
     /// Per-chain signal strength of last PPDU. Contains a nested array of
     /// signal strength attributes (dBm)
-    ChainSignal(Vec<u8>),
+    ChainSignal(Vec<i8>),
     /// Per-chain signal strength average. Same format as
     /// [`Nl80211StationInfo::ChainSignal`]
-    ChainSignalAvg(Vec<u8>),
+    ChainSignalAvg(Vec<i8>),
     /// Expected throughput considering also the 802.11 header (kbps)
     ExpectedThroughput(u32),
     /// Number of beacons received from this peer
     BeaconRx(u64),
     /// Signal strength average for beacons only (dBm)
-    BeaconSignalAvg(u8),
+    BeaconSignalAvg(i8),
     /// Count of times beacon loss was detected
     BeaconLoss(u32),
     /// This is a nested attribute where each the inner attribute number is the
@@ -146,7 +146,7 @@ pub enum Nl80211StationInfo {
     /// Aggregate PPDU duration for all frames received from the station (usec)
     RxDuration(u64),
     /// Signal strength of the last ACK frame (dBm)
-    AckSignal(u8),
+    AckSignal(i8),
     /// Average signal strength of ACK frames (dBm)
     AckSignalAvg(i8),
     /// Set to true if the station has a path to a mesh gate
@@ -168,10 +168,10 @@ impl Nla for Nl80211StationInfo {
         match self {
             Self::Signal(_)
             | Self::SignalAvg(_)
-            | Self::PeerLinkState(_)
             | Self::AckSignal(_)
             | Self::AckSignalAvg(_)
-            | Self::BeaconSignalAvg(_)
+            | Self::BeaconSignalAvg(_) => 1,
+            Self::PeerLinkState(_)
             | Self::ConnectedToGate(_)
             | Self::ConnectedToAuthServer(_) => 1,
             Self::Llid(_)
@@ -293,8 +293,8 @@ impl Nla for Nl80211StationInfo {
             Nl80211StationInfo::Signal(d)
             | Nl80211StationInfo::SignalAvg(d)
             | Nl80211StationInfo::BeaconSignalAvg(d)
-            | Nl80211StationInfo::AckSignal(d) => buffer[0] = *d,
-            Nl80211StationInfo::AckSignalAvg(d) => buffer[0] = *d as u8,
+            | Nl80211StationInfo::AckSignal(d)
+            | Nl80211StationInfo::AckSignalAvg(d) => buffer[0] = *d as u8,
             Nl80211StationInfo::Llid(d)
             | Nl80211StationInfo::Plid(d)
             | Nl80211StationInfo::AirtimeWeight(d)
@@ -344,7 +344,9 @@ impl Nla for Nl80211StationInfo {
             }
             Nl80211StationInfo::ChainSignal(d)
             | Nl80211StationInfo::ChainSignalAvg(d) => {
-                buffer.copy_from_slice((*d).as_slice())
+                let data: Vec<u8> =
+                    d.as_slice().iter().map(|d| *d as u8).collect();
+                buffer.copy_from_slice(data.as_slice());
             }
             Nl80211StationInfo::TidStats(nlas) => nlas.as_slice().emit(buffer),
             Nl80211StationInfo::ConnectedToGate(d)
@@ -411,7 +413,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     "Invalid NL80211_STA_INFO_SIGNAL value {:?}",
                     payload
                 );
-                Self::Signal(parse_u8(payload).context(err_msg)?)
+                Self::Signal(parse_u8(payload).context(err_msg)? as i8)
             }
             NL80211_STA_INFO_TX_BITRATE => {
                 let err_msg = format!(
@@ -460,7 +462,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     "Invalid NL80211_STA_INFO_SIGNAL_AVG value {:?}",
                     payload
                 );
-                Self::SignalAvg(parse_u8(payload).context(err_msg)?)
+                Self::SignalAvg(parse_u8(payload).context(err_msg)? as i8)
             }
             NL80211_STA_INFO_RX_BITRATE => {
                 let err_msg = format!(
@@ -575,10 +577,10 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 Self::TxBytes64(parse_u64(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_CHAIN_SIGNAL => {
-                Self::ChainSignal(Vec::from(payload))
+                Self::ChainSignal(payload.iter().map(|d| *d as i8).collect())
             }
             NL80211_STA_INFO_CHAIN_SIGNAL_AVG => {
-                Self::ChainSignalAvg(Vec::from(payload))
+                Self::ChainSignalAvg(payload.iter().map(|d| *d as i8).collect())
             }
             NL80211_STA_INFO_EXPECTED_THROUGHPUT => {
                 let err_msg = format!(
@@ -606,7 +608,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     "Invalid NL80211_STA_INFO_BEACON_SIGNAL_AVG value {:?}",
                     payload
                 );
-                Self::BeaconSignalAvg(parse_u8(payload).context(err_msg)?)
+                Self::BeaconSignalAvg(parse_u8(payload).context(err_msg)? as i8)
             }
             NL80211_STA_INFO_TID_STATS => {
                 let err_msg = format!(
@@ -636,7 +638,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     "Invalid NL80211_STA_INFO_ACK_SIGNAL value {:?}",
                     payload
                 );
-                Self::AckSignal(parse_u8(payload).context(err_msg)?)
+                Self::AckSignal(parse_u8(payload).context(err_msg)? as i8)
             }
             NL80211_STA_INFO_ACK_SIGNAL_AVG => {
                 let err_msg = format!(
