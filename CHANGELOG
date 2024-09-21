@@ -1,4 +1,17 @@
 # Changelog
+## [0.2.0] - 2024-09-21
+### Breaking changes
+ - Changed `Nl80211Attr::WiPhyFreq` to `Nl80211Attr::WiphyFreq`. (2a4dbe1)
+ - Changed `Nl80211StationInfo::Signal` from u8 to i8. (79e4010)
+ - Changed Nl80211Message.nlas to Nl80211Message.attributes. (1b6679d)
+
+### New features
+ - Add support of parsing netlink message reply of `iw phy`. (2a4dbe1)
+ - Add support of station. (19d03a5)
+
+### Bug fixes
+ - N/A
+
 ## [0.1.2] - 2023-07-10
 ### Breaking changes
  - N/A
