@@ -42,7 +42,8 @@ pub use self::iface::{
 pub use self::message::{Nl80211Cmd, Nl80211Message};
 pub use self::mlo::Nl80211MloLink;
 pub use self::station::{
-    Nl80211StationGetRequest, Nl80211StationHandle, Nl80211StationInfo,
+    Nl80211RateInfo, Nl80211StationGetRequest, Nl80211StationHandle,
+    Nl80211StationInfo,
 };
 pub use self::stats::{
     NestedNl80211TidStats, Nl80211TidStats, Nl80211TransmitQueueStat,
