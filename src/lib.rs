@@ -3,6 +3,7 @@
 mod attr;
 mod channel;
 mod connection;
+mod element;
 mod error;
 mod ext_cap;
 mod feature;
@@ -12,6 +13,7 @@ mod iface;
 mod macros;
 mod message;
 mod mlo;
+mod scan;
 mod station;
 mod stats;
 mod wifi4;
@@ -27,6 +29,7 @@ pub use self::channel::Nl80211ChannelWidth;
 #[cfg(feature = "tokio_socket")]
 pub use self::connection::new_connection;
 pub use self::connection::new_connection_with_socket;
+pub use self::element::Nl80211Element;
 pub use self::error::Nl80211Error;
 pub use self::ext_cap::{
     Nl80211ExtendedCapability, Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas,
@@ -41,6 +44,10 @@ pub use self::iface::{
 };
 pub use self::message::{Nl80211Cmd, Nl80211Message};
 pub use self::mlo::Nl80211MloLink;
+pub use self::scan::{
+    Nl80211BssCapabilities, Nl80211BssInfo, Nl80211BssUseFor,
+    Nl80211ScanGetRequest, Nl80211ScanHandle,
+};
 pub use self::station::{
     Nl80211RateInfo, Nl80211StationGetRequest, Nl80211StationHandle,
     Nl80211StationInfo,
@@ -72,6 +79,7 @@ pub use self::wiphy::{
     Nl80211WowlanTrigersSupport,
 };
 
+pub(crate) use self::element::Nl80211Elements;
 pub(crate) use self::feature::Nl80211ExtFeatures;
 pub(crate) use self::handle::nl80211_execute;
 pub(crate) use self::iface::Nl80211InterfaceTypes;

@@ -39,8 +39,8 @@ use netlink_packet_utils::{
 use crate::{
     bytes::{write_u16, write_u32, write_u64},
     wiphy::Nl80211Commands,
-    Nl80211Band, Nl80211BandTypes, Nl80211ChannelWidth, Nl80211CipherSuit,
-    Nl80211Command, Nl80211ExtFeature, Nl80211ExtFeatures,
+    Nl80211Band, Nl80211BandTypes, Nl80211BssInfo, Nl80211ChannelWidth,
+    Nl80211CipherSuit, Nl80211Command, Nl80211ExtFeature, Nl80211ExtFeatures,
     Nl80211ExtendedCapability, Nl80211Features, Nl80211HtCapabilityMask,
     Nl80211HtWiphyChannelType, Nl80211IfMode, Nl80211IfTypeExtCapa,
     Nl80211IfTypeExtCapas, Nl80211IfaceComb, Nl80211IfaceFrameType,
@@ -163,7 +163,7 @@ const NL80211_ATTR_MAX_NUM_SCAN_SSIDS: u16 = 43;
 // const NL80211_ATTR_SCAN_FREQUENCIES:u16 = 44;
 // const NL80211_ATTR_SCAN_SSIDS:u16 = 45;
 const NL80211_ATTR_GENERATION: u16 = 46;
-// const NL80211_ATTR_BSS:u16 = 47;
+const NL80211_ATTR_BSS: u16 = 47;
 // const NL80211_ATTR_REG_INITIATOR:u16 = 48;
 // const NL80211_ATTR_REG_TYPE:u16 = 49;
 const NL80211_ATTR_SUPPORTED_COMMANDS: u16 = 50;
@@ -544,6 +544,8 @@ pub enum Nl80211Attr {
     /// not specifying an address with set hardware timestamp) is
     /// supported.
     MaxHwTimestampPeers(u16),
+    /// Basic Service Set (BSS)
+    Bss(Vec<Nl80211BssInfo>),
     Other(DefaultNla),
 }
 
@@ -633,6 +635,7 @@ impl Nla for Nl80211Attr {
             | Self::MaxNumAkmSuites(_)
             | Self::MaxHwTimestampPeers(_) => 2,
             Self::Bands(_) => Nl80211BandTypes::LENGTH,
+            Self::Bss(v) => v.as_slice().buffer_len(),
             Self::Other(attr) => attr.value_len(),
         }
     }
@@ -729,6 +732,7 @@ impl Nla for Nl80211Attr {
             Self::Bands(_) => NL80211_ATTR_BANDS,
             Self::MaxNumAkmSuites(_) => NL80211_ATTR_MAX_NUM_AKM_SUITES,
             Self::MaxHwTimestampPeers(_) => NL80211_ATTR_MAX_HW_TIMESTAMP_PEERS,
+            Self::Bss(_) => NL80211_ATTR_BSS,
             Self::Other(attr) => attr.kind(),
         }
     }
@@ -832,6 +836,7 @@ impl Nla for Nl80211Attr {
             | Self::MaxNumAkmSuites(d)
             | Self::MaxHwTimestampPeers(d) => write_u16(buffer, *d),
             Self::Bands(v) => v.emit(buffer),
+            Self::Bss(v) => v.as_slice().emit(buffer),
             Self::Other(attr) => attr.emit(buffer),
         }
     }
@@ -891,6 +896,16 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                     payload
                 );
                 Self::Generation(parse_u32(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_BSS => {
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_BSS value {:?}", payload);
+                let mut nlas = Vec::new();
+                for nla in NlasIterator::new(payload) {
+                    let nla = &nla.context(err_msg.clone())?;
+                    nlas.push(Nl80211BssInfo::parse(nla)?);
+                }
+                Self::Bss(nlas)
             }
             NL80211_ATTR_4ADDR => {
                 let err_msg =
