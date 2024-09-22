@@ -14,6 +14,8 @@ const NL80211_CMD_GET_INTERFACE: u8 = 5;
 const NL80211_CMD_NEW_INTERFACE: u8 = 7;
 const NL80211_CMD_GET_STATION: u8 = 17;
 const NL80211_CMD_NEW_STATION: u8 = 19;
+const NL80211_CMD_GET_SCAN: u8 = 32;
+const NL80211_CMD_NEW_SCAN_RESULTS: u8 = 34;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Nl80211Cmd {
@@ -23,6 +25,7 @@ pub enum Nl80211Cmd {
     StationNew,
     WiphyGet,
     WiphyNew,
+    ScanGet,
 }
 
 impl From<Nl80211Cmd> for u8 {
@@ -34,6 +37,7 @@ impl From<Nl80211Cmd> for u8 {
             Nl80211Cmd::StationNew => NL80211_CMD_NEW_STATION,
             Nl80211Cmd::WiphyGet => NL80211_CMD_GET_WIPHY,
             Nl80211Cmd::WiphyNew => NL80211_CMD_NEW_WIPHY,
+            Nl80211Cmd::ScanGet => NL80211_CMD_GET_SCAN,
         }
     }
 }
@@ -79,6 +83,13 @@ impl Nl80211Message {
             attributes: vec![Nl80211Attr::SplitWiphyDump],
         }
     }
+
+    pub fn new_scan_get(attributes: Vec<Nl80211Attr>) -> Self {
+        Self {
+            cmd: Nl80211Cmd::ScanGet,
+            attributes,
+        }
+    }
 }
 
 impl Emitable for Nl80211Message {
@@ -121,6 +132,10 @@ impl ParseableParametrized<[u8], GenlHeader> for Nl80211Message {
             },
             NL80211_CMD_NEW_WIPHY => Self {
                 cmd: Nl80211Cmd::WiphyNew,
+                attributes: parse_nlas(buffer)?,
+            },
+            NL80211_CMD_NEW_SCAN_RESULTS => Self {
+                cmd: Nl80211Cmd::ScanGet,
                 attributes: parse_nlas(buffer)?,
             },
             cmd => {

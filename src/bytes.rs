@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+use netlink_packet_utils::DecodeError;
+
 pub(crate) fn write_u16(buffer: &mut [u8], value: u16) {
     buffer[..2].copy_from_slice(&value.to_ne_bytes())
 }
@@ -12,8 +14,16 @@ pub(crate) fn write_u32(buffer: &mut [u8], value: u32) {
     buffer[..4].copy_from_slice(&value.to_ne_bytes())
 }
 
+pub(crate) fn write_u32_le(buffer: &mut [u8], value: u32) {
+    buffer[..4].copy_from_slice(&value.to_le_bytes())
+}
+
 pub(crate) fn write_u64(buffer: &mut [u8], value: u64) {
     buffer[..8].copy_from_slice(&value.to_ne_bytes())
+}
+
+pub(crate) fn write_i32(buffer: &mut [u8], value: i32) {
+    buffer[..4].copy_from_slice(&value.to_ne_bytes())
 }
 
 pub(crate) fn get_bit(data: &[u8], pos: usize) -> bool {
@@ -43,4 +53,11 @@ pub(crate) fn get_bits_as_u8(data: &[u8], start: usize, end: usize) -> u8 {
         }
     }
     ret
+}
+
+pub(crate) fn parse_u16_le(payload: &[u8]) -> Result<u16, DecodeError> {
+    if payload.len() < 2 {
+        return Err(format!("Invalid payload for u16: {:?}", payload).into());
+    }
+    Ok(u16::from_le_bytes([payload[0], payload[1]]))
 }
