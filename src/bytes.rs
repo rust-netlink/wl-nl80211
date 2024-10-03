@@ -26,6 +26,7 @@ pub(crate) fn write_i32(buffer: &mut [u8], value: i32) {
     buffer[..4].copy_from_slice(&value.to_ne_bytes())
 }
 
+/// The `pos` is index from bit 0.
 pub(crate) fn get_bit(data: &[u8], pos: usize) -> bool {
     let index: usize = pos / 8;
     let bit_pos: usize = pos % 8;
@@ -38,6 +39,7 @@ pub(crate) fn get_bit(data: &[u8], pos: usize) -> bool {
     (data[index] & 1u8 << bit_pos) >= 1
 }
 
+/// The `start` is index from bit 0.
 pub(crate) fn get_bits_as_u8(data: &[u8], start: usize, end: usize) -> u8 {
     if (end - start) >= 8 {
         panic!(
