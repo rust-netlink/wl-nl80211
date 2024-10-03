@@ -3,7 +3,10 @@
 use futures::TryStream;
 use netlink_packet_generic::GenlMessage;
 
-use crate::{nl80211_execute, Nl80211Error, Nl80211Handle, Nl80211Message};
+use crate::{
+    nl80211_execute, Nl80211Attr, Nl80211Command, Nl80211Error, Nl80211Handle,
+    Nl80211Message,
+};
 
 pub struct Nl80211WiphyGetRequest {
     handle: Nl80211Handle,
@@ -20,7 +23,10 @@ impl Nl80211WiphyGetRequest {
     {
         let Nl80211WiphyGetRequest { mut handle } = self;
 
-        let nl80211_msg = Nl80211Message::new_wiphy_get();
+        let nl80211_msg = Nl80211Message {
+            cmd: Nl80211Command::GetWiphy,
+            attributes: vec![Nl80211Attr::SplitWiphyDump],
+        };
         nl80211_execute(&mut handle, nl80211_msg).await
     }
 }

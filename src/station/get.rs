@@ -4,7 +4,8 @@ use futures::TryStream;
 use netlink_packet_generic::GenlMessage;
 
 use crate::{
-    nl80211_execute, Nl80211Attr, Nl80211Error, Nl80211Handle, Nl80211Message,
+    nl80211_execute, Nl80211Attr, Nl80211Command, Nl80211Error, Nl80211Handle,
+    Nl80211Message,
 };
 
 const ETH_ALEN: usize = 6;
@@ -38,12 +39,15 @@ impl Nl80211StationGetRequest {
             mac_address,
         } = self;
 
-        let mut nlas = vec![Nl80211Attr::IfIndex(if_index)];
+        let mut attributes = vec![Nl80211Attr::IfIndex(if_index)];
         if let Some(arr) = mac_address {
-            nlas.push(Nl80211Attr::Mac(arr))
+            attributes.push(Nl80211Attr::Mac(arr))
         }
 
-        let nl80211_msg = Nl80211Message::new_station_get(nlas);
+        let nl80211_msg = Nl80211Message {
+            cmd: Nl80211Command::GetStation,
+            attributes,
+        };
 
         nl80211_execute(&mut handle, nl80211_msg).await
     }
