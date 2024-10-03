@@ -4,7 +4,8 @@ use futures::TryStream;
 use netlink_packet_generic::GenlMessage;
 
 use crate::{
-    nl80211_execute, Nl80211Attr, Nl80211Error, Nl80211Handle, Nl80211Message,
+    nl80211_execute, Nl80211Attr, Nl80211Command, Nl80211Error, Nl80211Handle,
+    Nl80211Message,
 };
 
 pub struct Nl80211ScanGetRequest {
@@ -26,8 +27,11 @@ impl Nl80211ScanGetRequest {
             if_index,
         } = self;
 
-        let nlas = vec![Nl80211Attr::IfIndex(if_index)];
-        let nl80211_msg = Nl80211Message::new_scan_get(nlas);
+        let attributes = vec![Nl80211Attr::IfIndex(if_index)];
+        let nl80211_msg = Nl80211Message {
+            cmd: Nl80211Command::GetScan,
+            attributes,
+        };
 
         nl80211_execute(&mut handle, nl80211_msg).await
     }

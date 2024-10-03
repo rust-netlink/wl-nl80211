@@ -2,6 +2,7 @@
 
 mod attr;
 mod channel;
+mod command;
 mod connection;
 mod element;
 mod error;
@@ -26,6 +27,7 @@ pub(crate) mod bytes;
 
 pub use self::attr::Nl80211Attr;
 pub use self::channel::Nl80211ChannelWidth;
+pub use self::command::Nl80211Command;
 #[cfg(feature = "tokio_socket")]
 pub use self::connection::new_connection;
 pub use self::connection::new_connection_with_socket;
@@ -42,7 +44,7 @@ pub use self::iface::{
     Nl80211IfaceCombLimitAttribute, Nl80211InterfaceGetRequest,
     Nl80211InterfaceHandle, Nl80211InterfaceType,
 };
-pub use self::message::{Nl80211Cmd, Nl80211Message};
+pub use self::message::Nl80211Message;
 pub use self::mlo::Nl80211MloLink;
 pub use self::scan::{
     Nl80211BssCapabilities, Nl80211BssInfo, Nl80211BssUseFor,
@@ -75,10 +77,9 @@ pub use self::wifi7::{
 };
 pub use self::wiphy::{
     Nl80211Band, Nl80211BandInfo, Nl80211BandType, Nl80211BandTypes,
-    Nl80211CipherSuit, Nl80211Command, Nl80211Frequency, Nl80211FrequencyInfo,
-    Nl80211IfMode, Nl80211WiphyGetRequest, Nl80211WiphyHandle,
-    Nl80211WowlanTcpTrigerSupport, Nl80211WowlanTrigerPatternSupport,
-    Nl80211WowlanTrigersSupport,
+    Nl80211CipherSuit, Nl80211Frequency, Nl80211FrequencyInfo, Nl80211IfMode,
+    Nl80211WiphyGetRequest, Nl80211WiphyHandle, Nl80211WowlanTcpTrigerSupport,
+    Nl80211WowlanTrigerPatternSupport, Nl80211WowlanTrigersSupport,
 };
 
 pub(crate) use self::element::Nl80211Elements;

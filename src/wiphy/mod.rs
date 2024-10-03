@@ -13,7 +13,6 @@ pub use self::band::{
     Nl80211Frequency, Nl80211FrequencyInfo,
 };
 pub use self::cipher::Nl80211CipherSuit;
-pub use self::command::Nl80211Command;
 pub use self::get::Nl80211WiphyGetRequest;
 pub use self::handle::Nl80211WiphyHandle;
 pub use self::ifmode::Nl80211IfMode;
