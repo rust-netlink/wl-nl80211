@@ -56,7 +56,9 @@ pub use self::stats::{
     NestedNl80211TidStats, Nl80211TidStats, Nl80211TransmitQueueStat,
 };
 pub use self::wifi4::{
-    Nl80211HtCapabilityMask, Nl80211HtCaps, Nl80211HtMcsInfo,
+    Nl80211ElementHtCap, Nl80211HtAMpduPara, Nl80211HtAselCaps,
+    Nl80211HtCapabilityMask, Nl80211HtCaps, Nl80211HtExtendedCap,
+    Nl80211HtMcsInfo, Nl80211HtTransmitBeamformingCaps, Nl80211HtTxParameter,
     Nl80211HtWiphyChannelType,
 };
 pub use self::wifi5::{

@@ -255,7 +255,7 @@ impl Nla for Nl80211BandInfo {
                 Nl80211RateAttrsList::from(s).as_slice().emit(buffer)
             }
             Self::HtMcsSet(d) => d.emit(buffer),
-            Self::HtCapa(d) => buffer.copy_from_slice(&d.bits().to_ne_bytes()),
+            Self::HtCapa(d) => d.emit(buffer),
             Self::HtAmpduFactor(d) => buffer[0] = *d,
             Self::HtAmpduDensity(d) => buffer[0] = *d,
             Self::VhtMcsSet(d) => d.emit(buffer),
@@ -306,13 +306,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 Self::HtMcsSet(Nl80211HtMcsInfo::parse(payload)?)
             }
             NL80211_BAND_ATTR_HT_CAPA => {
-                let err_msg = format!(
-                    "Invalid NL80211_BAND_ATTR_HT_CAPA value {:?}",
-                    payload
-                );
-                Self::HtCapa(Nl80211HtCaps::from_bits_retain(
-                    parse_u16(payload).context(err_msg)?,
-                ))
+                Self::HtCapa(Nl80211HtCaps::parse(payload)?)
             }
             NL80211_BAND_ATTR_HT_AMPDU_FACTOR => {
                 let err_msg = format!(

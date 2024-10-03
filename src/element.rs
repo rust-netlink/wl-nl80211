@@ -6,7 +6,10 @@ use netlink_packet_utils::{
     DecodeError, Emitable, Parseable,
 };
 
-use crate::bytes::{parse_u16_le, write_u16_le, write_u32_le};
+use crate::{
+    bytes::{parse_u16_le, write_u16_le, write_u32_le},
+    Nl80211ElementHtCap,
+};
 
 pub(crate) struct Nl80211Elements(Vec<Nl80211Element>);
 
@@ -59,6 +62,7 @@ const ELEMENT_ID_SSID: u8 = 0;
 const ELEMENT_ID_SUPPORTED_RATES: u8 = 1;
 const ELEMENT_ID_CHANNEL: u8 = 3;
 const ELEMENT_ID_COUNTRY: u8 = 7;
+const ELEMENT_ID_HT_CAP: u8 = 45;
 const ELEMENT_ID_RSN: u8 = 48;
 const ELEMENT_ID_VENDOR: u8 = 221;
 
@@ -73,6 +77,7 @@ pub enum Nl80211Element {
     /// Allow channel number identification for STAs.
     Channel(u8),
     Country(Nl80211ElementCountry),
+    HtCapability(Nl80211ElementHtCap),
     Rsn(Nl80211ElementRsn),
     /// Vendor specific data.
     Vendor(Vec<u8>),
@@ -89,6 +94,7 @@ impl Nl80211Element {
             Self::Country(_) => ELEMENT_ID_COUNTRY,
             Self::Rsn(_) => ELEMENT_ID_RSN,
             Self::Vendor(_) => ELEMENT_ID_VENDOR,
+            Self::HtCapability(_) => ELEMENT_ID_HT_CAP,
             Self::Other(id, _) => *id,
         }
     }
@@ -102,6 +108,7 @@ impl Nl80211Element {
             Self::Country(v) => v.buffer_len() as u8,
             Self::Rsn(v) => v.buffer_len() as u8,
             Self::Vendor(v) => v.len() as u8,
+            Self::HtCapability(v) => v.buffer_len() as u8,
             Self::Other(_, data) => (data.len()) as u8,
         }
     }
@@ -137,6 +144,9 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211Element {
             }
             ELEMENT_ID_RSN => Self::Rsn(Nl80211ElementRsn::parse(payload)?),
             ELEMENT_ID_VENDOR => Self::Vendor(payload.to_vec()),
+            ELEMENT_ID_HT_CAP => {
+                Self::HtCapability(Nl80211ElementHtCap::parse(payload)?)
+            }
             _ => Self::Other(id, payload.to_vec()),
         })
     }
@@ -166,6 +176,7 @@ impl Emitable for Nl80211Element {
             Self::Country(v) => v.emit(buffer),
             Self::Rsn(v) => v.emit(buffer),
             Self::Vendor(v) => buffer[..v.len()].copy_from_slice(v.as_slice()),
+            Self::HtCapability(v) => v.emit(buffer),
             Self::Other(_, data) => {
                 payload.copy_from_slice(data.as_slice());
             }
