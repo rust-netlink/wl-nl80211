@@ -285,7 +285,6 @@ impl Nl80211ElementHtCap {
             &buf[offset..offset + Nl80211HtTransmitBeamformingCaps::LENGTH],
         )?;
         offset += Nl80211HtTransmitBeamformingCaps::LENGTH;
-        println!("HAHA offset {:?}", offset);
         let asel_cap = Nl80211HtAselCaps::parse(
             &buf[offset..offset + Nl80211HtAselCaps::LENGTH],
         )?;
