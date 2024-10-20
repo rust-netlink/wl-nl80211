@@ -13,6 +13,8 @@ use netlink_packet_utils::{
 use std::fmt::Debug;
 
 use crate::NestedNl80211TidStats;
+#[cfg(doc)]
+use crate::Nl80211Attr;
 
 use super::Nl80211RateInfo;
 
@@ -61,7 +63,7 @@ const NL80211_STA_INFO_CONNECTED_TO_AS: u16 = 43;
 
 /// Station information
 ///
-/// These attribute types are used with [`Nl80211Attr::Nl80211StationInfo`]
+/// These attribute types are used with [`Nl80211Attr::StationInfo`]
 /// when getting information about a station.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Nl80211StationInfo {
@@ -79,11 +81,10 @@ pub enum Nl80211StationInfo {
     Signal(i8),
     /// Signal strength average (u8, dBm)
     SignalAvg(i8),
-    /// Current unicast transmission rate, nested attribute containing info as
+    /// Current unicast transmission rate.
     /// possible, see [`Nl80211RateInfo`]
     TxBitrate(Vec<Nl80211RateInfo>),
-    ///  Last unicast data frame receive rate, nested attribute, like
-    /// [`NL80211_STA_INFO_TX_BITRATE`].
+    ///  Last unicast data frame receive rate.
     RxBitrate(Vec<Nl80211RateInfo>),
     /// Total transmitted packets (MSDUs and MMPDUs)
     TxPackets(u32),
@@ -107,8 +108,7 @@ pub enum Nl80211StationInfo {
     Plid(u16),
     /// Peer link state for the station (see [`Nl80211PeerLinkState`])
     PeerLinkState(Nl80211PeerLinkState),
-    /// Current station's view of BSS, nested attribute containing info as
-    /// possible, see [`Nl80211StationBssParam`]
+    /// Current station's view of BSS,
     BssParam(Vec<Nl80211StationBssParam>),
     /// Time since the station is last connected
     ConnectedTime(u32),
@@ -122,7 +122,7 @@ pub enum Nl80211StationInfo {
     PeerPowerMode(Nl80211MeshPowerMode),
     /// Neighbor mesh station power save mode towards non-peer station
     NonPeerPowerMode(Nl80211MeshPowerMode),
-    /// Per-chain signal strength of last PPDU. Contains a nested array of
+    /// Per-chain signal strength of last PPDU. Contains a array of
     /// signal strength attributes (dBm)
     ChainSignal(Vec<i8>),
     /// Per-chain signal strength average. Same format as
@@ -903,7 +903,7 @@ pub enum Nl80211StationFlag {
     /// silently be ignored (rather than rejected as errors.)
     TdlsPeer,
     /// station is associated; used with drivers that support
-    /// [`NL80211_FEATURE_FULL_AP_CLIENT_STATE`] to transition a previously
+    /// [crate::Nl80211Features::FullApClientState] to transition a previously
     /// added station into associated state
     Associated,
     // Reserved: 25 bits,

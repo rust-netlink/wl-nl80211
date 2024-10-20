@@ -62,7 +62,7 @@ impl From<Nl80211Commands> for Vec<Nl80211Command> {
 }
 
 impl Nl80211Commands {
-    pub fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
+    pub(crate) fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
         let mut cmds: Vec<Nl80211CommandNla> = Vec::new();
         for (index, nla) in NlasIterator::new(payload).enumerate() {
             let error_msg =
