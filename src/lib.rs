@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 mod attr;
+mod builder;
 mod channel;
 mod command;
 mod connection;
@@ -26,6 +27,7 @@ mod wiphy;
 pub(crate) mod bytes;
 
 pub use self::attr::Nl80211Attr;
+pub use self::builder::Nl80211AttrsBuilder;
 pub use self::channel::Nl80211ChannelWidth;
 pub use self::command::Nl80211Command;
 #[cfg(feature = "tokio_socket")]
@@ -47,12 +49,16 @@ pub use self::iface::{
 pub use self::message::Nl80211Message;
 pub use self::mlo::Nl80211MloLink;
 pub use self::scan::{
-    Nl80211BssCapabilities, Nl80211BssInfo, Nl80211BssUseFor,
-    Nl80211ScanGetRequest, Nl80211ScanHandle,
+    Nl80211BssCapabilities, Nl80211BssInfo, Nl80211BssUseFor, Nl80211Scan,
+    Nl80211ScanFlags, Nl80211ScanGetRequest, Nl80211ScanHandle,
+    Nl80211ScanScheduleRequest, Nl80211ScanScheduleStopRequest,
+    Nl80211ScanTriggerRequest, Nl80211SchedScanMatch, Nl80211SchedScanPlan,
 };
 pub use self::station::{
-    Nl80211RateInfo, Nl80211StationGetRequest, Nl80211StationHandle,
-    Nl80211StationInfo,
+    Nl80211EhtGi, Nl80211EhtRuAllocation, Nl80211HeGi, Nl80211HeRuAllocation,
+    Nl80211MeshPowerMode, Nl80211PeerLinkState, Nl80211RateInfo,
+    Nl80211StationBssParam, Nl80211StationFlag, Nl80211StationFlagUpdate,
+    Nl80211StationGetRequest, Nl80211StationHandle, Nl80211StationInfo,
 };
 pub use self::stats::{
     NestedNl80211TidStats, Nl80211TidStats, Nl80211TransmitQueueStat,

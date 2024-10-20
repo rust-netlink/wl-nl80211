@@ -64,7 +64,7 @@ pub enum Nl80211RateInfo {
     /// HE DCM value
     HeDcm(u8),
     /// HE RU allocation, if not present then non-OFDMA was used.
-    /// See [`Nl80211HeRuAlloc`]
+    /// See [`Nl80211HeRuAllocation`]
     HeRuAlloc(Nl80211HeRuAllocation),
     /// S1G MCS index
     S1gMcs(u8),
@@ -77,7 +77,7 @@ pub enum Nl80211RateInfo {
     /// EHT guard interval identifier [`Nl80211EhtGi`]
     EhtGi(Nl80211EhtGi),
     /// EHT RU allocation, if not present then non-OFDMA was used.
-    /// See [`Nl80211EhtRuAlloc`]
+    /// See [`Nl80211EhtRuAllocation`]
     EhtRuAlloc(Nl80211EhtRuAllocation),
 
     Other(DefaultNla),

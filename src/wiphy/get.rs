@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use futures::TryStream;
+use netlink_packet_core::{NLM_F_DUMP, NLM_F_REQUEST};
 use netlink_packet_generic::GenlMessage;
 
 use crate::{
@@ -27,6 +28,9 @@ impl Nl80211WiphyGetRequest {
             cmd: Nl80211Command::GetWiphy,
             attributes: vec![Nl80211Attr::SplitWiphyDump],
         };
-        nl80211_execute(&mut handle, nl80211_msg).await
+
+        let flags = NLM_F_REQUEST | NLM_F_DUMP;
+
+        nl80211_execute(&mut handle, nl80211_msg, flags).await
     }
 }
