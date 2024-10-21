@@ -18,12 +18,12 @@ pub(crate) fn write_u32_le(buffer: &mut [u8], value: u32) {
     buffer[..4].copy_from_slice(&value.to_le_bytes())
 }
 
-pub(crate) fn write_u64(buffer: &mut [u8], value: u64) {
-    buffer[..8].copy_from_slice(&value.to_ne_bytes())
-}
-
 pub(crate) fn write_i32(buffer: &mut [u8], value: i32) {
     buffer[..4].copy_from_slice(&value.to_ne_bytes())
+}
+
+pub(crate) fn write_u64(buffer: &mut [u8], value: u64) {
+    buffer[..8].copy_from_slice(&value.to_ne_bytes())
 }
 
 /// The `pos` is index from bit 0.

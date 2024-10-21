@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use futures::TryStream;
-use netlink_packet_core::{NLM_F_DUMP, NLM_F_REQUEST};
+use netlink_packet_core::{NLM_F_ACK, NLM_F_REQUEST};
 use netlink_packet_generic::GenlMessage;
 
 use crate::{
@@ -9,32 +9,33 @@ use crate::{
     Nl80211Message,
 };
 
-pub struct Nl80211ScanGetRequest {
+pub struct Nl80211ScanTriggerRequest {
     handle: Nl80211Handle,
-    if_index: u32,
+    attributes: Vec<Nl80211Attr>,
 }
 
-impl Nl80211ScanGetRequest {
-    pub(crate) fn new(handle: Nl80211Handle, if_index: u32) -> Self {
-        Nl80211ScanGetRequest { handle, if_index }
+impl Nl80211ScanTriggerRequest {
+    pub(crate) fn new(
+        handle: Nl80211Handle,
+        attributes: Vec<Nl80211Attr>,
+    ) -> Self {
+        Nl80211ScanTriggerRequest { handle, attributes }
     }
 
     pub async fn execute(
         self,
     ) -> impl TryStream<Ok = GenlMessage<Nl80211Message>, Error = Nl80211Error>
     {
-        let Nl80211ScanGetRequest {
+        let Nl80211ScanTriggerRequest {
             mut handle,
-            if_index,
+            attributes,
         } = self;
 
-        let attributes = vec![Nl80211Attr::IfIndex(if_index)];
         let nl80211_msg = Nl80211Message {
-            cmd: Nl80211Command::GetScan,
+            cmd: Nl80211Command::TriggerScan,
             attributes,
         };
-
-        let flags = NLM_F_REQUEST | NLM_F_DUMP;
+        let flags = NLM_F_REQUEST | NLM_F_ACK;
 
         nl80211_execute(&mut handle, nl80211_msg, flags).await
     }

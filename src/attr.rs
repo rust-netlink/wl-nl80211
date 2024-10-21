@@ -38,6 +38,7 @@ use netlink_packet_utils::{
 
 use crate::{
     bytes::{write_u16, write_u32, write_u64},
+    scan::{Nla80211ScanFreqNlas, Nla80211ScanSsidNlas},
     wiphy::Nl80211Commands,
     Nl80211Band, Nl80211BandTypes, Nl80211BssInfo, Nl80211ChannelWidth,
     Nl80211CipherSuit, Nl80211Command, Nl80211ExtFeature, Nl80211ExtFeatures,
@@ -45,9 +46,12 @@ use crate::{
     Nl80211HtWiphyChannelType, Nl80211IfMode, Nl80211IfTypeExtCapa,
     Nl80211IfTypeExtCapas, Nl80211IfaceComb, Nl80211IfaceFrameType,
     Nl80211InterfaceType, Nl80211InterfaceTypes, Nl80211MloLink,
+    Nl80211ScanFlags, Nl80211SchedScanMatch, Nl80211SchedScanPlan,
     Nl80211StationInfo, Nl80211TransmitQueueStat, Nl80211VhtCapability,
     Nl80211WowlanTrigersSupport,
 };
+
+const ETH_ALEN: usize = 6;
 
 struct MacAddressNlas(Vec<MacAddressNla>);
 
@@ -160,8 +164,8 @@ const NL80211_ATTR_WIPHY_CHANNEL_TYPE: u16 = 39;
 // const NL80211_ATTR_MGMT_SUBTYPE:u16 = 41;
 // const NL80211_ATTR_IE:u16 = 42;
 const NL80211_ATTR_MAX_NUM_SCAN_SSIDS: u16 = 43;
-// const NL80211_ATTR_SCAN_FREQUENCIES:u16 = 44;
-// const NL80211_ATTR_SCAN_SSIDS:u16 = 45;
+const NL80211_ATTR_SCAN_FREQUENCIES: u16 = 44;
+const NL80211_ATTR_SCAN_SSIDS: u16 = 45;
 const NL80211_ATTR_GENERATION: u16 = 46;
 const NL80211_ATTR_BSS: u16 = 47;
 // const NL80211_ATTR_REG_INITIATOR:u16 = 48;
@@ -236,7 +240,7 @@ const NL80211_ATTR_SUPPORT_MESH_AUTH: u16 = 115;
 // const NL80211_ATTR_STA_PLINK_STATE:u16 = 116;
 // const NL80211_ATTR_WOWLAN_TRIGGERS:u16 = 117;
 const NL80211_ATTR_WOWLAN_TRIGGERS_SUPPORTED: u16 = 118;
-// const NL80211_ATTR_SCHED_SCAN_INTERVAL:u16 = 119;
+const NL80211_ATTR_SCHED_SCAN_INTERVAL: u16 = 119;
 const NL80211_ATTR_INTERFACE_COMBINATIONS: u16 = 120;
 const NL80211_ATTR_SOFTWARE_IFTYPES: u16 = 121;
 // const NL80211_ATTR_REKEY_DATA:u16 = 122;
@@ -249,7 +253,7 @@ const NL80211_ATTR_MAX_SCHED_SCAN_IE_LEN: u16 = 124;
 // const NL80211_ATTR_STA_WME:u16 = 129;
 const NL80211_ATTR_SUPPORT_AP_UAPSD: u16 = 130;
 const NL80211_ATTR_ROAM_SUPPORT: u16 = 131;
-// const NL80211_ATTR_SCHED_SCAN_MATCH:u16 = 132;
+const NL80211_ATTR_SCHED_SCAN_MATCH: u16 = 132;
 const NL80211_ATTR_MAX_MATCH_SETS: u16 = 133;
 // const NL80211_ATTR_PMKSA_CANDIDATE:u16 = 134;
 // const NL80211_ATTR_TX_NO_CCK_RATE:u16 = 135;
@@ -275,7 +279,7 @@ const NL80211_ATTR_WDEV: u16 = 153;
 // const NL80211_ATTR_CONN_FAILED_REASON:u16 = 155;
 // const NL80211_ATTR_AUTH_DATA:u16 = 156;
 const NL80211_ATTR_VHT_CAPABILITY: u16 = 157;
-// const NL80211_ATTR_SCAN_FLAGS:u16 = 158;
+const NL80211_ATTR_SCAN_FLAGS: u16 = 158;
 const NL80211_ATTR_CHANNEL_WIDTH: u16 = 159;
 const NL80211_ATTR_CENTER_FREQ1: u16 = 160;
 const NL80211_ATTR_CENTER_FREQ2: u16 = 161;
@@ -332,17 +336,17 @@ const NL80211_ATTR_MAX_CSA_COUNTERS: u16 = 206;
 // const NL80211_ATTR_ADMITTED_TIME:u16 = 212;
 // const NL80211_ATTR_SMPS_MODE:u16 = 213;
 // const NL80211_ATTR_OPER_CLASS:u16 = 214;
-// const NL80211_ATTR_MAC_MASK:u16 = 215;
+const NL80211_ATTR_MAC_MASK: u16 = 215;
 const NL80211_ATTR_WIPHY_SELF_MANAGED_REG: u16 = 216;
 const NL80211_ATTR_EXT_FEATURES: u16 = 217;
 // const NL80211_ATTR_SURVEY_RADIO_STATS:u16 = 218;
 // const NL80211_ATTR_NETNS_FD:u16 = 219;
-// const NL80211_ATTR_SCHED_SCAN_DELAY:u16 = 220;
+const NL80211_ATTR_SCHED_SCAN_DELAY: u16 = 220;
 // const NL80211_ATTR_REG_INDOOR:u16 = 221;
 const NL80211_ATTR_MAX_NUM_SCHED_SCAN_PLANS: u16 = 222;
 const NL80211_ATTR_MAX_SCAN_PLAN_INTERVAL: u16 = 223;
 const NL80211_ATTR_MAX_SCAN_PLAN_ITERATIONS: u16 = 224;
-// const NL80211_ATTR_SCHED_SCAN_PLANS:u16 = 225;
+const NL80211_ATTR_SCHED_SCAN_PLANS: u16 = 225;
 // const NL80211_ATTR_PBSS:u16 = 226;
 // const NL80211_ATTR_BSS_SELECT:u16 = 227;
 // const NL80211_ATTR_STA_SUPPORT_P2P_PS:u16 = 228;
@@ -352,7 +356,7 @@ const NL80211_ATTR_IFTYPE_EXT_CAPA: u16 = 230;
 // const NL80211_ATTR_MU_MIMO_FOLLOW_MAC_ADDR:u16 = 232;
 // const NL80211_ATTR_SCAN_START_TIME_TSF:u16 = 233;
 // const NL80211_ATTR_SCAN_START_TIME_TSF_BSSID:u16 = 234;
-// const NL80211_ATTR_MEASUREMENT_DURATION:u16 = 235;
+const NL80211_ATTR_MEASUREMENT_DURATION: u16 = 235;
 // const NL80211_ATTR_MEASUREMENT_DURATION_MANDATORY:u16 = 236;
 // const NL80211_ATTR_MESH_PEER_AID:u16 = 237;
 // const NL80211_ATTR_NAN_MASTER_PREF:u16 = 238;
@@ -452,8 +456,6 @@ const NL80211_ATTR_MAX_HW_TIMESTAMP_PEERS: u16 = 323;
 // const NL80211_ATTR_WIPHY_RADIOS:u16 = 331;
 // const NL80211_ATTR_WIPHY_INTERFACE_COMBINATIONS:u16 = 332;
 
-const ETH_ALEN: usize = 6;
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]
 pub enum Nl80211Attr {
@@ -464,6 +466,7 @@ pub enum Nl80211Attr {
     IfType(Nl80211InterfaceType),
     IfTypeExtCap(Vec<Nl80211IfTypeExtCapa>),
     Mac([u8; ETH_ALEN]),
+    MacMask([u8; ETH_ALEN]),
     MacAddrs(Vec<[u8; ETH_ALEN]>),
     Wdev(u64),
     Generation(u32),
@@ -546,6 +549,33 @@ pub enum Nl80211Attr {
     MaxHwTimestampPeers(u16),
     /// Basic Service Set (BSS)
     Bss(Vec<Nl80211BssInfo>),
+    ScanSsids(Vec<String>),
+    ScanFlags(Nl80211ScanFlags),
+    MeasurementDuration(u16),
+    /// Scan interval in millisecond(ms)
+    SchedScanInterval(u32),
+    /// Delay before the first cycle of a scheduled scan is started.  Or the
+    /// delay before a WoWLAN net-detect scan is started, counting from the
+    /// moment the system is suspended. This value is in seconds.
+    SchedScanDelay(u32),
+    /// Scan frequencies in MHz.
+    ScanFrequencies(Vec<u32>),
+    /// Sets of attributes to match during scheduled scans. Only BSSs
+    /// that match any of the sets will be reported. These are pass-thru
+    /// filter rules. For a match to succeed, the BSS must match all
+    /// attributes of a set. Since not every hardware supports matching all
+    /// types of attributes, there is no guarantee that the reported BSSs are
+    /// fully complying with the match sets and userspace needs to be able to
+    /// ignore them by itself. Thus, the implementation is somewhat
+    /// hardware-dependent, but this is only an optimization and the userspace
+    /// application needs to handle all the non-filtered results anyway.
+    SchedScanMatch(Vec<Nl80211SchedScanMatch>),
+    /// A list of scan plans for scheduled scan. Each scan plan defines the
+    /// number of scan iterations and the interval between scans. The last scan
+    /// plan will always run infinitely, thus it must not specify the number of
+    /// iterations, only the interval between scans. The scan plans are
+    /// executed sequentially.
+    SchedScanPlans(Vec<Nl80211SchedScanPlan>),
     Other(DefaultNla),
 }
 
@@ -576,10 +606,12 @@ impl Nla for Nl80211Attr {
             | Self::SchedScanMaxReqs(_)
             | Self::TransmitQueueLimit(_)
             | Self::TransmitQueueMemoryLimit(_)
-            | Self::TransmitQueueQuantum(_) => 4,
+            | Self::TransmitQueueQuantum(_)
+            | Self::SchedScanInterval(_)
+            | Self::SchedScanDelay(_) => 4,
             Self::Wdev(_) => 8,
             Self::IfName(s) | Self::Ssid(s) | Self::WiphyName(s) => s.len() + 1,
-            Self::Mac(_) => ETH_ALEN,
+            Self::Mac(_) | Self::MacMask(_) => ETH_ALEN,
             Self::MacAddrs(s) => {
                 MacAddressNlas::from(s).as_slice().buffer_len()
             }
@@ -633,9 +665,19 @@ impl Nla for Nl80211Attr {
             Self::EmlCapability(_)
             | Self::MldCapaAndOps(_)
             | Self::MaxNumAkmSuites(_)
-            | Self::MaxHwTimestampPeers(_) => 2,
+            | Self::MaxHwTimestampPeers(_)
+            | Self::MeasurementDuration(_) => 2,
             Self::Bands(_) => Nl80211BandTypes::LENGTH,
             Self::Bss(v) => v.as_slice().buffer_len(),
+            Self::ScanSsids(v) => {
+                Nla80211ScanSsidNlas::from(v).as_slice().buffer_len()
+            }
+            Self::ScanFlags(v) => v.buffer_len(),
+            Self::ScanFrequencies(v) => {
+                Nla80211ScanFreqNlas::from(v).as_slice().buffer_len()
+            }
+            Self::SchedScanMatch(v) => v.as_slice().buffer_len(),
+            Self::SchedScanPlans(v) => v.as_slice().buffer_len(),
             Self::Other(attr) => attr.value_len(),
         }
     }
@@ -648,6 +690,7 @@ impl Nla for Nl80211Attr {
             Self::IfName(_) => NL80211_ATTR_IFNAME,
             Self::IfType(_) => NL80211_ATTR_IFTYPE,
             Self::Mac(_) => NL80211_ATTR_MAC,
+            Self::MacMask(_) => NL80211_ATTR_MAC_MASK,
             Self::MacAddrs(_) => NL80211_ATTR_MAC_ADDRS,
             Self::Wdev(_) => NL80211_ATTR_WDEV,
             Self::Generation(_) => NL80211_ATTR_GENERATION,
@@ -733,6 +776,14 @@ impl Nla for Nl80211Attr {
             Self::MaxNumAkmSuites(_) => NL80211_ATTR_MAX_NUM_AKM_SUITES,
             Self::MaxHwTimestampPeers(_) => NL80211_ATTR_MAX_HW_TIMESTAMP_PEERS,
             Self::Bss(_) => NL80211_ATTR_BSS,
+            Self::ScanSsids(_) => NL80211_ATTR_SCAN_SSIDS,
+            Self::ScanFlags(_) => NL80211_ATTR_SCAN_FLAGS,
+            Self::MeasurementDuration(_) => NL80211_ATTR_MEASUREMENT_DURATION,
+            Self::SchedScanInterval(_) => NL80211_ATTR_SCHED_SCAN_INTERVAL,
+            Self::SchedScanDelay(_) => NL80211_ATTR_SCHED_SCAN_DELAY,
+            Self::ScanFrequencies(_) => NL80211_ATTR_SCAN_FREQUENCIES,
+            Self::SchedScanMatch(_) => NL80211_ATTR_SCHED_SCAN_MATCH,
+            Self::SchedScanPlans(_) => NL80211_ATTR_SCHED_SCAN_PLANS,
             Self::Other(attr) => attr.kind(),
         }
     }
@@ -760,13 +811,15 @@ impl Nla for Nl80211Attr {
             | Self::SchedScanMaxReqs(d)
             | Self::TransmitQueueLimit(d)
             | Self::TransmitQueueMemoryLimit(d)
-            | Self::TransmitQueueQuantum(d) => write_u32(buffer, *d),
+            | Self::TransmitQueueQuantum(d)
+            | Self::SchedScanInterval(d)
+            | Self::SchedScanDelay(d) => write_u32(buffer, *d),
             Self::MaxScanIeLen(d) | Self::MaxSchedScanIeLen(d) => {
                 write_u16(buffer, *d)
             }
             Self::Wdev(d) => write_u64(buffer, *d),
             Self::IfType(d) => write_u32(buffer, (*d).into()),
-            Self::Mac(s) => buffer.copy_from_slice(s),
+            Self::Mac(s) | Self::MacMask(s) => buffer.copy_from_slice(s),
             Self::MacAddrs(s) => {
                 MacAddressNlas::from(s).as_slice().emit(buffer)
             }
@@ -834,9 +887,19 @@ impl Nla for Nl80211Attr {
             Self::EmlCapability(d)
             | Self::MldCapaAndOps(d)
             | Self::MaxNumAkmSuites(d)
-            | Self::MaxHwTimestampPeers(d) => write_u16(buffer, *d),
+            | Self::MaxHwTimestampPeers(d)
+            | Self::MeasurementDuration(d) => write_u16(buffer, *d),
             Self::Bands(v) => v.emit(buffer),
             Self::Bss(v) => v.as_slice().emit(buffer),
+            Self::ScanSsids(v) => {
+                Nla80211ScanSsidNlas::from(v).as_slice().emit(buffer)
+            }
+            Self::ScanFlags(v) => v.emit(buffer),
+            Self::ScanFrequencies(v) => {
+                Nla80211ScanFreqNlas::from(v).as_slice().emit(buffer)
+            }
+            Self::SchedScanMatch(v) => v.as_slice().emit(buffer),
+            Self::SchedScanPlans(v) => v.as_slice().emit(buffer),
             Self::Other(attr) => attr.emit(buffer),
         }
     }
@@ -882,11 +945,26 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 ret
             } else {
                 return Err(format!(
-                    "Invalid length of NL80211_ATTR_MAC, expected length {} got {:?}",
+                    "Invalid length of NL80211_ATTR_MAC, \
+                    expected length {} got {:?}",
                     ETH_ALEN, payload
                 )
                 .into());
             }),
+            NL80211_ATTR_MAC_MASK => {
+                Self::MacMask(if payload.len() == ETH_ALEN {
+                    let mut ret = [0u8; ETH_ALEN];
+                    ret.copy_from_slice(&payload[..ETH_ALEN]);
+                    ret
+                } else {
+                    return Err(format!(
+                        "Invalid length of NL80211_ATTR_MAC_MASK, \
+                        expected length {} got {:?}",
+                        ETH_ALEN, payload
+                    )
+                    .into());
+                })
+            }
             NL80211_ATTR_MAC_ADDRS => {
                 Self::MacAddrs(MacAddressNlas::parse(payload)?.into())
             }
@@ -1347,6 +1425,60 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                     payload
                 ))?,
             ),
+            NL80211_ATTR_SCAN_SSIDS => {
+                Self::ScanSsids(Nla80211ScanSsidNlas::parse(payload)?.into())
+            }
+            NL80211_ATTR_SCAN_FLAGS => {
+                Self::ScanFlags(Nl80211ScanFlags::parse(payload)?)
+            }
+            NL80211_ATTR_MEASUREMENT_DURATION => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_MEASUREMENT_DURATION value {:?}",
+                    payload
+                );
+                Self::MeasurementDuration(parse_u16(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_SCHED_SCAN_INTERVAL => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_SCHED_SCAN_INTERVAL value {:?}",
+                    payload
+                );
+                Self::SchedScanInterval(parse_u32(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_SCHED_SCAN_DELAY => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_SCHED_SCAN_DELAY value {:?}",
+                    payload
+                );
+                Self::SchedScanDelay(parse_u32(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_SCAN_FREQUENCIES => Self::ScanFrequencies(
+                Nla80211ScanFreqNlas::parse(payload)?.into(),
+            ),
+            NL80211_ATTR_SCHED_SCAN_MATCH => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_SCHED_SCAN_MATCH value {:?}",
+                    payload
+                );
+                let mut nlas = Vec::new();
+                for nla in NlasIterator::new(payload) {
+                    let nla = &nla.context(err_msg.clone())?;
+                    nlas.push(Nl80211SchedScanMatch::parse(nla)?);
+                }
+                Self::SchedScanMatch(nlas)
+            }
+            NL80211_ATTR_SCHED_SCAN_PLANS => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_SCHED_SCAN_PLANS value {:?}",
+                    payload
+                );
+                let mut nlas = Vec::new();
+                for nla in NlasIterator::new(payload) {
+                    let nla = &nla.context(err_msg.clone())?;
+                    nlas.push(Nl80211SchedScanPlan::parse(nla)?);
+                }
+                Self::SchedScanPlans(nlas)
+            }
             _ => Self::Other(
                 DefaultNla::parse(buf).context("invalid NLA (unknown kind)")?,
             ),
