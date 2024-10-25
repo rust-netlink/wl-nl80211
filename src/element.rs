@@ -117,7 +117,7 @@ impl Nl80211Element {
 impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211Element {
     fn parse(buf: &T) -> Result<Self, DecodeError> {
         let buf = buf.as_ref();
-        if buf.len() <= 2 {
+        if buf.len() < 2 {
             return Err(
                 format!("Invalid length of Nl80211Element {buf:?}").into()
             );
