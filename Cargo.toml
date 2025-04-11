@@ -5,6 +5,7 @@ version = "0.2.0"
 authors = ["Gris Ge <fge@redhat.com>"]
 license = "MIT"
 edition = "2021"
+rust-version = "1.87"
 description = "Linux kernel wireless(802.11) netlink Library"
 homepage = "https://github.com/rust-netlink/wl-nl80211"
 repository = "https://github.com/rust-netlink/wl-nl80211"

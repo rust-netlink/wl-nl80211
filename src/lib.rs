@@ -18,6 +18,7 @@ mod mlo;
 mod scan;
 mod station;
 mod stats;
+mod survey;
 mod wifi4;
 mod wifi5;
 mod wifi6;
@@ -62,6 +63,10 @@ pub use self::station::{
 };
 pub use self::stats::{
     NestedNl80211TidStats, Nl80211TidStats, Nl80211TransmitQueueStat,
+};
+pub use self::survey::{
+    Nl80211Survey, Nl80211SurveyGetRequest, Nl80211SurveyHandle,
+    Nl80211SurveyInfo,
 };
 pub use self::wifi4::{
     Nl80211ElementHtCap, Nl80211HtAMpduPara, Nl80211HtAselCaps,
