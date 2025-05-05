@@ -202,8 +202,7 @@ where
         index: u16,
     ) -> Result<Self, DecodeError> {
         let payload = buf.value();
-        let err_msg =
-            format!("Invalid NL80211_IFACE_COMB_LIMITS {:?}", payload);
+        let err_msg = format!("Invalid NL80211_IFACE_COMB_LIMITS {payload:?}");
         let mut attributes = Vec::new();
         for nla in NlasIterator::new(payload) {
             let nla = &nla.context(err_msg.clone())?;

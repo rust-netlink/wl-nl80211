@@ -52,8 +52,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
         Ok(match buf.kind() {
             NL80211_ATTR_MLO_LINK_ID => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_MLO_LINK_ID value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_MLO_LINK_ID value {payload:?}"
                 );
                 Self::Id(parse_u8(payload).context(err_msg)?)
             }
@@ -63,8 +62,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 ret
             } else {
                 return Err(format!(
-                    "Invalid length of NL80211_ATTR_MAC, expected length {} got {:?}",
-                    ETH_ALEN, payload
+                    "Invalid length of NL80211_ATTR_MAC, expected length {ETH_ALEN} got {payload:?}"
                 )
                 .into());
             }),
@@ -104,7 +102,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
         let mut ret = Self::default();
         let payload = buf.value();
         let err_msg =
-            format!("Invalid NL80211_ATTR_MLO_LINKS value {:?}", payload);
+            format!("Invalid NL80211_ATTR_MLO_LINKS value {payload:?}");
         for nla in NlasIterator::new(payload) {
             let nla = &nla.context(err_msg.clone())?;
             match Nl80211MloLinkNla::parse(nla).context(err_msg.clone())? {

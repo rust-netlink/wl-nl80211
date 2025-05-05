@@ -31,7 +31,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
     fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         let err_msg =
-            format!("Invalid NestedNl80211TidStats value {:?}", payload);
+            format!("Invalid NestedNl80211TidStats value {payload:?}");
         let mut nlas = Vec::new();
 
         for nla in NlasIterator::new(payload) {
@@ -107,36 +107,31 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
         Ok(match buf.kind() {
             NL80211_TID_STATS_RX_MSDU => {
                 let err_msg = format!(
-                    "Invalid NL80211_TID_STATS_RX_MSDU value: {:?}",
-                    payload
+                    "Invalid NL80211_TID_STATS_RX_MSDU value: {payload:?}"
                 );
                 Self::RxMsdu(parse_u64(payload).context(err_msg)?)
             }
             NL80211_TID_STATS_TX_MSDU => {
                 let err_msg = format!(
-                    "Invalid NL80211_TID_STATS_TX_MSDU value: {:?}",
-                    payload
+                    "Invalid NL80211_TID_STATS_TX_MSDU value: {payload:?}"
                 );
                 Self::TxMsdu(parse_u64(payload).context(err_msg)?)
             }
             NL80211_TID_STATS_TX_MSDU_RETRIES => {
                 let err_msg = format!(
-                    "Invalid NL80211_TID_STATS_TX_MSDU_RETRIES value: {:?}",
-                    payload
+                    "Invalid NL80211_TID_STATS_TX_MSDU_RETRIES value: {payload:?}"
                 );
                 Self::TxMsduRetries(parse_u64(payload).context(err_msg)?)
             }
             NL80211_TID_STATS_TX_MSDU_FAILED => {
                 let err_msg = format!(
-                    "Invalid NL80211_TID_STATS_TX_MSDU_FAILED value: {:?}",
-                    payload
+                    "Invalid NL80211_TID_STATS_TX_MSDU_FAILED value: {payload:?}"
                 );
                 Self::TxMsduFailed(parse_u64(payload).context(err_msg)?)
             }
             NL80211_TID_STATS_TXQ_STATS => {
                 let err_msg = format!(
-                    "Invalid NL80211_TID_STATS_TXQ_STATS value {:?}",
-                    payload
+                    "Invalid NL80211_TID_STATS_TXQ_STATS value {payload:?}"
                 );
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
@@ -242,78 +237,67 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
         Ok(match buf.kind() {
             NL80211_TXQ_STATS_BACKLOG_BYTES => {
                 let err_msg = format!(
-                    "Invalid NL80211_TXQ_STATS_BACKLOG_BYTES value {:?}",
-                    payload
+                    "Invalid NL80211_TXQ_STATS_BACKLOG_BYTES value {payload:?}"
                 );
                 Self::BacklogBytes(parse_u32(payload).context(err_msg)?)
             }
             NL80211_TXQ_STATS_BACKLOG_PACKETS => {
                 let err_msg = format!(
-                    "Invalid NL80211_TXQ_STATS_BACKLOG_PACKETS value: {:?}",
-                    payload
+                    "Invalid NL80211_TXQ_STATS_BACKLOG_PACKETS value: {payload:?}"
                 );
                 Self::BacklogPackets(parse_u32(payload).context(err_msg)?)
             }
             NL80211_TXQ_STATS_FLOWS => {
                 let err_msg = format!(
-                    "Invalid NL80211_TXQ_STATS_FLOWS value: {:?}",
-                    payload
+                    "Invalid NL80211_TXQ_STATS_FLOWS value: {payload:?}"
                 );
                 Self::Flows(parse_u32(payload).context(err_msg)?)
             }
             NL80211_TXQ_STATS_DROPS => {
                 let err_msg = format!(
-                    "Invalid NL80211_TXQ_STATS_DROPS value: {:?}",
-                    payload
+                    "Invalid NL80211_TXQ_STATS_DROPS value: {payload:?}"
                 );
                 Self::Drops(parse_u32(payload).context(err_msg)?)
             }
             NL80211_TXQ_STATS_ECN_MARKS => {
                 let err_msg = format!(
-                    "Invalid NL80211_TXQ_STATS_ECN_MARKS value: {:?}",
-                    payload
+                    "Invalid NL80211_TXQ_STATS_ECN_MARKS value: {payload:?}"
                 );
                 Self::EcnMarks(parse_u32(payload).context(err_msg)?)
             }
             NL80211_TXQ_STATS_OVERLIMIT => {
                 let err_msg = format!(
-                    "Invalid NL80211_TXQ_STATS_OVERLIMIT value: {:?}",
-                    payload
+                    "Invalid NL80211_TXQ_STATS_OVERLIMIT value: {payload:?}"
                 );
                 Self::Overlimit(parse_u32(payload).context(err_msg)?)
             }
             NL80211_TXQ_STATS_OVERMEMORY => {
                 let err_msg = format!(
-                    "Invalid NL80211_TXQ_STATS_OVERMEMORY value: {:?}",
-                    payload
+                    "Invalid NL80211_TXQ_STATS_OVERMEMORY value: {payload:?}"
                 );
                 Self::Overmemory(parse_u32(payload).context(err_msg)?)
             }
             NL80211_TXQ_STATS_COLLISIONS => {
                 let err_msg = format!(
-                    "Invalid NL80211_TXQ_STATS_COLLISIONS value: {:?}",
-                    payload
+                    "Invalid NL80211_TXQ_STATS_COLLISIONS value: {payload:?}"
                 );
                 Self::Collisions(parse_u32(payload).context(err_msg)?)
             }
             NL80211_TXQ_STATS_TX_BYTES => {
                 let err_msg = format!(
-                    "Invalid NL80211_TXQ_STATS_TX_BYTES value: {:?}",
-                    payload
+                    "Invalid NL80211_TXQ_STATS_TX_BYTES value: {payload:?}"
                 );
                 Self::TxBytes(parse_u32(payload).context(err_msg)?)
             }
             NL80211_TXQ_STATS_TX_PACKETS => {
                 let err_msg = format!(
-                    "Invalid NL80211_TXQ_STATS_TX_PACKETS value: {:?}",
-                    payload
+                    "Invalid NL80211_TXQ_STATS_TX_PACKETS value: {payload:?}"
                 );
                 Self::TxPackets(parse_u32(payload).context(err_msg)?)
             }
             NL80211_TXQ_STATS_MAX_FLOWS => {
                 let err_msg = format!(
-                    "Invalid NL80211_TXQ_STATS_MAX_FLOWS value: {:?}",
-                    payload
+                    "Invalid NL80211_TXQ_STATS_MAX_FLOWS value: {payload:?}"
                 );
                 Self::MaxFlows(parse_u32(payload).context(err_msg)?)
             }

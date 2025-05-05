@@ -180,16 +180,13 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
         Ok(match buf.kind() {
             NL80211_RATE_INFO_BITRATE => {
                 let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_BITRATE value {:?}",
-                    payload
+                    "Invalid NL80211_RATE_INFO_BITRATE value {payload:?}"
                 );
                 Self::Bitrate(parse_u16(payload).context(err_msg)?)
             }
             NL80211_RATE_INFO_MCS => {
-                let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_MCS value {:?}",
-                    payload
-                );
+                let err_msg =
+                    format!("Invalid NL80211_RATE_INFO_MCS value {payload:?}");
                 Self::Mcs(parse_u8(payload).context(err_msg)?)
             }
             NL80211_RATE_INFO_1_MHZ_WIDTH => Self::MhzWidth(1),
@@ -207,103 +204,89 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             NL80211_RATE_INFO_SHORT_GI => Self::ShortGi,
             NL80211_RATE_INFO_BITRATE32 => {
                 let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_BITRATE32 value {:?}",
-                    payload
+                    "Invalid NL80211_RATE_INFO_BITRATE32 value {payload:?}"
                 );
                 Self::Bitrate32(parse_u32(payload).context(err_msg)?)
             }
             NL80211_RATE_INFO_VHT_MCS => {
                 let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_VHT_MCS value {:?}",
-                    payload
+                    "Invalid NL80211_RATE_INFO_VHT_MCS value {payload:?}"
                 );
                 Self::VhtMcs(parse_u8(payload).context(err_msg)?)
             }
             NL80211_RATE_INFO_VHT_NSS => {
                 let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_VHT_NSS value {:?}",
-                    payload
+                    "Invalid NL80211_RATE_INFO_VHT_NSS value {payload:?}"
                 );
                 Self::VhtNss(parse_u8(payload).context(err_msg)?)
             }
             NL80211_RATE_INFO_HE_MCS => {
                 let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_HE_MCS value {:?}",
-                    payload
+                    "Invalid NL80211_RATE_INFO_HE_MCS value {payload:?}"
                 );
                 Self::HeMcs(parse_u8(payload).context(err_msg)?)
             }
             NL80211_RATE_INFO_HE_NSS => {
                 let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_HE_NSS value {:?}",
-                    payload
+                    "Invalid NL80211_RATE_INFO_HE_NSS value {payload:?}"
                 );
                 Self::HeNss(parse_u8(payload).context(err_msg)?)
             }
             NL80211_RATE_INFO_HE_GI => {
                 //
                 let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_HE_GI value {:?}",
-                    payload
+                    "Invalid NL80211_RATE_INFO_HE_GI value {payload:?}"
                 );
                 Self::HeGi(parse_u8(payload).context(err_msg)?.into())
             }
             NL80211_RATE_INFO_HE_DCM => {
                 let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_HE_DCM value {:?}",
-                    payload
+                    "Invalid NL80211_RATE_INFO_HE_DCM value {payload:?}"
                 );
                 Self::HeDcm(parse_u8(payload).context(err_msg)?)
             }
             NL80211_RATE_INFO_HE_RU_ALLOC => {
                 //
                 let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_HE_RU_ALLOC value {:?}",
-                    payload
+                    "Invalid NL80211_RATE_INFO_HE_RU_ALLOC value {payload:?}"
                 );
                 Self::HeRuAlloc(parse_u8(payload).context(err_msg)?.into())
             }
             NL80211_RATE_INFO_S1G_MCS => {
                 let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_S1G_MCS value {:?}",
-                    payload
+                    "Invalid NL80211_RATE_INFO_S1G_MCS value {payload:?}"
                 );
                 Self::S1gMcs(parse_u8(payload).context(err_msg)?)
             }
             NL80211_RATE_INFO_S1G_NSS => {
                 let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_S1G_NSS value {:?}",
-                    payload
+                    "Invalid NL80211_RATE_INFO_S1G_NSS value {payload:?}"
                 );
                 Self::S1gNss(parse_u8(payload).context(err_msg)?)
             }
             NL80211_RATE_INFO_EHT_MCS => {
                 let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_EHT_MCS value {:?}",
-                    payload
+                    "Invalid NL80211_RATE_INFO_EHT_MCS value {payload:?}"
                 );
                 Self::EhtMcs(parse_u8(payload).context(err_msg)?)
             }
             NL80211_RATE_INFO_EHT_NSS => {
                 let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_EHT_NSS value {:?}",
-                    payload
+                    "Invalid NL80211_RATE_INFO_EHT_NSS value {payload:?}"
                 );
                 Self::EhtNss(parse_u8(payload).context(err_msg)?)
             }
             NL80211_RATE_INFO_EHT_GI => {
                 //
                 let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_EHT_GI value {:?}",
-                    payload
+                    "Invalid NL80211_RATE_INFO_EHT_GI value {payload:?}"
                 );
                 Self::EhtGi(parse_u8(payload).context(err_msg)?.into())
             }
             NL80211_RATE_INFO_EHT_RU_ALLOC => {
                 //
                 let err_msg = format!(
-                    "Invalid NL80211_RATE_INFO_EHT_RU_ALLOC value {:?}",
-                    payload
+                    "Invalid NL80211_RATE_INFO_EHT_RU_ALLOC value {payload:?}"
                 );
                 Self::EhtRuAlloc(parse_u8(payload).context(err_msg)?.into())
             }

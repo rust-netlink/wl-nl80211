@@ -22,6 +22,6 @@ async fn get_interfaces() {
     }
     assert!(!msgs.is_empty());
     for msg in msgs {
-        println!("{:?}", msg);
+        println!("{msg:?}");
     }
 }
