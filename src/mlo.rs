@@ -110,8 +110,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 Nl80211MloLinkNla::Mac(s) => ret.mac = s,
                 Nl80211MloLinkNla::Other(attr) => {
                     log::warn!(
-                        "Got unsupported NL80211_ATTR_MLO_LINKS value {:?}",
-                        attr
+                        "Got unsupported NL80211_ATTR_MLO_LINKS value {attr:?}"
                     )
                 }
             }

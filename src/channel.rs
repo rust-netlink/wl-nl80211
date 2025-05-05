@@ -63,7 +63,7 @@ impl From<Nl80211ChannelWidth> for u32 {
             Nl80211ChannelWidth::Mhz(16) => NL80211_CHAN_WIDTH_16,
             Nl80211ChannelWidth::Mhz(320) => NL80211_CHAN_WIDTH_320,
             Nl80211ChannelWidth::Mhz(_) => {
-                log::warn!("Invalid Nl80211ChannelWidth {:?}", v);
+                log::warn!("Invalid Nl80211ChannelWidth {v:?}");
                 u32::MAX
             }
             Nl80211ChannelWidth::Other(d) => d,

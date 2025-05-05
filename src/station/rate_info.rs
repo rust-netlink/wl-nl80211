@@ -123,7 +123,7 @@ impl Nla for Nl80211RateInfo {
             Self::MhzWidth(160) => NL80211_RATE_INFO_160_MHZ_WIDTH,
             Self::MhzWidth(320) => NL80211_RATE_INFO_320_MHZ_WIDTH,
             Self::MhzWidth(freq) => {
-                log::warn!("Invalid Nl80211RateInfo::MhzWidth {:?}", freq);
+                log::warn!("Invalid Nl80211RateInfo::MhzWidth {freq:?}");
                 u16::MAX
             }
             Self::MhzWidth80Plus80 => NL80211_RATE_INFO_80P80_MHZ_WIDTH,
@@ -384,7 +384,7 @@ impl From<Nl80211HeRuAllocation> for u8 {
                 NL80211_RATE_INFO_HE_RU_ALLOC_996
             }
             Nl80211HeRuAllocation::Tone(_) => {
-                log::warn!("Invalid Nl80211HeRuAllocation {:?}", v);
+                log::warn!("Invalid Nl80211HeRuAllocation {v:?}");
                 u8::MAX
             }
             Nl80211HeRuAllocation::Tone2x996 => {
@@ -516,7 +516,7 @@ impl From<Nl80211EhtRuAllocation> for u8 {
                 NL80211_RATE_INFO_EHT_RU_ALLOC_996
             }
             Nl80211EhtRuAllocation::Tone(_) => {
-                log::warn!("Invalid Nl80211EhtRuAllocation {:?}", v);
+                log::warn!("Invalid Nl80211EhtRuAllocation {v:?}");
                 u8::MAX
             }
             Nl80211EhtRuAllocation::Tone52Plus26 => {
