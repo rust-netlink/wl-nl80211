@@ -47,8 +47,8 @@ use crate::{
     Nl80211IfTypeExtCapas, Nl80211IfaceComb, Nl80211IfaceFrameType,
     Nl80211InterfaceType, Nl80211InterfaceTypes, Nl80211MloLink,
     Nl80211ScanFlags, Nl80211SchedScanMatch, Nl80211SchedScanPlan,
-    Nl80211StationInfo, Nl80211TransmitQueueStat, Nl80211VhtCapability,
-    Nl80211WowlanTrigersSupport,
+    Nl80211StationInfo, Nl80211SurveyInfo, Nl80211TransmitQueueStat,
+    Nl80211VhtCapability, Nl80211WowlanTrigersSupport,
 };
 
 const ETH_ALEN: usize = 6;
@@ -204,7 +204,7 @@ const NL80211_ATTR_WIPHY_RTS_THRESHOLD: u16 = 64;
 // const NL80211_ATTR_KEYS:u16 = 81;
 // const NL80211_ATTR_PID:u16 = 82;
 const NL80211_ATTR_4ADDR: u16 = 83;
-// const NL80211_ATTR_SURVEY_INFO:u16 = 84;
+const NL80211_ATTR_SURVEY_INFO: u16 = 84;
 // const NL80211_ATTR_PMKID:u16 = 85;
 const NL80211_ATTR_MAX_NUM_PMKIDS: u16 = 86;
 // const NL80211_ATTR_DURATION:u16 = 87;
@@ -339,7 +339,7 @@ const NL80211_ATTR_MAX_CSA_COUNTERS: u16 = 206;
 const NL80211_ATTR_MAC_MASK: u16 = 215;
 const NL80211_ATTR_WIPHY_SELF_MANAGED_REG: u16 = 216;
 const NL80211_ATTR_EXT_FEATURES: u16 = 217;
-// const NL80211_ATTR_SURVEY_RADIO_STATS:u16 = 218;
+const NL80211_ATTR_SURVEY_RADIO_STATS: u16 = 218;
 // const NL80211_ATTR_NETNS_FD:u16 = 219;
 const NL80211_ATTR_SCHED_SCAN_DELAY: u16 = 220;
 // const NL80211_ATTR_REG_INDOOR:u16 = 221;
@@ -480,6 +480,7 @@ pub enum Nl80211Attr {
     WiphyTxPowerLevel(u32),
     Ssid(String),
     StationInfo(Vec<Nl80211StationInfo>),
+    SurveyInfo(Vec<Nl80211SurveyInfo>),
     TransmitQueueStats(Vec<Nl80211TransmitQueueStat>),
     TransmitQueueLimit(u32),
     TransmitQueueMemoryLimit(u32),
@@ -519,6 +520,7 @@ pub enum Nl80211Attr {
     /// in milliseconds
     MaxRemainOnChannelDuration(u32),
     OffchannelTxOk,
+    SurveyRadioStats,
     WowlanTrigersSupport(Vec<Nl80211WowlanTrigersSupport>),
     SoftwareIftypes(Vec<Nl80211InterfaceType>),
     Features(Nl80211Features),
@@ -625,6 +627,7 @@ impl Nla for Nl80211Attr {
             | Self::MaxNumPmkids(_) => 1,
             Self::TransmitQueueStats(nlas) => nlas.as_slice().buffer_len(),
             Self::StationInfo(nlas) => nlas.as_slice().buffer_len(),
+            Self::SurveyInfo(nlas) => nlas.as_slice().buffer_len(),
             Self::MloLinks(links) => links.as_slice().buffer_len(),
             Self::MaxScanIeLen(_) | Self::MaxSchedScanIeLen(_) => 2,
             Self::SupportIbssRsn
@@ -635,6 +638,7 @@ impl Nla for Nl80211Attr {
             | Self::TdlsExternalSetup
             | Self::ControlPortEthertype
             | Self::OffchannelTxOk
+            | Self::SurveyRadioStats
             | Self::WiphySelfManagedReg => 0,
             Self::CipherSuites(s) => 4 * s.len(),
             Self::SupportedIftypes(s) => s.as_slice().buffer_len(),
@@ -704,6 +708,8 @@ impl Nla for Nl80211Attr {
             Self::WiphyTxPowerLevel(_) => NL80211_ATTR_WIPHY_TX_POWER_LEVEL,
             Self::Ssid(_) => NL80211_ATTR_SSID,
             Self::StationInfo(_) => NL80211_ATTR_STA_INFO,
+            Self::SurveyInfo(_) => NL80211_ATTR_SURVEY_INFO,
+            Self::SurveyRadioStats => NL80211_ATTR_SURVEY_RADIO_STATS,
             Self::TransmitQueueStats(_) => NL80211_ATTR_TXQ_STATS,
             Self::TransmitQueueLimit(_) => NL80211_ATTR_TXQ_LIMIT,
             Self::TransmitQueueMemoryLimit(_) => NL80211_ATTR_TXQ_MEMORY_LIMIT,
@@ -836,10 +842,12 @@ impl Nla for Nl80211Attr {
             | Self::TdlsExternalSetup
             | Self::ControlPortEthertype
             | Self::OffchannelTxOk
+            | Self::SurveyRadioStats
             | Self::WiphySelfManagedReg => (),
             Self::WiphyChannelType(d) => write_u32(buffer, (*d).into()),
             Self::ChannelWidth(d) => write_u32(buffer, (*d).into()),
             Self::StationInfo(nlas) => nlas.as_slice().emit(buffer),
+            Self::SurveyInfo(nlas) => nlas.as_slice().emit(buffer),
             Self::TransmitQueueStats(nlas) => nlas.as_slice().emit(buffer),
             Self::MloLinks(links) => links.as_slice().emit(buffer),
             Self::WiphyRetryShort(d)
@@ -1048,6 +1056,21 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 }
                 Self::StationInfo(nlas)
             }
+            NL80211_ATTR_SURVEY_INFO => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_SURVEY_INFO value {payload:?}"
+                );
+                let mut nlas = Vec::new();
+                for nla in NlasIterator::new(payload) {
+                    let nla = &nla.context(err_msg.clone())?;
+                    nlas.push(
+                        Nl80211SurveyInfo::parse(nla)
+                            .context(err_msg.clone())?,
+                    );
+                }
+                Self::SurveyInfo(nlas)
+            }
+            NL80211_ATTR_SURVEY_RADIO_STATS => Self::SurveyRadioStats,
             NL80211_ATTR_TXQ_STATS => {
                 let err_msg =
                     format!("Invalid NL80211_ATTR_TXQ_STATS value {payload:?}");
