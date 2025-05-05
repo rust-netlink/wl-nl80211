@@ -37,6 +37,6 @@ async fn dump_scan(if_index: u32) {
     }
     assert!(!msgs.is_empty());
     for msg in msgs {
-        println!("{:?}", msg);
+        println!("{msg:?}");
     }
 }

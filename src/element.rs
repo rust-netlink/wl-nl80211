@@ -272,8 +272,7 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211ElementCountry {
         if buf.len() < 6 {
             return Err(format!(
                 "Buffer for Nl80211ElementCountry is smaller \
-                than mandatory 6 byte: {:?}",
-                buf
+                than mandatory 6 byte: {buf:?}"
             )
             .into());
         }
@@ -299,7 +298,7 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211ElementCountry {
 
 impl Emitable for Nl80211ElementCountry {
     fn buffer_len(&self) -> usize {
-        (self.triplets.len() * 3 + 3 + 1) / 2 * 2
+        (self.triplets.len() * 3 + 3).div_ceil(2) * 2
     }
 
     fn emit(&self, buffer: &mut [u8]) {
@@ -381,8 +380,7 @@ impl Nl80211ElementCountryTriplet {
         if payload.len() != 3 {
             return Err(format!(
                 "Invalid buffer for Nl80211ElementCountryTriplet, \
-                expecting [u8;3], but got {:?}",
-                payload
+                expecting [u8;3], but got {payload:?}"
             )
             .into());
         }

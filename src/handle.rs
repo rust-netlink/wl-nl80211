@@ -54,10 +54,7 @@ impl Nl80211Handle {
         Nl80211Error,
     > {
         self.handle.request(message).await.map_err(|e| {
-            Nl80211Error::RequestFailed(format!(
-                "BUG: Request failed with {}",
-                e
-            ))
+            Nl80211Error::RequestFailed(format!("BUG: Request failed with {e}"))
         })
     }
 }

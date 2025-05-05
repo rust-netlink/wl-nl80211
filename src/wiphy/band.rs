@@ -71,7 +71,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Band {
         let mut nlas = Vec::new();
         for nla in NlasIterator::new(payload) {
             let err_msg =
-                format!("Invalid NL80211_ATTR_WIPHY_BANDS value {:?}", nla);
+                format!("Invalid NL80211_ATTR_WIPHY_BANDS value {nla:?}");
             let nla = &nla.context(err_msg.clone())?;
             nlas.push(Nl80211BandInfo::parse(nla)?);
         }
@@ -276,8 +276,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
         Ok(match buf.kind() {
             NL80211_BAND_ATTR_FREQS => {
                 let err_msg = format!(
-                    "Invalid NL80211_BAND_ATTR_FREQS value {:?}",
-                    payload
+                    "Invalid NL80211_BAND_ATTR_FREQS value {payload:?}"
                 );
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
@@ -288,8 +287,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_BAND_ATTR_RATES => {
                 let err_msg = format!(
-                    "Invalid NL80211_BAND_ATTR_RATES value {:?}",
-                    payload
+                    "Invalid NL80211_BAND_ATTR_RATES value {payload:?}"
                 );
                 let mut nlas = Vec::new();
                 for (index, nla) in NlasIterator::new(payload).enumerate() {
@@ -310,15 +308,13 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_BAND_ATTR_HT_AMPDU_FACTOR => {
                 let err_msg = format!(
-                    "Invalid NL80211_BAND_ATTR_HT_AMPDU_FACTOR value {:?}",
-                    payload
+                    "Invalid NL80211_BAND_ATTR_HT_AMPDU_FACTOR value {payload:?}"
                 );
                 Self::HtAmpduFactor(parse_u8(payload).context(err_msg)?)
             }
             NL80211_BAND_ATTR_HT_AMPDU_DENSITY => {
                 let err_msg = format!(
-                    "Invalid NL80211_BAND_ATTR_HT_AMPDU_DENSITY value {:?}",
-                    payload
+                    "Invalid NL80211_BAND_ATTR_HT_AMPDU_DENSITY value {payload:?}"
                 );
                 Self::HtAmpduDensity(parse_u8(payload).context(err_msg)?)
             }
@@ -330,8 +326,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_BAND_ATTR_IFTYPE_DATA => {
                 let err_msg = format!(
-                    "Invalid NL80211_BAND_ATTR_IFTYPE_DATA value {:?}",
-                    payload
+                    "Invalid NL80211_BAND_ATTR_IFTYPE_DATA value {payload:?}"
                 );
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
@@ -345,15 +340,13 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_BAND_ATTR_EDMG_CHANNELS => {
                 let err_msg = format!(
-                    "Invalid NL80211_BAND_ATTR_EDMG_CHANNELS value {:?}",
-                    payload
+                    "Invalid NL80211_BAND_ATTR_EDMG_CHANNELS value {payload:?}"
                 );
                 Self::EdmgChannels(parse_u8(payload).context(err_msg)?)
             }
             NL80211_BAND_ATTR_EDMG_BW_CONFIG => {
                 let err_msg = format!(
-                    "Invalid NL80211_BAND_ATTR_EDMG_BW_CONFIG value {:?}",
-                    payload
+                    "Invalid NL80211_BAND_ATTR_EDMG_BW_CONFIG value {payload:?}"
                 );
                 Self::EdmgBwConfig(parse_u8(payload).context(err_msg)?)
             }
@@ -714,7 +707,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
         let mut nlas = Vec::new();
         for nla in NlasIterator::new(payload) {
             let err_msg =
-                format!("Invalid NL80211_BAND_ATTR_FREQS value {:?}", nla);
+                format!("Invalid NL80211_BAND_ATTR_FREQS value {nla:?}");
             let nla = &nla.context(err_msg.clone())?;
             nlas.push(Nl80211FrequencyInfo::parse(nla)?);
         }
@@ -984,8 +977,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
         Ok(match buf.kind() {
             NL80211_FREQUENCY_ATTR_FREQ => {
                 Self::Freq(parse_u32(payload).context(format!(
-                    "Invalid NL80211_FREQUENCY_ATTR_FREQ value: {:?}",
-                    payload
+                    "Invalid NL80211_FREQUENCY_ATTR_FREQ value: {payload:?}"
                 ))?)
             }
             NL80211_FREQUENCY_ATTR_DISABLED => Self::Disabled,
@@ -994,23 +986,20 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             NL80211_FREQUENCY_ATTR_RADAR => Self::Radar,
             NL80211_FREQUENCY_ATTR_MAX_TX_POWER => {
                 Self::MaxTxPower(parse_u32(payload).context(format!(
-                    "Invalid NL80211_FREQUENCY_ATTR_MAX_TX_POWER value: {:?}",
-                    payload
+                    "Invalid NL80211_FREQUENCY_ATTR_MAX_TX_POWER value: {payload:?}"
                 ))?)
             }
             NL80211_FREQUENCY_ATTR_DFS_STATE => Self::DfsState(
                 parse_u32(payload)
                     .context(format!(
-                    "Invalid NL80211_FREQUENCY_ATTR_MAX_TX_POWER value: {:?}",
-                    payload
+                    "Invalid NL80211_FREQUENCY_ATTR_MAX_TX_POWER value: {payload:?}"
                 ))?
                     .into(),
             ),
 
             NL80211_FREQUENCY_ATTR_DFS_TIME => {
                 Self::DfsTime(parse_u32(payload).context(format!(
-                    "Invalid NL80211_FREQUENCY_ATTR_DFS_TIME value: {:?}",
-                    payload
+                    "Invalid NL80211_FREQUENCY_ATTR_DFS_TIME value: {payload:?}"
                 ))?)
             }
             NL80211_FREQUENCY_ATTR_NO_HT40_MINUS => Self::NoHt40Minus,
@@ -1019,8 +1008,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             NL80211_FREQUENCY_ATTR_NO_160MHZ => Self::No160Mhz,
             NL80211_FREQUENCY_ATTR_DFS_CAC_TIME => {
                 Self::DfsCacTime(parse_u32(payload).context(format!(
-                    "Invalid NL80211_FREQUENCY_ATTR_DFS_CAC_TIME value: {:?}",
-                    payload
+                    "Invalid NL80211_FREQUENCY_ATTR_DFS_CAC_TIME value: {payload:?}"
                 ))?)
             }
             NL80211_FREQUENCY_ATTR_INDOOR_ONLY => Self::IndoorOnly,
@@ -1029,8 +1017,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             NL80211_FREQUENCY_ATTR_NO_10MHZ => Self::No10Mhz,
             NL80211_FREQUENCY_ATTR_WMM => {
                 let err_msg = format!(
-                    "Invalid NL80211_FREQUENCY_ATTR_WMM value {:?}",
-                    payload
+                    "Invalid NL80211_FREQUENCY_ATTR_WMM value {payload:?}"
                 );
                 let mut nlas = Vec::new();
                 for (index, nla) in NlasIterator::new(payload).enumerate() {
@@ -1049,8 +1036,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             NL80211_FREQUENCY_ATTR_NO_HE => Self::NoHe,
             NL80211_FREQUENCY_ATTR_OFFSET => {
                 Self::Offset(parse_u32(payload).context(format!(
-                    "Invalid NL80211_FREQUENCY_ATTR_OFFSET value {:?}",
-                    payload
+                    "Invalid NL80211_FREQUENCY_ATTR_OFFSET value {payload:?}"
                 ))?)
             }
             NL80211_FREQUENCY_ATTR_1MHZ => Self::Allow1Mhz,
@@ -1138,7 +1124,7 @@ where
     ) -> Result<Self, DecodeError> {
         let payload = buf.value();
         let err_msg =
-            format!("Invalid NL80211_BAND_ATTR_RATES value {:?}", payload);
+            format!("Invalid NL80211_BAND_ATTR_RATES value {payload:?}");
         let mut attributes = Vec::new();
         for nla in NlasIterator::new(payload) {
             let nla = &nla.context(err_msg.clone())?;
@@ -1194,8 +1180,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Rate {
         Ok(match buf.kind() {
             NL80211_BITRATE_ATTR_RATE => {
                 Self::Rate(parse_u32(payload).context(format!(
-                    "Invalid NL80211_BITRATE_ATTR_RATE value {:?}",
-                    payload
+                    "Invalid NL80211_BITRATE_ATTR_RATE value {payload:?}"
                 ))?)
             }
             NL80211_BITRATE_ATTR_2GHZ_SHORTPREAMBLE => {
@@ -1308,7 +1293,7 @@ where
     ) -> Result<Self, DecodeError> {
         let payload = buf.value();
         let err_msg =
-            format!("Invalid NL80211_FREQUENCY_ATTR_WMM value {:?}", payload);
+            format!("Invalid NL80211_FREQUENCY_ATTR_WMM value {payload:?}");
         let mut attributes = Vec::new();
         for nla in NlasIterator::new(payload) {
             let nla = &nla.context(err_msg.clone())?;
@@ -1375,16 +1360,16 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_WMMR_CW_MIN => Self::CwMin(parse_u16(payload).context(
-                format!("Invalid NL80211_WMMR_CW_MIN value {:?}", payload),
+                format!("Invalid NL80211_WMMR_CW_MIN value {payload:?}"),
             )?),
             NL80211_WMMR_CW_MAX => Self::CwMax(parse_u16(payload).context(
-                format!("Invalid NL80211_WMMR_CW_MAX value {:?}", payload),
+                format!("Invalid NL80211_WMMR_CW_MAX value {payload:?}"),
             )?),
             NL80211_WMMR_AIFSN => Self::Aifsn(parse_u8(payload).context(
-                format!("Invalid NL80211_WMMR_AIFSN value {:?}", payload),
+                format!("Invalid NL80211_WMMR_AIFSN value {payload:?}"),
             )?),
             NL80211_WMMR_TXOP => Self::Txop(parse_u16(payload).context(
-                format!("Invalid NL80211_WMMR_CW_MAX value {:?}", payload),
+                format!("Invalid NL80211_WMMR_CW_MAX value {payload:?}"),
             )?),
             _ => Self::Other(
                 DefaultNla::parse(buf).context("invalid NLA (unknown kind)")?,

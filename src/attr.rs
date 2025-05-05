@@ -911,24 +911,23 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
         Ok(match buf.kind() {
             NL80211_ATTR_IFINDEX => {
                 let err_msg =
-                    format!("Invalid NL80211_ATTR_IFINDEX value {:?}", payload);
+                    format!("Invalid NL80211_ATTR_IFINDEX value {payload:?}");
                 Self::IfIndex(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY => {
                 let err_msg =
-                    format!("Invalid NL80211_ATTR_WIPHY value {:?}", payload);
+                    format!("Invalid NL80211_ATTR_WIPHY value {payload:?}");
                 Self::Wiphy(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY_NAME => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_WIPHY_NAME value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_WIPHY_NAME value {payload:?}"
                 );
                 Self::WiphyName(parse_string(payload).context(err_msg)?)
             }
             NL80211_ATTR_IFNAME => {
                 let err_msg =
-                    format!("Invalid NL80211_ATTR_IFNAME value {:?}", payload);
+                    format!("Invalid NL80211_ATTR_IFNAME value {payload:?}");
                 Self::IfName(parse_string(payload).context(err_msg)?)
             }
             NL80211_ATTR_IFTYPE => {
@@ -936,7 +935,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             }
             NL80211_ATTR_WDEV => {
                 let err_msg =
-                    format!("Invalid NL80211_ATTR_WDEV value {:?}", payload);
+                    format!("Invalid NL80211_ATTR_WDEV value {payload:?}");
                 Self::Wdev(parse_u64(payload).context(err_msg)?)
             }
             NL80211_ATTR_MAC => Self::Mac(if payload.len() == ETH_ALEN {
@@ -946,8 +945,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             } else {
                 return Err(format!(
                     "Invalid length of NL80211_ATTR_MAC, \
-                    expected length {} got {:?}",
-                    ETH_ALEN, payload
+                    expected length {ETH_ALEN} got {payload:?}"
                 )
                 .into());
             }),
@@ -959,8 +957,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 } else {
                     return Err(format!(
                         "Invalid length of NL80211_ATTR_MAC_MASK, \
-                        expected length {} got {:?}",
-                        ETH_ALEN, payload
+                        expected length {ETH_ALEN} got {payload:?}"
                     )
                     .into());
                 })
@@ -970,14 +967,13 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             }
             NL80211_ATTR_GENERATION => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_GENERATION value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_GENERATION value {payload:?}"
                 );
                 Self::Generation(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_BSS => {
                 let err_msg =
-                    format!("Invalid NL80211_ATTR_BSS value {:?}", payload);
+                    format!("Invalid NL80211_ATTR_BSS value {payload:?}");
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
                     let nla = &nla.context(err_msg.clone())?;
@@ -987,27 +983,24 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             }
             NL80211_ATTR_4ADDR => {
                 let err_msg =
-                    format!("Invalid NL80211_ATTR_4ADDR value {:?}", payload);
+                    format!("Invalid NL80211_ATTR_4ADDR value {payload:?}");
                 Self::Use4Addr(parse_u8(payload).context(err_msg)? > 0)
             }
             NL80211_ATTR_WIPHY_FREQ => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_WIPHY_FREQ value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_WIPHY_FREQ value {payload:?}"
                 );
                 Self::WiphyFreq(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY_FREQ_OFFSET => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_WIPHY_FREQ_OFFSET value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_WIPHY_FREQ_OFFSET value {payload:?}"
                 );
                 Self::WiphyFreqOffset(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY_CHANNEL_TYPE => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_WIPHY_CHANNEL_TYPE value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_WIPHY_CHANNEL_TYPE value {payload:?}"
                 );
                 Self::WiphyChannelType(
                     parse_u32(payload).context(err_msg)?.into(),
@@ -1015,42 +1008,36 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             }
             NL80211_ATTR_CHANNEL_WIDTH => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_CHANNEL_WIDTH value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_CHANNEL_WIDTH value {payload:?}"
                 );
                 Self::ChannelWidth(parse_u32(payload).context(err_msg)?.into())
             }
             NL80211_ATTR_CENTER_FREQ1 => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_CENTER_FREQ1 value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_CENTER_FREQ1 value {payload:?}"
                 );
                 Self::CenterFreq1(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_CENTER_FREQ2 => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_CENTER_FREQ2 value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_CENTER_FREQ2 value {payload:?}"
                 );
                 Self::CenterFreq2(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY_TX_POWER_LEVEL => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_WIPHY_TX_POWER_LEVEL value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_WIPHY_TX_POWER_LEVEL value {payload:?}"
                 );
                 Self::WiphyTxPowerLevel(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_SSID => {
                 let err_msg =
-                    format!("Invalid NL80211_ATTR_SSID value {:?}", payload);
+                    format!("Invalid NL80211_ATTR_SSID value {payload:?}");
                 Self::Ssid(parse_string(payload).context(err_msg)?)
             }
             NL80211_ATTR_STA_INFO => {
-                let err_msg = format!(
-                    "Invalid NL80211_ATTR_STA_INFO value {:?}",
-                    payload
-                );
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_STA_INFO value {payload:?}");
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
                     let nla = &nla.context(err_msg.clone())?;
@@ -1062,10 +1049,8 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 Self::StationInfo(nlas)
             }
             NL80211_ATTR_TXQ_STATS => {
-                let err_msg = format!(
-                    "Invalid NL80211_ATTR_TXQ_STATS value {:?}",
-                    payload
-                );
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_TXQ_STATS value {payload:?}");
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
                     let nla = &nla.context(err_msg.clone())?;
@@ -1092,10 +1077,8 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 )?)
             }
             NL80211_ATTR_MLO_LINKS => {
-                let err_msg = format!(
-                    "Invalid NL80211_ATTR_MLO_LINKS value {:?}",
-                    payload
-                );
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_MLO_LINKS value {payload:?}");
                 let mut links = Vec::new();
                 for nla in NlasIterator::new(payload) {
                     let nla = &nla.context(err_msg.clone())?;
@@ -1107,71 +1090,61 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             }
             NL80211_ATTR_WIPHY_RETRY_SHORT => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_WIPHY_RETRY_SHORT value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_WIPHY_RETRY_SHORT value {payload:?}"
                 );
                 Self::WiphyRetryShort(parse_u8(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY_RETRY_LONG => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_WIPHY_RETRY_LONG value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_WIPHY_RETRY_LONG value {payload:?}"
                 );
                 Self::WiphyRetryLong(parse_u8(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY_FRAG_THRESHOLD => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_WIPHY_FRAG_THRESHOLD value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_WIPHY_FRAG_THRESHOLD value {payload:?}"
                 );
                 Self::WiphyFragThreshold(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY_RTS_THRESHOLD => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_WIPHY_RTS_THRESHOLD value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_WIPHY_RTS_THRESHOLD value {payload:?}"
                 );
                 Self::WiphyRtsThreshold(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY_COVERAGE_CLASS => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_WIPHY_COVERAGE_CLASS value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_WIPHY_COVERAGE_CLASS value {payload:?}"
                 );
                 Self::WiphyCoverageClass(parse_u8(payload).context(err_msg)?)
             }
             NL80211_ATTR_MAX_NUM_SCAN_SSIDS => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_MAX_NUM_SCAN_SSIDS value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_MAX_NUM_SCAN_SSIDS value {payload:?}"
                 );
                 Self::MaxNumScanSsids(parse_u8(payload).context(err_msg)?)
             }
             NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS value {payload:?}"
                 );
                 Self::MaxNumSchedScanSsids(parse_u8(payload).context(err_msg)?)
             }
             NL80211_ATTR_MAX_SCAN_IE_LEN => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_MAX_SCAN_IE_LEN value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_MAX_SCAN_IE_LEN value {payload:?}"
                 );
                 Self::MaxScanIeLen(parse_u16(payload).context(err_msg)?)
             }
             NL80211_ATTR_MAX_SCHED_SCAN_IE_LEN => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_MAX_SCHED_SCAN_IE_LEN value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_MAX_SCHED_SCAN_IE_LEN value {payload:?}"
                 );
                 Self::MaxSchedScanIeLen(parse_u16(payload).context(err_msg)?)
             }
             NL80211_ATTR_MAX_MATCH_SETS => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_MAX_MATCH_SETS value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_MAX_MATCH_SETS value {payload:?}"
                 );
                 Self::MaxMatchSets(parse_u8(payload).context(err_msg)?)
             }
@@ -1183,8 +1156,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             NL80211_ATTR_TDLS_EXTERNAL_SETUP => Self::TdlsExternalSetup,
             NL80211_ATTR_CIPHER_SUITES => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_CIPHER_SUITES value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_CIPHER_SUITES value {payload:?}"
                 );
                 let mut suits = Vec::new();
                 for i in 0..(payload.len() / 4) {
@@ -1198,51 +1170,44 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             }
             NL80211_ATTR_MAX_NUM_PMKIDS => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_MAX_NUM_PMKIDS value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_MAX_NUM_PMKIDS value {payload:?}"
                 );
                 Self::MaxNumPmkids(parse_u8(payload).context(err_msg)?)
             }
             NL80211_ATTR_CONTROL_PORT_ETHERTYPE => Self::ControlPortEthertype,
             NL80211_ATTR_WIPHY_ANTENNA_AVAIL_TX => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_WIPHY_ANTENNA_AVAIL_TX value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_WIPHY_ANTENNA_AVAIL_TX value {payload:?}"
                 );
                 Self::WiphyAntennaAvailTx(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY_ANTENNA_AVAIL_RX => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_WIPHY_ANTENNA_AVAIL_RX value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_WIPHY_ANTENNA_AVAIL_RX value {payload:?}"
                 );
                 Self::WiphyAntennaAvailRx(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_PROBE_RESP_OFFLOAD => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_PROBE_RESP_OFFLOAD value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_PROBE_RESP_OFFLOAD value {payload:?}"
                 );
                 Self::ApProbeRespOffload(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY_ANTENNA_TX => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_WIPHY_ANTENNA_TX value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_WIPHY_ANTENNA_TX value {payload:?}"
                 );
                 Self::WiphyAntennaTx(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_WIPHY_ANTENNA_RX => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_WIPHY_ANTENNA_RX value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_WIPHY_ANTENNA_RX value {payload:?}"
                 );
                 Self::WiphyAntennaRx(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_SUPPORTED_IFTYPES => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_SUPPORTED_IFTYPES value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_SUPPORTED_IFTYPES value {payload:?}"
                 );
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
@@ -1257,8 +1222,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
                     let err_msg = format!(
-                        "Invalid NL80211_ATTR_WIPHY_BANDS value {:?}",
-                        nla
+                        "Invalid NL80211_ATTR_WIPHY_BANDS value {nla:?}"
                     );
                     let nla = &nla.context(err_msg.clone())?;
                     nlas.push(Nl80211Band::parse(nla)?);
@@ -1283,8 +1247,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 for nla in NlasIterator::new(payload) {
                     let err_msg = format!(
                         "Invalid NL80211_ATTR_WOWLAN_TRIGGERS_SUPPORTED \
-                        value {:?}",
-                        nla
+                        value {nla:?}"
                     );
                     let nla = &nla.context(err_msg.clone())?;
                     nlas.push(Nl80211WowlanTrigersSupport::parse(nla)?);
@@ -1312,8 +1275,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 for (index, nla) in NlasIterator::new(payload).enumerate() {
                     let err_msg = format!(
                         "Invalid NL80211_ATTR_INTERFACE_COMBINATIONS \
-                        value {:?}",
-                        nla
+                        value {nla:?}"
                     );
                     let nla = &nla.context(err_msg.clone())?;
                     nlas.push(Nl80211IfaceComb::parse_with_param(
@@ -1330,8 +1292,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
                     let err_msg = format!(
-                        "Invalid NL80211_ATTR_RX_FRAME_TYPES value {:?}",
-                        nla
+                        "Invalid NL80211_ATTR_RX_FRAME_TYPES value {nla:?}"
                     );
                     let nla = &nla.context(err_msg.clone())?;
                     nlas.push(Nl80211IfaceFrameType::parse(nla)?);
@@ -1342,8 +1303,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
                     let err_msg = format!(
-                        "Invalid NL80211_ATTR_RX_FRAME_TYPES value {:?}",
-                        nla
+                        "Invalid NL80211_ATTR_RX_FRAME_TYPES value {nla:?}"
                     );
                     let nla = &nla.context(err_msg.clone())?;
                     nlas.push(Nl80211IfaceFrameType::parse(nla)?);
@@ -1386,15 +1346,13 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             }
             NL80211_ATTR_MAX_CSA_COUNTERS => {
                 Self::MaxCsaCounters(parse_u8(payload).context(format!(
-                    "Invalid NL80211_ATTR_MAX_CSA_COUNTERS {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_MAX_CSA_COUNTERS {payload:?}"
                 ))?)
             }
             NL80211_ATTR_WIPHY_SELF_MANAGED_REG => Self::WiphySelfManagedReg,
             NL80211_ATTR_SCHED_SCAN_MAX_REQS => {
                 Self::SchedScanMaxReqs(parse_u32(payload).context(format!(
-                    "Invalid NL80211_ATTR_SCHED_SCAN_MAX_REQS {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_SCHED_SCAN_MAX_REQS {payload:?}"
                 ))?)
             }
             NL80211_ATTR_IFTYPE_EXT_CAPA => {
@@ -1415,14 +1373,12 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             }
             NL80211_ATTR_MAX_NUM_AKM_SUITES => {
                 Self::MaxNumAkmSuites(parse_u16(payload).context(format!(
-                    "Invalid NL80211_ATTR_MAX_NUM_AKM_SUITES {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_MAX_NUM_AKM_SUITES {payload:?}"
                 ))?)
             }
             NL80211_ATTR_MAX_HW_TIMESTAMP_PEERS => Self::MaxHwTimestampPeers(
                 parse_u16(payload).context(format!(
-                    "Invalid NL80211_ATTR_MAX_HW_TIMESTAMP_PEERS {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_MAX_HW_TIMESTAMP_PEERS {payload:?}"
                 ))?,
             ),
             NL80211_ATTR_SCAN_SSIDS => {
@@ -1433,22 +1389,19 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             }
             NL80211_ATTR_MEASUREMENT_DURATION => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_MEASUREMENT_DURATION value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_MEASUREMENT_DURATION value {payload:?}"
                 );
                 Self::MeasurementDuration(parse_u16(payload).context(err_msg)?)
             }
             NL80211_ATTR_SCHED_SCAN_INTERVAL => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_SCHED_SCAN_INTERVAL value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_SCHED_SCAN_INTERVAL value {payload:?}"
                 );
                 Self::SchedScanInterval(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_SCHED_SCAN_DELAY => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_SCHED_SCAN_DELAY value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_SCHED_SCAN_DELAY value {payload:?}"
                 );
                 Self::SchedScanDelay(parse_u32(payload).context(err_msg)?)
             }
@@ -1457,8 +1410,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             ),
             NL80211_ATTR_SCHED_SCAN_MATCH => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_SCHED_SCAN_MATCH value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_SCHED_SCAN_MATCH value {payload:?}"
                 );
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
@@ -1469,8 +1421,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             }
             NL80211_ATTR_SCHED_SCAN_PLANS => {
                 let err_msg = format!(
-                    "Invalid NL80211_ATTR_SCHED_SCAN_PLANS value {:?}",
-                    payload
+                    "Invalid NL80211_ATTR_SCHED_SCAN_PLANS value {payload:?}"
                 );
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {

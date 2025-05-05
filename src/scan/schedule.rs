@@ -150,15 +150,13 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
         Ok(match buf.kind() {
             NL80211_SCHED_SCAN_MATCH_ATTR_SSID => {
                 let err_msg = format!(
-                    "Invalid NL80211_SCHED_SCAN_MATCH_ATTR_SSID value {:?}",
-                    payload
+                    "Invalid NL80211_SCHED_SCAN_MATCH_ATTR_SSID value {payload:?}"
                 );
                 Self::Ssid(parse_string(payload).context(err_msg)?)
             }
             NL80211_SCHED_SCAN_MATCH_ATTR_RSSI => {
                 let err_msg = format!(
-                    "Invalid NL80211_SCHED_SCAN_MATCH_ATTR_RSSI value {:?}",
-                    payload
+                    "Invalid NL80211_SCHED_SCAN_MATCH_ATTR_RSSI value {payload:?}"
                 );
                 Self::Rssi(parse_i32(payload).context(err_msg)?)
             }
@@ -228,15 +226,13 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
         Ok(match buf.kind() {
             NL80211_SCHED_SCAN_PLAN_INTERVAL => {
                 let err_msg = format!(
-                    "Invalid NL80211_SCHED_SCAN_PLAN_INTERVAL value {:?}",
-                    payload
+                    "Invalid NL80211_SCHED_SCAN_PLAN_INTERVAL value {payload:?}"
                 );
                 Self::Interval(parse_u32(payload).context(err_msg)?)
             }
             NL80211_SCHED_SCAN_PLAN_ITERATIONS => {
                 let err_msg = format!(
-                    "Invalid NL80211_SCHED_SCAN_PLAN_ITERATIONS value {:?}",
-                    payload
+                    "Invalid NL80211_SCHED_SCAN_PLAN_ITERATIONS value {payload:?}"
                 );
                 Self::Iterations(parse_u32(payload).context(err_msg)?)
             }

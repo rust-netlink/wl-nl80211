@@ -179,8 +179,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
                     let err_msg = format!(
-                        "Invalid NL80211_WOWLAN_TRIG_TCP_CONNECTION value {:?}",
-                        nla
+                        "Invalid NL80211_WOWLAN_TRIG_TCP_CONNECTION value {nla:?}"
                     );
                     let nla = &nla.context(err_msg.clone())?;
                     nlas.push(Nl80211WowlanTcpTrigerSupport::parse(nla)?);

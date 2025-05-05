@@ -268,20 +268,17 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_BSS_TSF => {
                 let err_msg =
-                    format!("Invalid NL80211_BSS_TSF value {:?}", payload);
+                    format!("Invalid NL80211_BSS_TSF value {payload:?}");
                 Self::Tsf(parse_u64(payload).context(err_msg)?)
             }
             NL80211_BSS_FREQUENCY => {
-                let err_msg = format!(
-                    "Invalid NL80211_BSS_FREQUENCY value {:?}",
-                    payload
-                );
+                let err_msg =
+                    format!("Invalid NL80211_BSS_FREQUENCY value {payload:?}");
                 Self::Frequency(parse_u32(payload).context(err_msg)?)
             }
             NL80211_BSS_BEACON_INTERVAL => {
                 let err_msg = format!(
-                    "Invalid NL80211_BSS_BEACON_INTERVAL value {:?}",
-                    payload
+                    "Invalid NL80211_BSS_BEACON_INTERVAL value {payload:?}"
                 );
                 Self::BeaconInterval(parse_u16(payload).context(err_msg)?)
             }
@@ -298,58 +295,48 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 Nl80211Elements::parse(payload)?.into(),
             ),
             NL80211_BSS_SIGNAL_MBM => {
-                let err_msg = format!(
-                    "Invalid NL80211_BSS_SIGNAL_MBM value {:?}",
-                    payload
-                );
+                let err_msg =
+                    format!("Invalid NL80211_BSS_SIGNAL_MBM value {payload:?}");
                 Self::SignalMbm(i32::from_ne_bytes(
                     payload.try_into().context(err_msg)?,
                 ))
             }
             NL80211_BSS_SIGNAL_UNSPEC => {
                 let err_msg = format!(
-                    "Invalid NL80211_BSS_SIGNAL_UNSPEC value {:?}",
-                    payload
+                    "Invalid NL80211_BSS_SIGNAL_UNSPEC value {payload:?}"
                 );
                 Self::SignalUnspec(parse_u8(payload).context(err_msg)?)
             }
             NL80211_BSS_STATUS => {
                 let err_msg =
-                    format!("Invalid NL80211_BSS_STATUS value {:?}", payload);
+                    format!("Invalid NL80211_BSS_STATUS value {payload:?}");
                 Self::Status(parse_u32(payload).context(err_msg)?)
             }
             NL80211_BSS_SEEN_MS_AGO => {
                 let err_msg = format!(
-                    "Invalid NL80211_BSS_SEEN_MS_AGO value {:?}",
-                    payload
+                    "Invalid NL80211_BSS_SEEN_MS_AGO value {payload:?}"
                 );
                 Self::SeenMsAgo(parse_u32(payload).context(err_msg)?)
             }
             NL80211_BSS_CHAN_WIDTH => {
-                let err_msg = format!(
-                    "Invalid NL80211_BSS_CHAN_WIDTH value {:?}",
-                    payload
-                );
+                let err_msg =
+                    format!("Invalid NL80211_BSS_CHAN_WIDTH value {payload:?}");
                 Self::ChanWidth(parse_u32(payload).context(err_msg)?)
             }
             NL80211_BSS_BEACON_TSF => {
-                let err_msg = format!(
-                    "Invalid NL80211_BSS_BEACON_TSF value {:?}",
-                    payload
-                );
+                let err_msg =
+                    format!("Invalid NL80211_BSS_BEACON_TSF value {payload:?}");
                 Self::BeaconTsf(parse_u64(payload).context(err_msg)?)
             }
             NL80211_BSS_LAST_SEEN_BOOTTIME => {
                 let err_msg = format!(
-                    "Invalid NL80211_BSS_LAST_SEEN_BOOTTIME value {:?}",
-                    payload
+                    "Invalid NL80211_BSS_LAST_SEEN_BOOTTIME value {payload:?}"
                 );
                 Self::LastSeenBootTime(parse_u64(payload).context(err_msg)?)
             }
             NL80211_BSS_FREQUENCY_OFFSET => {
                 Self::FrequencyOffset(parse_u32(payload).context(format!(
-                    "Invalid NL80211_BSS_FREQUENCY_OFFSET {:?}",
-                    payload
+                    "Invalid NL80211_BSS_FREQUENCY_OFFSET {payload:?}"
                 ))?)
             }
             NL80211_BSS_USE_FOR => {

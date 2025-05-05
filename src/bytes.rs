@@ -31,10 +31,7 @@ pub(crate) fn get_bit(data: &[u8], pos: usize) -> bool {
     let index: usize = pos / 8;
     let bit_pos: usize = pos % 8;
     if data.len() < index {
-        panic!(
-            "BUG: get_bit(): out of index: got data {:?} pos {pos}",
-            data
-        );
+        panic!("BUG: get_bit(): out of index: got data {data:?} pos {pos}");
     }
     (data[index] & 1u8 << bit_pos) >= 1
 }
@@ -59,7 +56,7 @@ pub(crate) fn get_bits_as_u8(data: &[u8], start: usize, end: usize) -> u8 {
 
 pub(crate) fn parse_u16_le(payload: &[u8]) -> Result<u16, DecodeError> {
     if payload.len() < 2 {
-        return Err(format!("Invalid payload for u16: {:?}", payload).into());
+        return Err(format!("Invalid payload for u16: {payload:?}").into());
     }
     Ok(u16::from_le_bytes([payload[0], payload[1]]))
 }

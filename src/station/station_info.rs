@@ -368,57 +368,47 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
         Ok(match buf.kind() {
             NL80211_STA_INFO_INACTIVE_TIME => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_INACTIVE_TIME value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_INACTIVE_TIME value {payload:?}"
                 );
                 Self::InactiveTime(parse_u32(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_RX_BYTES => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_RX_BYTES value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_RX_BYTES value {payload:?}"
                 );
                 Self::RxBytes(parse_u32(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_TX_BYTES => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_TX_BYTES value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_TX_BYTES value {payload:?}"
                 );
                 Self::TxBytes(parse_u32(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_LLID => {
-                let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_LLID value {:?}",
-                    payload
-                );
+                let err_msg =
+                    format!("Invalid NL80211_STA_INFO_LLID value {payload:?}");
                 Self::Llid(parse_u16(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_PLID => {
-                let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_PLID value {:?}",
-                    payload
-                );
+                let err_msg =
+                    format!("Invalid NL80211_STA_INFO_PLID value {payload:?}");
                 Self::Plid(parse_u16(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_PLINK_STATE => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_PLINK_STATE value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_PLINK_STATE value {payload:?}"
                 );
                 Self::PeerLinkState(parse_u8(payload).context(err_msg)?.into())
             }
             NL80211_STA_INFO_SIGNAL => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_SIGNAL value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_SIGNAL value {payload:?}"
                 );
                 Self::Signal(parse_u8(payload).context(err_msg)? as i8)
             }
             NL80211_STA_INFO_TX_BITRATE => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_TX_BITRATE value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_TX_BITRATE value {payload:?}"
                 );
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
@@ -431,43 +421,37 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_STA_INFO_RX_PACKETS => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_RX_PACKETS value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_RX_PACKETS value {payload:?}"
                 );
                 Self::RxPackets(parse_u32(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_TX_PACKETS => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_TX_PACKETS value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_TX_PACKETS value {payload:?}"
                 );
                 Self::TxPackets(parse_u32(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_TX_RETRIES => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_TX_RETRIES value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_TX_RETRIES value {payload:?}"
                 );
                 Self::TxRetries(parse_u32(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_TX_FAILED => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_TX_FAILED value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_TX_FAILED value {payload:?}"
                 );
                 Self::TxFailed(parse_u32(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_SIGNAL_AVG => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_SIGNAL_AVG value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_SIGNAL_AVG value {payload:?}"
                 );
                 Self::SignalAvg(parse_u8(payload).context(err_msg)? as i8)
             }
             NL80211_STA_INFO_RX_BITRATE => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_RX_BITRATE value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_RX_BITRATE value {payload:?}"
                 );
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
@@ -480,8 +464,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_STA_INFO_BSS_PARAM => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_BSS_PARAM value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_BSS_PARAM value {payload:?}"
                 );
                 let mut nlas = Vec::new();
                 for nla in NlasIterator::new(payload) {
@@ -495,16 +478,14 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_STA_INFO_CONNECTED_TIME => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_CONNECTED_TIME value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_CONNECTED_TIME value {payload:?}"
                 );
                 Self::ConnectedTime(parse_u32(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_STA_FLAGS => {
                 Self::StationFlags(if payload.len() == 8 {
                     let err_msg = format!(
-                        "Invalid NL80211_STA_INFO_STA_FLAGS value {:?}",
-                        payload
+                        "Invalid NL80211_STA_INFO_STA_FLAGS value {payload:?}"
                     );
                     let mask =
                         parse_u32(&payload[0..4]).context(err_msg.clone())?;
@@ -523,15 +504,13 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_STA_INFO_BEACON_LOSS => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_BEACON_LOSS value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_BEACON_LOSS value {payload:?}"
                 );
                 Self::BeaconLoss(parse_u32(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_T_OFFSET => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_T_OFFSET value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_T_OFFSET value {payload:?}"
                 );
                 Self::TimingOffset(i64::from_ne_bytes(
                     payload.try_into().context(err_msg)?,
@@ -539,8 +518,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_STA_INFO_LOCAL_PM => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_LOCAL_PM value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_LOCAL_PM value {payload:?}"
                 );
                 Self::LocalPowerMode(
                     parse_u32(payload).context(err_msg)?.into(),
@@ -548,15 +526,13 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_STA_INFO_PEER_PM => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_PEER_PM value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_PEER_PM value {payload:?}"
                 );
                 Self::PeerPowerMode(parse_u32(payload).context(err_msg)?.into())
             }
             NL80211_STA_INFO_NONPEER_PM => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_NONPEER_PM value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_NONPEER_PM value {payload:?}"
                 );
                 Self::NonPeerPowerMode(
                     parse_u32(payload).context(err_msg)?.into(),
@@ -564,15 +540,13 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_STA_INFO_RX_BYTES64 => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_RX_BYTES64 value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_RX_BYTES64 value {payload:?}"
                 );
                 Self::RxBytes64(parse_u64(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_TX_BYTES64 => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_TX_BYTES64 value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_TX_BYTES64 value {payload:?}"
                 );
                 Self::TxBytes64(parse_u64(payload).context(err_msg)?)
             }
@@ -584,36 +558,31 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_STA_INFO_EXPECTED_THROUGHPUT => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_EXPECTED_THROUGHPUT value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_EXPECTED_THROUGHPUT value {payload:?}"
                 );
                 Self::ExpectedThroughput(parse_u32(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_RX_DROP_MISC => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_RX_DROP_MISC value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_RX_DROP_MISC value {payload:?}"
                 );
                 Self::RxDropMisc(parse_u64(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_BEACON_RX => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_BEACON_RX value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_BEACON_RX value {payload:?}"
                 );
                 Self::BeaconRx(parse_u64(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_BEACON_SIGNAL_AVG => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_BEACON_SIGNAL_AVG value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_BEACON_SIGNAL_AVG value {payload:?}"
                 );
                 Self::BeaconSignalAvg(parse_u8(payload).context(err_msg)? as i8)
             }
             NL80211_STA_INFO_TID_STATS => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_TID_STATS value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_TID_STATS value {payload:?}"
                 );
                 let mut nlas = Vec::new();
                 let _t = NlasIterator::new(payload);
@@ -628,71 +597,61 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_STA_INFO_RX_DURATION => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_RX_DURATION value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_RX_DURATION value {payload:?}"
                 );
                 Self::RxDuration(parse_u64(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_ACK_SIGNAL => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_ACK_SIGNAL value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_ACK_SIGNAL value {payload:?}"
                 );
                 Self::AckSignal(parse_u8(payload).context(err_msg)? as i8)
             }
             NL80211_STA_INFO_ACK_SIGNAL_AVG => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_ACK_SIGNAL_AVG value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_ACK_SIGNAL_AVG value {payload:?}"
                 );
                 Self::AckSignalAvg(*payload.first().context(err_msg)? as i8)
             }
             NL80211_STA_INFO_RX_MPDUS => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_RX_MPDUS value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_RX_MPDUS value {payload:?}"
                 );
                 Self::RxMpdus(parse_u32(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_FCS_ERROR_COUNT => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_FCS_ERROR_COUNT value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_FCS_ERROR_COUNT value {payload:?}"
                 );
                 Self::FcsErrorCount(parse_u32(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_CONNECTED_TO_GATE => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_CONNECTED_TO_GATE value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_CONNECTED_TO_GATE value {payload:?}"
                 );
                 Self::ConnectedToGate(parse_u8(payload).context(err_msg)? == 1)
             }
             NL80211_STA_INFO_TX_DURATION => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_TX_DURATION value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_TX_DURATION value {payload:?}"
                 );
                 Self::TxDuration(parse_u64(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_AIRTIME_WEIGHT => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_AIRTIME_WEIGHT value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_AIRTIME_WEIGHT value {payload:?}"
                 );
                 Self::AirtimeWeight(parse_u16(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_AIRTIME_LINK_METRIC => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_AIRTIME_LINK_METRIC value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_AIRTIME_LINK_METRIC value {payload:?}"
                 );
                 Self::AirtimeLinkMetric(parse_u16(payload).context(err_msg)?)
             }
             NL80211_STA_INFO_ASSOC_AT_BOOTTIME => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_ASSOC_AT_BOOTTIME value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_ASSOC_AT_BOOTTIME value {payload:?}"
                 );
                 Self::AssociationAtBoottime(
                     parse_u64(payload).context(err_msg)?,
@@ -700,8 +659,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_STA_INFO_CONNECTED_TO_AS => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_INFO_CONNECTED_TO_AS value {:?}",
-                    payload
+                    "Invalid NL80211_STA_INFO_CONNECTED_TO_AS value {payload:?}"
                 );
                 Self::ConnectedToAuthServer(
                     parse_u8(payload).context(err_msg)? == 1,
@@ -842,15 +800,13 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             NL80211_STA_BSS_PARAM_SHORT_SLOT_TIME => Self::ShortSlotTime,
             NL80211_STA_BSS_PARAM_DTIM_PERIOD => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_BSS_PARAM_DTIM_PERIOD value {:?}",
-                    payload
+                    "Invalid NL80211_STA_BSS_PARAM_DTIM_PERIOD value {payload:?}"
                 );
                 Self::DtimPeriod(parse_u8(payload).context(err_msg)?)
             }
             NL80211_STA_BSS_PARAM_BEACON_INTERVAL => {
                 let err_msg = format!(
-                    "Invalid NL80211_STA_BSS_PARAM_BEACON_INTERVAL value {:?}",
-                    payload
+                    "Invalid NL80211_STA_BSS_PARAM_BEACON_INTERVAL value {payload:?}"
                 );
                 Self::BeaconInterval(parse_u16(payload).context(err_msg)?)
             }
