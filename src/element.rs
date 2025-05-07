@@ -170,11 +170,11 @@ impl Emitable for Nl80211Element {
                     v.as_slice().iter().map(|v| u8::from(*v)).collect();
                 payload.copy_from_slice(raw.as_slice());
             }
-            Self::Channel(v) => buffer[0] = *v,
-            Self::Country(v) => v.emit(buffer),
-            Self::Rsn(v) => v.emit(buffer),
-            Self::Vendor(v) => buffer[..v.len()].copy_from_slice(v.as_slice()),
-            Self::HtCapability(v) => v.emit(buffer),
+            Self::Channel(v) => payload[0] = *v,
+            Self::Country(v) => v.emit(payload),
+            Self::Rsn(v) => v.emit(payload),
+            Self::Vendor(v) => payload[..v.len()].copy_from_slice(v.as_slice()),
+            Self::HtCapability(v) => v.emit(payload),
             Self::Other(_, data) => {
                 payload.copy_from_slice(data.as_slice());
             }
@@ -191,9 +191,10 @@ const BSS_MEMBERSHIP_SELECTOR_HT_PHY: u8 = 127;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
 pub enum Nl80211RateAndSelector {
-    /// BSS basic rate set in Mb/s.
+    /// BSS basic rate in units of 500 kb/s, if necessary rounded up to the
+    /// next 500 kbs.
     BssBasicRateSet(u8),
-    /// Rate in Mb/s.
+    /// Rate in units of 500 kb/s, if necessary rounded up to the next 500 kbs.
     Rate(u8),
     SelectorHt,
     SelectorVht,
@@ -214,8 +215,9 @@ pub enum Nl80211RateAndSelector {
 
 impl From<u8> for Nl80211RateAndSelector {
     fn from(d: u8) -> Self {
-        let msb: bool = (d & 1 << 7) > 0;
-        let value = d & 0b01111111;
+        const MSB_MASK: u8 = 0b1000_0000;
+        let msb: bool = (d & MSB_MASK) == MSB_MASK;
+        let value = d & !MSB_MASK;
         if msb {
             match value {
                 BSS_MEMBERSHIP_SELECTOR_SAE_HASH => Self::SelectorSaeHash,
@@ -223,34 +225,35 @@ impl From<u8> for Nl80211RateAndSelector {
                 BSS_MEMBERSHIP_SELECTOR_GLK => Self::SelectorGlk,
                 BSS_MEMBERSHIP_SELECTOR_VHT_PHY => Self::SelectorVht,
                 BSS_MEMBERSHIP_SELECTOR_HT_PHY => Self::SelectorHt,
-                _ => Self::BssBasicRateSet(value / 2),
+                _ => Self::BssBasicRateSet(value),
             }
         } else {
-            Self::Rate(value / 2)
+            Self::Rate(value)
         }
     }
 }
 
 impl From<Nl80211RateAndSelector> for u8 {
     fn from(v: Nl80211RateAndSelector) -> u8 {
+        const MSB: u8 = 0b1000_0000;
         match v {
-            Nl80211RateAndSelector::BssBasicRateSet(r) => (r * 2) & 1 << 7,
+            Nl80211RateAndSelector::BssBasicRateSet(r) => r & !MSB | MSB,
             Nl80211RateAndSelector::SelectorHt => {
-                BSS_MEMBERSHIP_SELECTOR_HT_PHY & 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_HT_PHY | MSB
             }
             Nl80211RateAndSelector::SelectorVht => {
-                BSS_MEMBERSHIP_SELECTOR_VHT_PHY & 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_VHT_PHY | MSB
             }
             Nl80211RateAndSelector::SelectorGlk => {
-                BSS_MEMBERSHIP_SELECTOR_GLK & 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_GLK | MSB
             }
             Nl80211RateAndSelector::SelectorEpd => {
-                BSS_MEMBERSHIP_SELECTOR_EPD & 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_EPD | MSB
             }
             Nl80211RateAndSelector::SelectorSaeHash => {
-                BSS_MEMBERSHIP_SELECTOR_SAE_HASH & 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_SAE_HASH | MSB
             }
-            Nl80211RateAndSelector::Rate(r) => r * 2,
+            Nl80211RateAndSelector::Rate(r) => r,
         }
     }
 }
@@ -310,7 +313,7 @@ impl Emitable for Nl80211ElementCountry {
             buffer[0] = self.country.as_bytes()[0];
             buffer[1] = self.country.as_bytes()[1];
         }
-        buffer[3] = self.environment.into();
+        buffer[2] = self.environment.into();
         for (i, triplet) in self.triplets.as_slice().iter().enumerate() {
             triplet.emit(&mut buffer[(i + 1) * 3..(i + 2) * 3]);
         }
@@ -471,6 +474,11 @@ pub struct Nl80211ElementRsn {
 
 impl Nl80211ElementRsn {
     pub fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
+        let wrong_buffer_len = || {
+            DecodeError::from(format!(
+                "Invalid buffer length for Nl80211ElementRsn, got {payload:?}"
+            ))
+        };
         if payload.len() != 2 && payload.len() < 8 {
             return Err(format!(
                 "Invalid buffer length of Nl80211ElementRsn, \
@@ -490,83 +498,83 @@ impl Nl80211ElementRsn {
         }
 
         ret.group_cipher = Some(Nl80211CipherSuite::parse(
-            &payload[offset..offset + Nl80211CipherSuite::LENGTH],
+            payload
+                .get(offset..offset + Nl80211CipherSuite::LENGTH)
+                .ok_or_else(wrong_buffer_len)?,
         )?);
         offset += Nl80211CipherSuite::LENGTH;
-
-        if offset >= payload.len() || offset + 2 >= payload.len() {
-            return Ok(ret);
-        }
-        let pairwise_cipher_count =
-            u16::from_le_bytes([payload[offset], payload[offset + 1]]) as usize;
-        offset += 2;
         if offset >= payload.len() {
             return Ok(ret);
         }
 
+        let pairwise_cipher_count = parse_u16_le(
+            payload
+                .get(offset..offset + 2)
+                .ok_or_else(wrong_buffer_len)?,
+        )? as usize;
+        offset += 2;
         for _ in 0..pairwise_cipher_count {
-            if offset + Nl80211CipherSuite::LENGTH >= payload.len() {
-                return Ok(ret);
-            }
             ret.pairwise_ciphers.push(Nl80211CipherSuite::parse(
-                &payload[offset..offset + Nl80211CipherSuite::LENGTH],
+                payload
+                    .get(offset..offset + Nl80211CipherSuite::LENGTH)
+                    .ok_or_else(wrong_buffer_len)?,
             )?);
             offset += Nl80211CipherSuite::LENGTH;
         }
-
-        if offset >= payload.len() || offset + 2 >= payload.len() {
-            return Ok(ret);
-        }
-        let akm_count =
-            u16::from_le_bytes([payload[offset], payload[offset + 1]]) as usize;
-        offset += 2;
         if offset >= payload.len() {
             return Ok(ret);
         }
+
+        let akm_count = parse_u16_le(
+            payload
+                .get(offset..offset + 2)
+                .ok_or_else(wrong_buffer_len)?,
+        )? as usize;
+        offset += 2;
         for _ in 0..akm_count {
-            if offset + Nl80211AkmSuite::LENGTH >= payload.len() {
-                return Ok(ret);
-            }
             ret.akm_suits.push(Nl80211AkmSuite::parse(
-                &payload[offset..offset + Nl80211AkmSuite::LENGTH],
+                payload
+                    .get(offset..offset + Nl80211AkmSuite::LENGTH)
+                    .ok_or_else(wrong_buffer_len)?,
             )?);
             offset += Nl80211AkmSuite::LENGTH;
         }
-        if offset >= payload.len() || offset + 2 >= payload.len() {
+        if offset >= payload.len() {
             return Ok(ret);
         }
 
-        ret.rsn_capbilities =
-            Some(Nl80211RsnCapbilities::parse(&payload[offset..offset + 2])?);
-        offset += 2;
-
-        if offset >= payload.len() || offset + 2 >= payload.len() {
-            return Ok(ret);
-        }
-        let pmkids_count =
-            u16::from_le_bytes([payload[offset], payload[offset + 1]]) as usize;
+        ret.rsn_capbilities = Some(Nl80211RsnCapbilities::parse(
+            payload
+                .get(offset..offset + 2)
+                .ok_or_else(wrong_buffer_len)?,
+        )?);
         offset += 2;
         if offset >= payload.len() {
             return Ok(ret);
         }
+
+        let pmkids_count = parse_u16_le(
+            payload
+                .get(offset..offset + 2)
+                .ok_or_else(wrong_buffer_len)?,
+        )? as usize;
+        offset += 2;
         for _ in 0..pmkids_count {
-            if offset + Nl80211Pmkid::LENGTH >= payload.len() {
-                return Ok(ret);
-            }
             ret.pmkids.push(Nl80211Pmkid::parse(
-                &payload[offset..offset + Nl80211Pmkid::LENGTH],
+                payload
+                    .get(offset..offset + Nl80211Pmkid::LENGTH)
+                    .ok_or_else(wrong_buffer_len)?,
             )?);
             offset += Nl80211Pmkid::LENGTH;
         }
-
-        if offset >= payload.len()
-            || offset + Nl80211CipherSuite::LENGTH >= payload.len()
-        {
+        if offset >= payload.len() {
             return Ok(ret);
         }
 
         ret.group_mgmt_cipher = Some(Nl80211CipherSuite::parse(
-            &payload[offset..offset + Nl80211CipherSuite::LENGTH],
+            payload
+                .get(offset..offset + Nl80211CipherSuite::LENGTH)
+                .ok_or_else(wrong_buffer_len)?,
         )?);
 
         Ok(ret)
@@ -577,56 +585,116 @@ impl Emitable for Nl80211ElementRsn {
     fn buffer_len(&self) -> usize {
         // version field
         let mut len = 2usize;
-        if self.group_cipher.is_none() {
-            return len;
-        } else {
-            len += Nl80211CipherSuite::LENGTH;
-        }
 
-        if self.pairwise_ciphers.is_empty() {
-            return len;
-        } else {
-            len += 2 + self.pairwise_ciphers.len() * Nl80211CipherSuite::LENGTH;
-        }
+        // If any of the following fields do have some content, the next field
+        // has to be parsed into bytes even if is 0 or 0 for the length
+        // field.
+        let fields_with_content = [
+            (self.group_cipher.is_some(), Nl80211CipherSuite::LENGTH),
+            (
+                !self.pairwise_ciphers.is_empty(),
+                2 + self.pairwise_ciphers.len() * Nl80211CipherSuite::LENGTH,
+            ),
+            (
+                !self.akm_suits.is_empty(),
+                2 + self.akm_suits.len() * Nl80211AkmSuite::LENGTH,
+            ),
+            (self.rsn_capbilities.is_some(), 2),
+            (
+                !self.pmkids.is_empty(),
+                2 + self.pmkids.len() * Nl80211Pmkid::LENGTH,
+            ),
+            (self.group_mgmt_cipher.is_some(), Nl80211CipherSuite::LENGTH),
+        ];
 
-        if self.akm_suits.is_empty() {
-            return len;
-        } else {
-            len += 2 + self.akm_suits.len() * Nl80211AkmSuite::LENGTH;
-        }
-
-        if self.rsn_capbilities.is_none() {
-            return len;
-        } else {
-            len += 2;
-        }
-
-        if self.pmkids.is_empty() {
-            return len;
-        } else {
-            len += 2 + self.pmkids.len() * Nl80211Pmkid::LENGTH;
-        }
-        if self.group_mgmt_cipher.is_none() {
-            return len;
-        } else {
-            len += Nl80211CipherSuite::LENGTH;
+        let mut i = 0;
+        while fields_with_content[i..].iter().any(|&(has_data,_)| has_data) {
+            len += fields_with_content[i].1;
+            i += 1;
         }
 
         len
     }
 
     fn emit(&self, buffer: &mut [u8]) {
-        write_u16_le(&mut buffer[0..2], self.version);
-        if let Some(g) = self.group_cipher {
-            write_u32_le(&mut buffer[2..6], u32::from(g));
-            write_u16_le(&mut buffer[6..8], self.pairwise_ciphers.len() as u16);
+        let mut position = 0;
+
+        write_u16_le(&mut buffer[position..], self.version);
+        position += 2;
+
+        // If any of the following fields do have some content, the next field
+        // has to be parsed into bytes even if is 0 or 0 for the length
+        // field.
+        let fields_with_content = [
+            self.group_cipher.is_some(),
+            !self.pairwise_ciphers.is_empty(),
+            !self.akm_suits.is_empty(),
+            self.rsn_capbilities.is_some(),
+            !self.pmkids.is_empty(),
+            self.group_mgmt_cipher.is_some(),
+        ];
+        let mut fields_with_content =
+            crate::helper::emit::FieldFlags::new(&fields_with_content);
+
+        if !fields_with_content.should_emit() {
+            return;
         }
-        for (i, cipher) in self.pairwise_ciphers.as_slice().iter().enumerate() {
-            write_u32_le(
-                &mut buffer[(8 + i * 4)..(12 + i * 4)],
-                u32::from(*cipher),
-            );
+
+        write_u32_le(
+            &mut buffer[position..],
+            u32::from(self.group_cipher.unwrap_or_default()),
+        );
+        position += 4;
+
+        if !fields_with_content.should_emit() {
+            return;
         }
+        write_u16_le(
+            &mut buffer[position..],
+            self.pairwise_ciphers.len() as u16,
+        );
+        position += 2;
+        for cipher in &self.pairwise_ciphers {
+            write_u32_le(&mut buffer[position..], u32::from(*cipher));
+            position += 4;
+        }
+
+        if !fields_with_content.should_emit() {
+            return;
+        }
+        write_u16_le(&mut buffer[position..], self.akm_suits.len() as u16);
+        position += 2;
+        for akm_suite in &self.akm_suits {
+            write_u32_le(&mut buffer[position..], u32::from(*akm_suite));
+            position += 4;
+        }
+
+        if !fields_with_content.should_emit() {
+            return;
+        }
+        write_u16_le(
+            &mut buffer[position..],
+            self.rsn_capbilities.unwrap_or_default().bits(),
+        );
+        position += 2;
+
+        if !fields_with_content.should_emit() {
+            return;
+        }
+        write_u16_le(&mut buffer[6..8], self.pairwise_ciphers.len() as u16);
+        position += 2;
+        for pkmid in &self.pmkids {
+            buffer[position..].copy_from_slice(&pkmid.0);
+            position += pkmid.0.len();
+        }
+
+        if !fields_with_content.should_emit() {
+            return;
+        }
+        write_u32_le(
+            &mut buffer[position..],
+            u32::from(self.group_mgmt_cipher.unwrap_or_default()),
+        );
     }
 }
 
@@ -988,4 +1056,61 @@ impl Nl80211Pmkid {
             Ok(Self(raw))
         }
     }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::macros::test::roundtrip_emit_parse_test;
+
+    roundtrip_emit_parse_test!(
+        ssid,
+        Nl80211Element,
+        Nl80211Element::Ssid("test-ssid".to_owned()),
+    );
+    roundtrip_emit_parse_test!(
+        rates_and_selectors,
+        Nl80211Element,
+        Nl80211Element::SupportedRatesAndSelectors(vec![
+            Nl80211RateAndSelector::BssBasicRateSet(1),
+            Nl80211RateAndSelector::Rate(1),
+            Nl80211RateAndSelector::SelectorHt,
+            Nl80211RateAndSelector::SelectorVht,
+            Nl80211RateAndSelector::SelectorGlk,
+        ])
+    );
+    roundtrip_emit_parse_test!(
+        channel,
+        Nl80211Element,
+        Nl80211Element::Channel(7)
+    );
+    roundtrip_emit_parse_test!(
+        country,
+        Nl80211Element,
+        Nl80211Element::Country(Nl80211ElementCountry {
+            country: "DE".to_owned(),
+            environment: Nl80211ElementCountryEnvironment::IndoorAndOutdoor,
+            triplets: vec![Nl80211ElementCountryTriplet::Subband(
+                Nl80211ElementSubBand {
+                    channel_start: 1,
+                    channel_count: 13,
+                    max_power_level: 20,
+                }
+            )],
+        }),
+    );
+
+    roundtrip_emit_parse_test!(
+        rsn,
+        Nl80211Element,
+        Nl80211Element::Rsn(Nl80211ElementRsn {
+            version: 1,
+            group_cipher: Some(Nl80211CipherSuite::Ccmp128),
+            pairwise_ciphers: vec![Nl80211CipherSuite::Ccmp128],
+            akm_suits: vec![Nl80211AkmSuite::Psk],
+            rsn_capbilities: None,
+            pmkids: Vec::new(),
+            group_mgmt_cipher: None,
+        })
+    );
 }
