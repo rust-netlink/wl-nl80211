@@ -172,11 +172,11 @@ impl Emitable for Nl80211Element {
                     v.as_slice().iter().map(|v| u8::from(*v)).collect();
                 payload.copy_from_slice(raw.as_slice());
             }
-            Self::Channel(v) => buffer[0] = *v,
-            Self::Country(v) => v.emit(buffer),
-            Self::Rsn(v) => v.emit(buffer),
-            Self::Vendor(v) => buffer[..v.len()].copy_from_slice(v.as_slice()),
-            Self::HtCapability(v) => v.emit(buffer),
+            Self::Channel(v) => payload[0] = *v,
+            Self::Country(v) => v.emit(payload),
+            Self::Rsn(v) => v.emit(payload),
+            Self::Vendor(v) => payload[..v.len()].copy_from_slice(v.as_slice()),
+            Self::HtCapability(v) => v.emit(payload),
             Self::Other(_, data) => {
                 payload.copy_from_slice(data.as_slice());
             }
@@ -193,9 +193,10 @@ const BSS_MEMBERSHIP_SELECTOR_HT_PHY: u8 = 127;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
 pub enum Nl80211RateAndSelector {
-    /// BSS basic rate set in Mb/s.
+    /// BSS basic rate in units of 500 kb/s, if necessary rounded up to the
+    /// next 500 kbs.
     BssBasicRateSet(u8),
-    /// Rate in Mb/s.
+    /// Rate in units of 500 kb/s, if necessary rounded up to the next 500 kbs.
     Rate(u8),
     SelectorHt,
     SelectorVht,
@@ -216,8 +217,9 @@ pub enum Nl80211RateAndSelector {
 
 impl From<u8> for Nl80211RateAndSelector {
     fn from(d: u8) -> Self {
-        let msb: bool = (d & 1 << 7) > 0;
-        let value = d & 0b01111111;
+        const MSB_MASK: u8 = 0b1000_0000;
+        let msb: bool = (d & MSB_MASK) == MSB_MASK;
+        let value = d & !MSB_MASK;
         if msb {
             match value {
                 BSS_MEMBERSHIP_SELECTOR_SAE_HASH => Self::SelectorSaeHash,
@@ -225,34 +227,35 @@ impl From<u8> for Nl80211RateAndSelector {
                 BSS_MEMBERSHIP_SELECTOR_GLK => Self::SelectorGlk,
                 BSS_MEMBERSHIP_SELECTOR_VHT_PHY => Self::SelectorVht,
                 BSS_MEMBERSHIP_SELECTOR_HT_PHY => Self::SelectorHt,
-                _ => Self::BssBasicRateSet(value / 2),
+                _ => Self::BssBasicRateSet(value),
             }
         } else {
-            Self::Rate(value / 2)
+            Self::Rate(value)
         }
     }
 }
 
 impl From<Nl80211RateAndSelector> for u8 {
     fn from(v: Nl80211RateAndSelector) -> u8 {
+        const MSB: u8 = 0b1000_0000;
         match v {
-            Nl80211RateAndSelector::BssBasicRateSet(r) => (r * 2) & 1 << 7,
+            Nl80211RateAndSelector::BssBasicRateSet(r) => r & !MSB | MSB,
             Nl80211RateAndSelector::SelectorHt => {
-                BSS_MEMBERSHIP_SELECTOR_HT_PHY & 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_HT_PHY | MSB
             }
             Nl80211RateAndSelector::SelectorVht => {
-                BSS_MEMBERSHIP_SELECTOR_VHT_PHY & 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_VHT_PHY | MSB
             }
             Nl80211RateAndSelector::SelectorGlk => {
-                BSS_MEMBERSHIP_SELECTOR_GLK & 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_GLK | MSB
             }
             Nl80211RateAndSelector::SelectorEpd => {
-                BSS_MEMBERSHIP_SELECTOR_EPD & 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_EPD | MSB
             }
             Nl80211RateAndSelector::SelectorSaeHash => {
-                BSS_MEMBERSHIP_SELECTOR_SAE_HASH & 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_SAE_HASH | MSB
             }
-            Nl80211RateAndSelector::Rate(r) => r * 2,
+            Nl80211RateAndSelector::Rate(r) => r,
         }
     }
 }
@@ -312,7 +315,7 @@ impl Emitable for Nl80211ElementCountry {
             buffer[0] = self.country.as_bytes()[0];
             buffer[1] = self.country.as_bytes()[1];
         }
-        buffer[3] = self.environment.into();
+        buffer[2] = self.environment.into();
         for (i, triplet) in self.triplets.as_slice().iter().enumerate() {
             triplet.emit(&mut buffer[(i + 1) * 3..(i + 2) * 3]);
         }
@@ -990,4 +993,47 @@ impl Nl80211Pmkid {
             Ok(Self(raw))
         }
     }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::macros::test::roundtrip_emit_parse_test;
+
+    roundtrip_emit_parse_test!(
+        ssid,
+        Nl80211Element,
+        Nl80211Element::Ssid("test-ssid".to_owned()),
+    );
+    roundtrip_emit_parse_test!(
+        rates_and_selectors,
+        Nl80211Element,
+        Nl80211Element::SupportedRatesAndSelectors(vec![
+            Nl80211RateAndSelector::BssBasicRateSet(1),
+            Nl80211RateAndSelector::Rate(1),
+            Nl80211RateAndSelector::SelectorHt,
+            Nl80211RateAndSelector::SelectorVht,
+            Nl80211RateAndSelector::SelectorGlk,
+        ])
+    );
+    roundtrip_emit_parse_test!(
+        channel,
+        Nl80211Element,
+        Nl80211Element::Channel(7)
+    );
+    roundtrip_emit_parse_test!(
+        country,
+        Nl80211Element,
+        Nl80211Element::Country(Nl80211ElementCountry {
+            country: "DE".to_owned(),
+            environment: Nl80211ElementCountryEnvironment::IndoorAndOutdoor,
+            triplets: vec![Nl80211ElementCountryTriplet::Subband(
+                Nl80211ElementSubBand {
+                    channel_start: 1,
+                    channel_count: 13,
+                    max_power_level: 20,
+                }
+            )],
+        }),
+    );
 }
