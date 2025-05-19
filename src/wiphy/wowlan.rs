@@ -78,7 +78,7 @@ pub enum Nl80211WowlanTriggersSupport {
     /// The matching is done on the MSDU, i.e.  as though the packet was an
     /// 802.3 packet, so the pattern matching is done after the packet is
     /// converted to the MSDU.
-    PktPattern(Nl80211WowlanTrigerPatternSupport),
+    PktPattern(Nl80211WowlanTriggerPatternSupport),
     /// Not a real trigger, and cannot be used when setting, used only to
     /// indicate that GTK rekeying is supported by the device.
     GtkRekeySupported,
@@ -95,7 +95,7 @@ pub enum Nl80211WowlanTriggersSupport {
     /// configured network is detected.
     NetDetect(u32),
     /// TCP connection wake.
-    TcpConnection(Vec<Nl80211WowlanTcpTrigerSupport>),
+    TcpConnection(Vec<Nl80211WowlanTcpTriggerSupport>),
     Other(DefaultNla),
 }
 
@@ -110,7 +110,7 @@ impl Nla for Nl80211WowlanTriggersSupport {
             | Self::EapIdentRequest
             | Self::FourWayHandshake
             | Self::RfkillRelease => 0,
-            Self::PktPattern(_) => Nl80211WowlanTrigerPatternSupport::LENGTH,
+            Self::PktPattern(_) => Nl80211WowlanTriggerPatternSupport::LENGTH,
             Self::NetDetect(_) => 4,
             Self::TcpConnection(s) => s.as_slice().buffer_len(),
             Self::Other(attr) => attr.value_len(),
@@ -167,7 +167,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             NL80211_WOWLAN_TRIG_4WAY_HANDSHAKE => Self::FourWayHandshake,
             NL80211_WOWLAN_TRIG_RFKILL_RELEASE => Self::RfkillRelease,
             NL80211_WOWLAN_TRIG_PKT_PATTERN => Self::PktPattern(
-                Nl80211WowlanTrigerPatternSupport::parse(payload)?,
+                Nl80211WowlanTriggerPatternSupport::parse(payload)?,
             ),
             NL80211_WOWLAN_TRIG_NET_DETECT => {
                 Self::NetDetect(parse_u32(payload).context(format!(
@@ -182,7 +182,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                         "Invalid NL80211_WOWLAN_TRIG_TCP_CONNECTION value {nla:?}"
                     );
                     let nla = &nla.context(err_msg.clone())?;
-                    nlas.push(Nl80211WowlanTcpTrigerSupport::parse(nla)?);
+                    nlas.push(Nl80211WowlanTcpTriggerSupport::parse(nla)?);
                 }
 
                 Self::TcpConnection(nlas)
@@ -196,14 +196,14 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
 
 /// Support status of WoWLAN trigger pattern
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Nl80211WowlanTrigerPatternSupport {
+pub struct Nl80211WowlanTriggerPatternSupport {
     pub max_patterns: u32,
     pub min_pattern_len: u32,
     pub max_pattern_len: u32,
     pub max_pkt_offset: u32,
 }
 
-impl Nl80211WowlanTrigerPatternSupport {
+impl Nl80211WowlanTriggerPatternSupport {
     const LENGTH: usize = 16;
 
     pub fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
@@ -227,7 +227,7 @@ impl Nl80211WowlanTrigerPatternSupport {
     }
 }
 
-impl Emitable for Nl80211WowlanTrigerPatternSupport {
+impl Emitable for Nl80211WowlanTriggerPatternSupport {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
@@ -254,7 +254,7 @@ const NL80211_WOWLAN_TCP_WAKE_MASK: u16 = 11;
 
 /// Supported WoWLAN TCP connection trigger
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Nl80211WowlanTcpTrigerSupport {
+pub enum Nl80211WowlanTcpTriggerSupport {
     SrcIpv4,
     DstIpv4,
     DstMac,
@@ -269,7 +269,7 @@ pub enum Nl80211WowlanTcpTrigerSupport {
     Other(DefaultNla),
 }
 
-impl Nla for Nl80211WowlanTcpTrigerSupport {
+impl Nla for Nl80211WowlanTcpTriggerSupport {
     fn value_len(&self) -> usize {
         match self {
             Self::SrcIpv4
@@ -323,7 +323,7 @@ impl Nla for Nl80211WowlanTcpTrigerSupport {
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211WowlanTcpTrigerSupport
+    for Nl80211WowlanTcpTriggerSupport
 {
     fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
         let payload = buf.value();
