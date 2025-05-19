@@ -61,7 +61,7 @@ const NL80211_WOWLAN_TRIG_NET_DETECT: u16 = 18;
 
 /// Supported WoWLAN trigger
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Nl80211WowlanTrigersSupport {
+pub enum Nl80211WowlanTriggersSupport {
     /// Wake up on any activity, do not really put the chip into a special
     /// state -- works best with chips that have support for low-power
     /// operation already.
@@ -99,7 +99,7 @@ pub enum Nl80211WowlanTrigersSupport {
     Other(DefaultNla),
 }
 
-impl Nla for Nl80211WowlanTrigersSupport {
+impl Nla for Nl80211WowlanTriggersSupport {
     fn value_len(&self) -> usize {
         match self {
             Self::Any
@@ -153,7 +153,7 @@ impl Nla for Nl80211WowlanTrigersSupport {
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211WowlanTrigersSupport
+    for Nl80211WowlanTriggersSupport
 {
     fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
         let payload = buf.value();

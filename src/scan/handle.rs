@@ -109,7 +109,7 @@ impl Nl80211AttrsBuilder<Nl80211Scan> {
     }
 
     /// Scan frequencies in MHz.
-    pub fn scan_frequncies(self, freqs: Vec<u32>) -> Self {
+    pub fn scan_frequencies(self, freqs: Vec<u32>) -> Self {
         self.replace(Nl80211Attr::ScanFrequencies(freqs))
     }
 

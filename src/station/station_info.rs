@@ -116,9 +116,9 @@ pub enum Nl80211StationInfo {
     StationFlags(Nl80211StationFlagUpdate),
     /// Timing offset with respect to this station
     TimingOffset(i64),
-    /// Local mesh staion link-specific power mode
+    /// Local mesh station link-specific power mode
     LocalPowerMode(Nl80211MeshPowerMode),
-    /// Peer mesh staion link-specific power mode
+    /// Peer mesh station link-specific power mode
     PeerPowerMode(Nl80211MeshPowerMode),
     /// Neighbor mesh station power save mode towards non-peer station
     NonPeerPowerMode(Nl80211MeshPowerMode),

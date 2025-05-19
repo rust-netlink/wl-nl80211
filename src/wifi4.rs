@@ -517,16 +517,16 @@ bitflags::bitflags! {
         const ExplicitTransmitCsiFeedbackImmediate = 1 << 12;
         /// Indicates this receiver can return delayed noncompressed
         /// beamforming feedback matrix explicit feedback
-        const ExplicitNoncompressedFeebackDelay = 1 << 13;
+        const ExplicitNoncompressedFeedbackDelay = 1 << 13;
         /// Indicates this receiver can return immediate noncompressed
         /// beamforming feedback matrix explicit feedback
-        const ExplicitNoncompressedFeebackImmediate = 1 << 14;
+        const ExplicitNoncompressedFeedbackImmediate = 1 << 14;
         /// Indicates this receiver can return delayed compressed
         /// beamforming feedback matrix explicit feedback
-        const ExplicitCompressedFeebackDelay = 1 << 15;
+        const ExplicitCompressedFeedbackDelay = 1 << 15;
         /// Indicates this receiver can return immediate compressed
         /// beamforming feedback matrix explicit feedback
-        const ExplicitCompressedFeebackImmediate = 1 << 16;
+        const ExplicitCompressedFeedbackImmediate = 1 << 16;
         /// Support 2 minimal groups used for explicit feedback report
         /// Unset means 1 minimal grouping.
         const MinimalGrouping2 = 1 << 17;

@@ -38,7 +38,7 @@ impl Nl80211InterfaceSetRequest {
             attributes: dbg!(attributes),
         };
         // TODO: is the in iw dev set
-        // I don't understand the correct seting of flags yet. In case of set
+        // I don't understand the correct setting of flags yet. In case of set
         // `iw` does not set any flag, but here NLM_F_REQUEST is always
         // set. Curentliy infreadead.org libnl documentation website is
         // down. These are the same flags as in scan.rs

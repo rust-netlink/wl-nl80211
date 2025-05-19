@@ -429,7 +429,7 @@ impl From<[u8; 3]> for Nl80211ElementSubBand {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Nl80211ElementOperating {
-    pub extention_id: u8,
+    pub extension_id: u8,
     pub operating_class: u8,
     /// The `aAirPropagationTime` is `coverage_class` * 3 in μs for range
     /// between 0 - 31. Bigger than 31 is reserved.
@@ -442,7 +442,7 @@ impl Emitable for Nl80211ElementOperating {
     }
 
     fn emit(&self, buffer: &mut [u8]) {
-        buffer[0] = self.extention_id;
+        buffer[0] = self.extension_id;
         buffer[1] = self.operating_class;
         buffer[2] = self.coverage_class;
     }
@@ -451,7 +451,7 @@ impl Emitable for Nl80211ElementOperating {
 impl From<[u8; 3]> for Nl80211ElementOperating {
     fn from(buf: [u8; 3]) -> Self {
         Self {
-            extention_id: buf[0],
+            extension_id: buf[0],
             operating_class: buf[1],
             coverage_class: buf[2],
         }

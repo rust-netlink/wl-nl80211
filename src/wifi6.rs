@@ -69,7 +69,7 @@ impl Nl80211HeMacCapInfo {
     pub fn roadcast_twt_support(&self) -> bool {
         get_bit(&self.0, 20)
     }
-    pub fn upport_32_bit_ba_bitmap(&self) -> bool {
+    pub fn support_32_bit_ba_bitmap(&self) -> bool {
         get_bit(&self.0, 21)
     }
     pub fn u_cascading_support(&self) -> bool {
@@ -130,7 +130,7 @@ impl Nl80211HeMacCapInfo {
     pub fn m_control_ul_mu_data_disable_rx_support(&self) -> bool {
         get_bit(&self.0, 44)
     }
-    pub fn e_dyanmic_sm_power_save(&self) -> bool {
+    pub fn e_dynamic_sm_power_save(&self) -> bool {
         get_bit(&self.0, 45)
     }
     pub fn unctured_sounding_support(&self) -> bool {
