@@ -48,7 +48,7 @@ use crate::{
     Nl80211InterfaceType, Nl80211InterfaceTypes, Nl80211MloLink,
     Nl80211ScanFlags, Nl80211SchedScanMatch, Nl80211SchedScanPlan,
     Nl80211StationInfo, Nl80211TransmitQueueStat, Nl80211VhtCapability,
-    Nl80211WowlanTrigersSupport,
+    Nl80211WowlanTriggersSupport,
 };
 
 const ETH_ALEN: usize = 6;
@@ -519,7 +519,7 @@ pub enum Nl80211Attr {
     /// in milliseconds
     MaxRemainOnChannelDuration(u32),
     OffchannelTxOk,
-    WowlanTrigersSupport(Vec<Nl80211WowlanTrigersSupport>),
+    WowlanTriggersSupport(Vec<Nl80211WowlanTriggersSupport>),
     SoftwareIftypes(Vec<Nl80211InterfaceType>),
     Features(Nl80211Features),
     ExtFeatures(Vec<Nl80211ExtFeature>),
@@ -644,7 +644,7 @@ impl Nla for Nl80211Attr {
                 Nl80211Commands::from(s).as_slice().buffer_len()
             }
             Self::MaxRemainOnChannelDuration(_) => 4,
-            Self::WowlanTrigersSupport(s) => s.as_slice().buffer_len(),
+            Self::WowlanTriggersSupport(s) => s.as_slice().buffer_len(),
             Self::SoftwareIftypes(s) => {
                 Nl80211InterfaceTypes::from(s).as_slice().buffer_len()
             }
@@ -743,7 +743,7 @@ impl Nla for Nl80211Attr {
                 NL80211_ATTR_MAX_REMAIN_ON_CHANNEL_DURATION
             }
             Self::OffchannelTxOk => NL80211_ATTR_OFFCHANNEL_TX_OK,
-            Self::WowlanTrigersSupport(_) => {
+            Self::WowlanTriggersSupport(_) => {
                 NL80211_ATTR_WOWLAN_TRIGGERS_SUPPORTED
             }
             Self::SoftwareIftypes(_) => NL80211_ATTR_SOFTWARE_IFTYPES,
@@ -864,7 +864,7 @@ impl Nla for Nl80211Attr {
                 Nl80211Commands::from(s).as_slice().emit(buffer)
             }
             Self::MaxRemainOnChannelDuration(d) => write_u32(buffer, *d),
-            Self::WowlanTrigersSupport(s) => s.as_slice().emit(buffer),
+            Self::WowlanTriggersSupport(s) => s.as_slice().emit(buffer),
             Self::SoftwareIftypes(s) => {
                 Nl80211InterfaceTypes::from(s).as_slice().emit(buffer)
             }
@@ -1250,9 +1250,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                         value {nla:?}"
                     );
                     let nla = &nla.context(err_msg.clone())?;
-                    nlas.push(Nl80211WowlanTrigersSupport::parse(nla)?);
+                    nlas.push(Nl80211WowlanTriggersSupport::parse(nla)?);
                 }
-                Self::WowlanTrigersSupport(nlas)
+                Self::WowlanTriggersSupport(nlas)
             }
             NL80211_ATTR_OFFCHANNEL_TX_OK => Self::OffchannelTxOk,
             NL80211_ATTR_SOFTWARE_IFTYPES => Self::SoftwareIftypes(

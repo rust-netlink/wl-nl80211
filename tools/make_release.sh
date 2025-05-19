@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 MAIN_BRANCH_NAME="main"
-UPSTERAM_GIT="https://github.com/rust-netlink/wl-nl80211.git"
+UPSTREAM_GIT="https://github.com/rust-netlink/wl-nl80211.git"
 TMP_CHANGELOG_FILE=$(mktemp)
 EDITOR="${EDITOR:-vim}"
 
@@ -19,7 +19,7 @@ then
 fi
 
 
-CHANGLOG_FORMAT="
+CHANGELOG_FORMAT="
 ### Breaking changes\n\
  - N/A\n\
 \n\
@@ -50,7 +50,7 @@ NEXT_VERSION="${CUR_MAJOR_VERSION}.$((CUR_MINOR_VERSION + 1)).0";
 
 git branch new_release || true
 git checkout new_release
-git fetch upstream || (git remote add upstream $UPSTERAM_GIT; \
+git fetch upstream || (git remote add upstream $UPSTREAM_GIT; \
     git fetch upstream)
 git reset --hard upstream/$MAIN_BRANCH_NAME
 
@@ -60,7 +60,7 @@ cargo publish --dry-run --allow-dirty
 
 echo "# Changelog" > $TMP_CHANGELOG_FILE
 echo "## [$NEXT_VERSION] - $(date +%F)" >> $TMP_CHANGELOG_FILE
-echo -e $CHANGLOG_FORMAT >> $TMP_CHANGELOG_FILE
+echo -e $CHANGELOG_FORMAT >> $TMP_CHANGELOG_FILE
 git log --oneline --format=" - %s. (%h)" \
     v${CUR_VERSION}..upstream/$MAIN_BRANCH_NAME -- | \
     grep -v -E '^ - test:' | \

@@ -20,7 +20,7 @@ pub use self::ifmode::Nl80211IfMode;
 pub use self::set::Nl80211ChannelSwitchRequest;
 pub use self::wowlan::{
     Nl80211WowlanTcpTrigerSupport, Nl80211WowlanTrigerPatternSupport,
-    Nl80211WowlanTrigersSupport,
+    Nl80211WowlanTriggersSupport,
 };
 
 pub(crate) use self::command::Nl80211Commands;

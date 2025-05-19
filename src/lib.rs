@@ -86,7 +86,7 @@ pub use self::wiphy::{
     Nl80211Channel, Nl80211ChannelSwitchRequest, Nl80211CipherSuit,
     Nl80211Frequency, Nl80211FrequencyInfo, Nl80211IfMode,
     Nl80211WiphyGetRequest, Nl80211WiphyHandle, Nl80211WowlanTcpTrigerSupport,
-    Nl80211WowlanTrigerPatternSupport, Nl80211WowlanTrigersSupport,
+    Nl80211WowlanTrigerPatternSupport, Nl80211WowlanTriggersSupport,
 };
 
 pub(crate) use self::element::Nl80211Elements;
