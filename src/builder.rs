@@ -63,6 +63,6 @@ impl<T> Nl80211AttrsBuilder<T> {
     }
 
     pub fn ssid(self, ssid: &str) -> Self {
-        self.append(Nl80211Attr::Ssid(ssid.to_string()))
+        self.append(Nl80211Attr::Ssid(bstr::BString::from(ssid)))
     }
 }

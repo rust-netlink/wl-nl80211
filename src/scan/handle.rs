@@ -8,6 +8,7 @@ use crate::{
     Nl80211ScanScheduleStopRequest, Nl80211ScanTriggerRequest,
     Nl80211SchedScanMatch, Nl80211SchedScanPlan,
 };
+use bstr::BString;
 
 #[derive(Debug, Clone)]
 pub struct Nl80211ScanHandle(Nl80211Handle);
@@ -60,14 +61,14 @@ impl Nl80211Scan {
     pub fn new(if_index: u32) -> Nl80211AttrsBuilder<Self> {
         Nl80211AttrsBuilder::<Self>::new()
             .if_index(if_index)
-            .ssids(vec!["".to_string()])
+            .ssids(vec![BString::from("")])
     }
 }
 
 impl Nl80211AttrsBuilder<Nl80211Scan> {
     /// SSIDs to send probe request during active scan.
     /// `vec!["".to_string()]` means wildcard.
-    pub fn ssids(self, ssids: Vec<String>) -> Self {
+    pub fn ssids(self, ssids: Vec<BString>) -> Self {
         self.replace(Nl80211Attr::ScanSsids(ssids))
     }
 
@@ -87,7 +88,7 @@ impl Nl80211AttrsBuilder<Nl80211Scan> {
         if value {
             self.remove(Nl80211Attr::ScanSsids(Vec::new()).kind())
         } else {
-            self.replace(Nl80211Attr::ScanSsids(vec!["".to_string()]))
+            self.replace(Nl80211Attr::ScanSsids(vec![BString::from("")]))
         }
     }
 

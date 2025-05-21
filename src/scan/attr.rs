@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 
+use bstr::{BString, ByteSlice};
 use netlink_packet_core::{
-    parse_string, parse_u32, DecodeError, Emitable, ErrorContext, Nla,
-    NlasIterator, Parseable,
+    parse_u32, DecodeError, Emitable, ErrorContext, Nla, NlasIterator,
+    Parseable,
 };
 
 use crate::bytes::write_u32;
@@ -12,7 +13,7 @@ use crate::Nl80211Attr;
 #[derive(Debug, Clone)]
 pub(crate) struct Nla80211ScanSsidNla {
     index: u16,
-    ssid: String,
+    ssid: BString,
 }
 
 impl Nla for Nla80211ScanSsidNla {
@@ -41,21 +42,23 @@ impl std::ops::Deref for Nla80211ScanSsidNlas {
     }
 }
 
-impl From<&Vec<String>> for Nla80211ScanSsidNlas {
-    fn from(ssids: &Vec<String>) -> Self {
-        let mut nlas = Vec::new();
-        for (i, ssid) in ssids.iter().enumerate() {
-            let nla = Nla80211ScanSsidNla {
-                index: i as u16,
-                ssid: ssid.to_string(),
-            };
-            nlas.push(nla);
-        }
-        Nla80211ScanSsidNlas(nlas)
+impl From<&Vec<BString>> for Nla80211ScanSsidNlas {
+    fn from(ssids: &Vec<BString>) -> Self {
+        Nla80211ScanSsidNlas(
+            ssids
+                .iter()
+                .cloned()
+                .enumerate()
+                .map(|(i, ssid)| Nla80211ScanSsidNla {
+                    index: i as u16,
+                    ssid,
+                })
+                .collect(),
+        )
     }
 }
 
-impl From<Nla80211ScanSsidNlas> for Vec<String> {
+impl From<Nla80211ScanSsidNlas> for Vec<BString> {
     fn from(ssids: Nla80211ScanSsidNlas) -> Self {
         let mut ssids = ssids;
         ssids.0.drain(..).map(|c| c.ssid).collect()
@@ -68,7 +71,7 @@ impl Nla80211ScanSsidNlas {
         for (index, nla) in NlasIterator::new(payload).enumerate() {
             let error_msg = format!("Invalid NL80211_ATTR_SCAN_SSIDS: {nla:?}");
             let nla = &nla.context(error_msg.clone())?;
-            let ssid = parse_string(nla.value())
+            let ssid = crate::attr::parse_bstring(nla.value())
                 .context(format!("Invalid NL80211_ATTR_SCAN_SSIDS: {nla:?}"))?;
             ssids.push(Nla80211ScanSsidNla {
                 index: index as u16,

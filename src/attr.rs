@@ -29,8 +29,9 @@
  *
  */
 
+use bstr::BString;
 use netlink_packet_core::{
-    parse_string, parse_u16, parse_u32, parse_u64, parse_u8, DecodeError,
+    parse_u16, parse_u32, parse_u64, parse_u8, DecodeError,
     DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer, NlasIterator,
     Parseable, ParseableParametrized,
 };
@@ -49,6 +50,21 @@ use crate::{
     Nl80211StationInfo, Nl80211SurveyInfo, Nl80211TransmitQueueStat,
     Nl80211VhtCapability, Nl80211WowlanTriggersSupport,
 };
+
+// TODO: move to netlink_packet_utils
+pub fn parse_bstring(payload: &[u8]) -> Result<BString, DecodeError> {
+    if payload.is_empty() {
+        return Ok(BString::new(Vec::new()));
+    }
+    // iproute2 is a bit inconsistent with null-terminated strings.
+    let slice = if payload[payload.len() - 1] == 0 {
+        &payload[..payload.len() - 1]
+    } else {
+        &payload[..payload.len()]
+    };
+    let s = BString::new(slice.to_vec());
+    Ok(s)
+}
 
 const ETH_ALEN: usize = 6;
 
@@ -459,9 +475,9 @@ const NL80211_ATTR_MAX_HW_TIMESTAMP_PEERS: u16 = 323;
 #[non_exhaustive]
 pub enum Nl80211Attr {
     Wiphy(u32),
-    WiphyName(String),
+    WiphyName(BString),
     IfIndex(u32),
-    IfName(String),
+    IfName(BString),
     IfType(Nl80211InterfaceType),
     IfTypeExtCap(Vec<Nl80211IfTypeExtCapa>),
     Mac([u8; ETH_ALEN]),
@@ -477,7 +493,7 @@ pub enum Nl80211Attr {
     CenterFreq1(u32),
     CenterFreq2(u32),
     WiphyTxPowerLevel(u32),
-    Ssid(String),
+    Ssid(BString),
     StationInfo(Vec<Nl80211StationInfo>),
     SurveyInfo(Vec<Nl80211SurveyInfo>),
     TransmitQueueStats(Vec<Nl80211TransmitQueueStat>),
@@ -550,7 +566,7 @@ pub enum Nl80211Attr {
     MaxHwTimestampPeers(u16),
     /// Basic Service Set (BSS)
     Bss(Vec<Nl80211BssInfo>),
-    ScanSsids(Vec<String>),
+    ScanSsids(Vec<BString>),
     ScanFlags(Nl80211ScanFlags),
     MeasurementDuration(u16),
     /// Scan interval in millisecond(ms)
@@ -829,7 +845,7 @@ impl Nla for Nl80211Attr {
                 MacAddressNlas::from(s).as_slice().emit(buffer)
             }
             Self::IfName(s) | Self::Ssid(s) | Self::WiphyName(s) => {
-                buffer[..s.len()].copy_from_slice(s.as_bytes());
+                buffer[..s.len()].copy_from_slice(s.as_slice());
                 buffer[s.len()] = 0;
             }
             Self::Use4Addr(d) => buffer[0] = *d as u8,
@@ -930,12 +946,12 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 let err_msg = format!(
                     "Invalid NL80211_ATTR_WIPHY_NAME value {payload:?}"
                 );
-                Self::WiphyName(parse_string(payload).context(err_msg)?)
+                Self::WiphyName(parse_bstring(payload).context(err_msg)?)
             }
             NL80211_ATTR_IFNAME => {
                 let err_msg =
                     format!("Invalid NL80211_ATTR_IFNAME value {payload:?}");
-                Self::IfName(parse_string(payload).context(err_msg)?)
+                Self::IfName(parse_bstring(payload).context(err_msg)?)
             }
             NL80211_ATTR_IFTYPE => {
                 Self::IfType(Nl80211InterfaceType::parse(payload)?)
@@ -1040,7 +1056,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             NL80211_ATTR_SSID => {
                 let err_msg =
                     format!("Invalid NL80211_ATTR_SSID value {payload:?}");
-                Self::Ssid(parse_string(payload).context(err_msg)?)
+                Self::Ssid(parse_bstring(payload).context(err_msg)?)
             }
             NL80211_ATTR_STA_INFO => {
                 let err_msg =
