@@ -33,15 +33,8 @@ impl Nl80211InterfaceSetRequest {
 
         let nl80211_msg = Nl80211Message {
             cmd: Nl80211Command::SetInterface,
-            // TODO: Should this be open to every attribute or restricted to
-            // Interface ATTR?
-            attributes: dbg!(attributes),
+            attributes,
         };
-        // TODO: is the in iw dev set
-        // I don't understand the correct setting of flags yet. In case of set
-        // `iw` does not set any flag, but here NLM_F_REQUEST is always
-        // set. Curentliy infreadead.org libnl documentation website is
-        // down. These are the same flags as in scan.rs
         let flags = NLM_F_REQUEST | NLM_F_ACK;
 
         nl80211_execute(&mut handle, nl80211_msg, flags).await

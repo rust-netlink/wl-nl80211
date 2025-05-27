@@ -31,7 +31,7 @@
 use std::fmt::Debug;
 
 use netlink_packet_core::{
-    parse_u32, parse_u64, DecodeError, DefaultNla, Emitable, ErrorContext, Nla,
+    parse_i8, parse_u32, parse_u64, DecodeError, DefaultNla, Emitable, ErrorContext, Nla,
     NlaBuffer, Parseable,
 };
 
@@ -113,15 +113,6 @@ impl Nla for Nl80211SurveyInfo {
             Self::Other(ref attr) => attr.emit(buffer),
         }
     }
-}
-
-// TODO: Use netlink_packet_core version, once released.
-pub fn parse_i8(payload: &[u8]) -> Result<i8, DecodeError> {
-    if payload.len() != 1 {
-        return Err(format!("invalid i8: {payload:?}").into());
-    }
-    #[allow(clippy::cast_sign_loss)]
-    Ok(payload[0] as i8)
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
