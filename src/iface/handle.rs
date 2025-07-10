@@ -33,8 +33,11 @@ impl Nl80211InterfaceHandle {
 
     /// Retrieve the wireless interfaces
     /// (equivalent to `iw dev`)
-    pub fn get(&mut self) -> Nl80211InterfaceGetRequest {
-        Nl80211InterfaceGetRequest::new(self.0.clone())
+    pub fn get(
+        &mut self,
+        attributes: Vec<Nl80211Attr>,
+    ) -> Nl80211InterfaceGetRequest {
+        Nl80211InterfaceGetRequest::new(self.0.clone(), attributes)
     }
 
     /// Set wireless interfaces attributes
