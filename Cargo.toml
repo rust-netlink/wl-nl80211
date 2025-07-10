@@ -38,6 +38,7 @@ netlink-sys = { version = "0.8.4" }
 
 [dev-dependencies]
 env_logger = "0.9.0"
+anyhow = "1.0.100"
 
 [dev-dependencies.tokio]
 version = "1.11.0"
