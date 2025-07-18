@@ -124,7 +124,7 @@ impl Emitable for Nl80211HtCaps {
     }
 
     fn emit(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&self.bits().to_ne_bytes())
+        buffer[0..self.buffer_len()].copy_from_slice(&self.bits().to_ne_bytes())
     }
 }
 
@@ -470,9 +470,9 @@ impl From<Nl80211HtExtendedCap> for [u8; 2] {
     fn from(v: Nl80211HtExtendedCap) -> [u8; 2] {
         [
             v.pco as u8 | (v.pco_trans_time << 1) | (v.mcs_feedback & 0b1) << 7,
-            ((v.mcs_feedback & 0b10) >> 1)
-                | ((v.support_ht_control as u8) << 1)
-                | ((v.rd_responder as u8) << 2),
+            (v.mcs_feedback & 0b11)
+                | ((v.support_ht_control as u8) << 2)
+                | ((v.rd_responder as u8) << 3),
         ]
     }
 }
@@ -627,7 +627,7 @@ impl Emitable for Nl80211HtTransmitBeamformingCaps {
     }
 
     fn emit(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&self.bits().to_ne_bytes())
+        buffer[0..self.buffer_len()].copy_from_slice(&self.bits().to_ne_bytes())
     }
 }
 
@@ -675,6 +675,94 @@ impl Emitable for Nl80211HtAselCaps {
     }
 
     fn emit(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&self.bits().to_ne_bytes())
+        buffer[0..self.buffer_len()].copy_from_slice(&self.bits().to_ne_bytes())
     }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::macros::test::{roundtrip_emit_parse_test, roundtrip_from_test};
+
+    roundtrip_emit_parse_test!(caps, Nl80211HtCaps, Nl80211HtCaps::all());
+    roundtrip_emit_parse_test!(
+        asel_caps,
+        Nl80211HtAselCaps,
+        Nl80211HtAselCaps::all()
+    );
+    roundtrip_emit_parse_test!(
+        transmit_beamforming_cap,
+        Nl80211HtTransmitBeamformingCaps,
+        Nl80211HtTransmitBeamformingCaps::all(),
+    );
+
+    roundtrip_from_test!(tx_params, Nl80211HtTxParameter => u8, Nl80211HtTxParameter {
+        mcs_set_defined: false,
+        tx_rx_mcs_set_not_equal: false,
+        max_spatial_streams: 1,
+        unequal_modulation_supported: false,
+    });
+
+    roundtrip_from_test!(ht_wiphy_no_ht, Nl80211HtWiphyChannelType => u32, Nl80211HtWiphyChannelType::NoHt);
+    roundtrip_from_test!(ht_wiphy_ht_20, Nl80211HtWiphyChannelType => u32, Nl80211HtWiphyChannelType::Ht20);
+    roundtrip_from_test!(ht_wiphy_other, Nl80211HtWiphyChannelType => u32, Nl80211HtWiphyChannelType::Other(NL80211_CHAN_HT40PLUS + 1));
+
+    roundtrip_emit_parse_test!(
+        mcs_info,
+        Nl80211HtMcsInfo,
+        Nl80211HtMcsInfo {
+            rx_mask: [0xA5; IEEE80211_HT_MCS_MASK_LEN],
+            rx_highest: u16::MAX,
+            tx_params: Nl80211HtTxParameter {
+                mcs_set_defined: false,
+                tx_rx_mcs_set_not_equal: false,
+                max_spatial_streams: 1,
+                unequal_modulation_supported: false,
+            },
+        },
+    );
+
+    roundtrip_from_test!(a_mpdu_para, Nl80211HtAMpduPara => u8, Nl80211HtAMpduPara {
+        max_len_exponent: u8::MAX & 0b11,
+        min_space: u8::MAX & 0b111,
+    });
+
+    roundtrip_from_test!(extend_cap, Nl80211HtExtendedCap => [u8; 2], Nl80211HtExtendedCap {
+        pco: true,
+        pco_trans_time: 1,
+        mcs_feedback: 1,
+        support_ht_control: true,
+        rd_responder: true,
+    });
+
+    roundtrip_emit_parse_test!(
+        cap_mask,
+        Nl80211ElementHtCap,
+        Nl80211ElementHtCap {
+            caps: Nl80211HtCaps::all(),
+            a_mpdu_para: Nl80211HtAMpduPara {
+                max_len_exponent: 3,
+                min_space: 7,
+            },
+            mcs_set: Nl80211HtMcsInfo {
+                rx_mask: [0xA5; IEEE80211_HT_MCS_MASK_LEN],
+                rx_highest: u16::MAX,
+                tx_params: Nl80211HtTxParameter {
+                    mcs_set_defined: false,
+                    tx_rx_mcs_set_not_equal: false,
+                    max_spatial_streams: 1,
+                    unequal_modulation_supported: false,
+                },
+            },
+            ht_ext_cap: Nl80211HtExtendedCap {
+                pco: true,
+                pco_trans_time: 2,
+                mcs_feedback: 2,
+                support_ht_control: true,
+                rd_responder: true,
+            },
+            transmit_beamforming_cap: Nl80211HtTransmitBeamformingCaps::all(),
+            asel_cap: Nl80211HtAselCaps::all(),
+        },
+    );
 }
