@@ -907,13 +907,13 @@ bitflags::bitflags! {
         /// with a pairwise key.
         const NoPairwise = RSN_CAP_NO_PAIRWISE;
         /// When Both PtksaReplayCount2 and PtksaReplayCount4 are set,
-        /// it means 16 replay conters per PTKSA.
+        /// it means 16 replay counters per PTKSA.
         /// When Neither PtksaReplayCount2 or PtksaReplayCount4 is set,
         /// it means 1 reply counter per PTKSA
         const PtksaReplayCount2 = RSN_CAP_PTKSA_REPLAY_COUNT_2;
         const PtksaReplayCount4 = RSN_CAP_PTKSA_REPLAY_COUNT_4;
         /// When Both GtksaReplayCount2 and GtksaReplayCount4 are set,
-        /// it means 16 replay conters per GTKSA.
+        /// it means 16 replay counters per GTKSA.
         /// When Neither GtksaReplayCount2 or GtksaReplayCount4 is set,
         /// it means 1 reply counter per GTKSA
         const GtksaReplayCount2 = RSN_CAP_GTKSA_REPLAY_COUNT_2;
