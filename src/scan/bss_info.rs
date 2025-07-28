@@ -41,7 +41,7 @@ use netlink_packet_utils::{
 
 use crate::{
     bytes::{write_i32, write_u16, write_u32, write_u64},
-    Nl80211Element, Nl80211Elements,
+    RawNl80211Elements,
 };
 
 bitflags::bitflags! {
@@ -157,15 +157,15 @@ pub enum Nl80211BssInfo {
     /// Beacon interval of the (I)BSS
     BeaconInterval(u16),
     Capability(Nl80211BssCapabilities),
-    InformationElements(Vec<Nl80211Element>),
+    InformationElements(RawNl80211Elements),
     SignalMbm(i32),
     SignalUnspec(u8),
     Status(u32),
     SeenMsAgo(u32),
-    BeaconInformationElements(Vec<Nl80211Element>),
+    BeaconInformationElements(RawNl80211Elements),
     ChanWidth(u32),
     BeaconTsf(u64),
-    ProbeResponseInformationElements(Vec<Nl80211Element>),
+    ProbeResponseInformationElements(RawNl80211Elements),
     /// `CLOCK_BOOTTIME` timestamp when this entry was last updated by a
     /// received frame. The value is expected to be accurate to about 10ms.
     /// (u64, nanoseconds)
@@ -191,9 +191,7 @@ impl Nla for Nl80211BssInfo {
             Self::BeaconTsf(_) | Self::Tsf(_) | Self::LastSeenBootTime(_) => 8,
             Self::InformationElements(v)
             | Self::BeaconInformationElements(v)
-            | Self::ProbeResponseInformationElements(v) => {
-                Nl80211Elements::from(v).buffer_len()
-            }
+            | Self::ProbeResponseInformationElements(v) => v.buffer_len(),
             Self::Capability(_) => Nl80211BssCapabilities::LENGTH,
             Self::UseFor(_) => Nl80211BssUseFor::LENGTH,
             Self::Other(attr) => attr.value_len(),
@@ -239,9 +237,7 @@ impl Nla for Nl80211BssInfo {
             }
             Self::InformationElements(v)
             | Self::BeaconInformationElements(v)
-            | Self::ProbeResponseInformationElements(v) => {
-                Nl80211Elements::from(v).emit(buffer)
-            }
+            | Self::ProbeResponseInformationElements(v) => v.emit(buffer),
             Self::Capability(v) => v.emit(buffer),
             Self::UseFor(v) => v.emit(buffer),
             Self::Other(ref attr) => attr.emit(buffer),
@@ -286,13 +282,13 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 Self::Capability(Nl80211BssCapabilities::parse(payload)?)
             }
             NL80211_BSS_BEACON_IES => Self::BeaconInformationElements(
-                Nl80211Elements::parse(payload)?.into(),
+                RawNl80211Elements::parse(payload)?,
             ),
-            NL80211_BSS_INFORMATION_ELEMENTS => Self::InformationElements(
-                Nl80211Elements::parse(payload)?.into(),
-            ),
+            NL80211_BSS_INFORMATION_ELEMENTS => {
+                Self::InformationElements(RawNl80211Elements::parse(payload)?)
+            }
             NL80211_BSS_PRESP_DATA => Self::ProbeResponseInformationElements(
-                Nl80211Elements::parse(payload)?.into(),
+                RawNl80211Elements::parse(payload)?,
             ),
             NL80211_BSS_SIGNAL_MBM => {
                 let err_msg =

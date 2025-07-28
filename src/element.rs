@@ -11,7 +11,41 @@ use crate::{
     Nl80211ElementHtCap,
 };
 
-pub(crate) struct Nl80211Elements(Vec<Nl80211Element>);
+/// Unparsed representation of IEEE 802.11-2020 `9.4.2 Elements`
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct RawNl80211Elements(pub Vec<u8>);
+
+impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for RawNl80211Elements {
+    fn parse(raw: &T) -> Result<Self, DecodeError> {
+        let v = Vec::from(raw.as_ref());
+        Ok(RawNl80211Elements::from(v))
+    }
+}
+
+impl Parseable<RawNl80211Elements> for Nl80211Elements {
+    fn parse(raw: &RawNl80211Elements) -> Result<Self, DecodeError> {
+        Nl80211Elements::parse(&raw.0)
+    }
+}
+
+impl Emitable for RawNl80211Elements {
+    fn buffer_len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn emit(&self, buffer: &mut [u8]) {
+        buffer.copy_from_slice(self.0.as_slice());
+    }
+}
+
+impl From<Vec<u8>> for RawNl80211Elements {
+    fn from(value: Vec<u8>) -> Self {
+        RawNl80211Elements(value)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Nl80211Elements(Vec<Nl80211Element>);
 
 impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211Elements {
     fn parse(buf: &T) -> Result<Self, DecodeError> {
