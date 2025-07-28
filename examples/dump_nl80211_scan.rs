@@ -4,6 +4,8 @@ use std::env::args;
 
 use anyhow::{bail, Context, Error};
 use futures::stream::TryStreamExt;
+use netlink_packet_utils::{Emitable, Parseable};
+use wl_nl80211::Nl80211Element;
 
 fn main() -> Result<(), Error> {
     let argv: Vec<_> = args().collect();
@@ -38,5 +40,21 @@ async fn dump_scan(if_index: u32) {
     assert!(!msgs.is_empty());
     for msg in msgs {
         println!("{msg:?}");
+
+        println!("Information Elements");
+        let ie: Vec<_> =
+            msg.payload.attributes.iter().filter_map(|attr| match attr {
+                wl_nl80211::Nl80211Attr::Bss(info) => {
+                    let ies: Vec<_>  = info.iter().filter_map(|info| match info {
+                    wl_nl80211::Nl80211BssInfo::BeaconInformationElements(ie)| wl_nl80211::Nl80211BssInfo::InformationElements(ie) | wl_nl80211::Nl80211BssInfo::ProbeResponseInformationElements(ie) =>
+                        Some(wl_nl80211::Nl80211Elements::parse(ie).unwrap()),
+                        _ => None,
+                    }).collect();
+                    Some(ies)
+                },
+                _ => None,
+            }).flatten().collect();
+
+        println!("{ie:?}");
     }
 }
