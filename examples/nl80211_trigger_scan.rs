@@ -41,7 +41,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn dump_scan(if_index: u32) -> Result<(), Box<dyn std::error::Error>> {
-    let (connection, handle, _) = wl_nl80211::new_connection()?;
     let (mut connection, handle, mut messages) = wl_nl80211::new_connection()?;
 
     // Attach the connection socket to the multicast scan group to find out,
