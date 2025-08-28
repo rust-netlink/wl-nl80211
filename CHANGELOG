@@ -1,4 +1,21 @@
 # Changelog
+## [0.3.0] - 2024-09-21
+### Breaking changes
+ - Replace `Nl80211Cmd` with `Nl80211Command`. (21896a4)
+
+### New features
+ - Support querying scan results. (3adb7b9)
+ - Support parsing HT(WIFI4) capability. (dc5cc16)
+ - Support scaning trigger and schedule. (c0dcf88)
+ - Support setting phy parameters. (25aef4e)
+ - Support changing interface type. (2d86585)
+ - Support specifying the interface on a get reques. (97bf087)
+ - Support dumpping survey. (cd9907f)
+
+### Bug fixes
+ - Fix Nl80211Element parser to allow zero-length elements. (7d4f45a)
+ - Use latest rust-netlink crates. (1fc0a2e)
+
 ## [0.2.0] - 2024-09-21
 ### Breaking changes
  - Changed `Nl80211Attr::WiPhyFreq` to `Nl80211Attr::WiphyFreq`. (2a4dbe1)
