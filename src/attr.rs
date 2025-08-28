@@ -29,11 +29,10 @@
  *
  */
 
-use anyhow::Context;
-use netlink_packet_utils::{
-    nla::{DefaultNla, Nla, NlaBuffer, NlasIterator},
-    parsers::{parse_string, parse_u16, parse_u32, parse_u64, parse_u8},
-    DecodeError, Emitable, Parseable, ParseableParametrized,
+use netlink_packet_core::{
+    parse_string, parse_u16, parse_u32, parse_u64, parse_u8, DecodeError,
+    DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer, NlasIterator,
+    Parseable, ParseableParametrized,
 };
 
 use crate::{

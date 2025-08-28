@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-use anyhow::Context;
-use netlink_packet_utils::{
-    nla::{DefaultNla, Nla, NlaBuffer, NlasIterator},
-    parsers::parse_u8,
-    DecodeError, Emitable, Parseable,
+use netlink_packet_core::{
+    parse_u8, DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
+    NlasIterator, Parseable,
 };
 
 const ETH_ALEN: usize = 6;

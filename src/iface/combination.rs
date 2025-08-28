@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-use anyhow::Context;
-use netlink_packet_utils::{
-    nla::{DefaultNla, Nla, NlaBuffer, NlasIterator},
-    parsers::parse_u32,
-    DecodeError, Emitable, Parseable, ParseableParametrized,
+use netlink_packet_core::{
+    parse_u32, DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
+    NlasIterator, Parseable, ParseableParametrized,
 };
 
 use crate::{bytes::write_u32, Nl80211InterfaceType, Nl80211InterfaceTypes};

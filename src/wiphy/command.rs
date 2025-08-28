@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-use anyhow::Context;
-
-use netlink_packet_utils::{
-    nla::{Nla, NlasIterator},
-    parsers::parse_u32,
-    DecodeError,
+use netlink_packet_core::{
+    parse_u32, DecodeError, ErrorContext, Nla, NlasIterator,
 };
 
 use crate::{bytes::write_u32, Nl80211Command};

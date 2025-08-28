@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-use netlink_packet_utils::{
-    nla::{Nla, NlaBuffer},
-    DecodeError, Parseable,
-};
+use netlink_packet_core::{DecodeError, Nla, NlaBuffer, Parseable};
 
 const NL80211_IFTYPE_ADHOC: u16 = 1;
 const NL80211_IFTYPE_STATION: u16 = 2;

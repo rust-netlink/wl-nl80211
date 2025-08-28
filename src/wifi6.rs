@@ -2,10 +2,7 @@
 
 // Hold WIFI6 (802.11ax) specific data types.
 
-use netlink_packet_utils::{
-    traits::{Emitable, Parseable},
-    DecodeError,
-};
+use netlink_packet_core::{DecodeError, Emitable, Parseable};
 
 use crate::bytes::{get_bit, get_bits_as_u8, write_u16_le};
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-use netlink_packet_utils::{DecodeError, Emitable};
+use netlink_packet_core::{DecodeError, Emitable};
 
 const NL80211_FEATURE_SK_TX_STATUS: u32 = 1 << 0;
 const NL80211_FEATURE_HT_IBSS: u32 = 1 << 1;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-use netlink_packet_utils::DecodeError;
+use netlink_packet_core::DecodeError;
 
 pub(crate) fn write_u16(buffer: &mut [u8], value: u16) {
     buffer[..2].copy_from_slice(&value.to_ne_bytes())

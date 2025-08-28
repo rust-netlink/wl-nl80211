@@ -2,10 +2,9 @@
 
 // Hold WIFI 4(802.11n) specific data types
 
-use anyhow::Context;
-use netlink_packet_utils::{
-    parsers::{parse_u16, parse_u32, parse_u8},
-    DecodeError, Emitable, Parseable,
+use netlink_packet_core::{
+    parse_u16, parse_u32, parse_u8, DecodeError, Emitable, ErrorContext,
+    Parseable,
 };
 
 use crate::bytes::{get_bit, get_bits_as_u8, write_u16_le};
