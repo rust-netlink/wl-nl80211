@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-use anyhow::Context;
-use byteorder::{ByteOrder, NativeEndian};
-use netlink_packet_utils::{
-    nla::{DefaultNla, Nla, NlaBuffer, NlasIterator},
-    parsers::{parse_u32, parse_u64},
-    DecodeError, Emitable, Parseable,
+use netlink_packet_core::{
+    emit_u32, emit_u64, parse_u32, parse_u64, DecodeError, DefaultNla,
+    Emitable, ErrorContext, Nla, NlaBuffer, NlasIterator, Parseable,
 };
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -92,7 +89,7 @@ impl Nla for Nl80211TidStats {
             Self::RxMsdu(d)
             | Self::TxMsdu(d)
             | Self::TxMsduRetries(d)
-            | Self::TxMsduFailed(d) => NativeEndian::write_u64(buffer, *d),
+            | Self::TxMsduFailed(d) => emit_u64(buffer, *d).unwrap(),
             Self::TransmitQueueStats(nlas) => nlas.as_slice().emit(buffer),
             Self::Other(attr) => attr.emit(buffer),
         }
@@ -223,7 +220,7 @@ impl Nla for Nl80211TransmitQueueStat {
             | Self::Collisions(d)
             | Self::TxBytes(d)
             | Self::TxPackets(d)
-            | Self::MaxFlows(d) => NativeEndian::write_u32(buffer, *d),
+            | Self::MaxFlows(d) => emit_u32(buffer, *d).unwrap(),
             Self::Other(attr) => attr.emit(buffer),
         }
     }

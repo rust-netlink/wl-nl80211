@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-use anyhow::Context;
-use byteorder::{ByteOrder, NativeEndian};
-use netlink_packet_utils::{
-    nla::{DefaultNla, Nla, NlaBuffer},
-    parsers::{parse_u16, parse_u32, parse_u8},
-    DecodeError, Emitable, Parseable,
+use netlink_packet_core::{
+    emit_u16, emit_u32, parse_u16, parse_u32, parse_u8, DecodeError,
+    DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer, Parseable,
 };
 
 pub const NL80211_RATE_INFO_BITRATE: u16 = 1;
@@ -148,7 +145,7 @@ impl Nla for Nl80211RateInfo {
 
     fn emit_value(&self, buffer: &mut [u8]) {
         match self {
-            Self::Bitrate(bitrate) => NativeEndian::write_u16(buffer, *bitrate),
+            Self::Bitrate(bitrate) => emit_u16(buffer, *bitrate).unwrap(),
             Self::Mcs(d)
             | Self::VhtMcs(d)
             | Self::VhtNss(d)
@@ -160,9 +157,7 @@ impl Nla for Nl80211RateInfo {
             | Self::EhtMcs(d)
             | Self::EhtNss(d) => buffer[0] = *d,
             Self::MhzWidth(_) | Self::ShortGi | Self::MhzWidth80Plus80 => (),
-            Self::Bitrate32(bitrate) => {
-                NativeEndian::write_u32(buffer, *bitrate)
-            }
+            Self::Bitrate32(bitrate) => emit_u32(buffer, *bitrate).unwrap(),
             Self::HeGi(d) => buffer[0] = (*d).into(),
             Self::HeRuAlloc(d) => buffer[0] = (*d).into(),
             Self::EhtGi(d) => buffer[0] = (*d).into(),

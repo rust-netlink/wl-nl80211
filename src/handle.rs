@@ -2,9 +2,9 @@
 
 use futures::{future::Either, FutureExt, Stream, StreamExt, TryStream};
 use genetlink::GenetlinkHandle;
+use netlink_packet_core::DecodeError;
 use netlink_packet_core::NetlinkMessage;
 use netlink_packet_generic::GenlMessage;
-use netlink_packet_utils::DecodeError;
 
 use crate::{
     try_nl80211, Nl80211Error, Nl80211InterfaceHandle, Nl80211Message,

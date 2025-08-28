@@ -2,9 +2,9 @@
 
 use thiserror::Error;
 
+use netlink_packet_core::DecodeError;
 use netlink_packet_core::{ErrorMessage, NetlinkMessage};
 use netlink_packet_generic::GenlMessage;
-use netlink_packet_utils::DecodeError;
 
 use crate::Nl80211Message;
 

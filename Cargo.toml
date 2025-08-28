@@ -24,19 +24,16 @@ tokio_socket = ["netlink-proto/tokio_socket", "tokio"]
 smol_socket = ["netlink-proto/smol_socket", "async-std"]
 
 [dependencies]
-anyhow = "1.0.44"
 async-std = { version = "1.9.0", optional = true}
 bitflags = "2"
-byteorder = "1.4.3"
 futures = "0.3.17"
 log = "0.4.14"
 thiserror = "1.0.29"
 tokio = { version = "1.0.1", features = ["rt"], optional = true}
-genetlink = { default-features = false, version = "0.2.5" }
-netlink-packet-core = { version = "0.7.0" }
-netlink-packet-generic = { version = "0.3.3" }
-netlink-packet-utils = { version = "0.5.2" }
-netlink-proto = { default-features = false, version = "0.11.2" }
+genetlink = { default-features = false, version = "0.2.6" }
+netlink-packet-core = { version = "0.8.0" }
+netlink-packet-generic = { version = "0.4.0" }
+netlink-proto = { default-features = false, version = "0.12.0" }
 netlink-sys = { version = "0.8.4" }
 
 [dev-dependencies]

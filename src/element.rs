@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-use anyhow::Context;
-use netlink_packet_utils::{
-    parsers::{parse_string, parse_u8},
-    DecodeError, Emitable, Parseable,
+use netlink_packet_core::{
+    parse_string, parse_u8, DecodeError, Emitable, ErrorContext, Parseable,
 };
 
 use crate::{

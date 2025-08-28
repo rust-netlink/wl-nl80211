@@ -2,12 +2,10 @@
 
 use std::convert::TryInto;
 
-use anyhow::Context;
-use byteorder::{ByteOrder, NativeEndian};
-use netlink_packet_utils::{
-    nla::{DefaultNla, Nla, NlaBuffer, NlasIterator},
-    parsers::{parse_u16, parse_u32, parse_u64, parse_u8},
-    Emitable, Parseable,
+use netlink_packet_core::{
+    emit_i64, emit_u16, emit_u32, emit_u64, parse_u16, parse_u32, parse_u64,
+    parse_u8, DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
+    NlasIterator, Parseable,
 };
 
 use std::fmt::Debug;
@@ -299,7 +297,7 @@ impl Nla for Nl80211StationInfo {
             | Nl80211StationInfo::Plid(d)
             | Nl80211StationInfo::AirtimeWeight(d)
             | Nl80211StationInfo::AirtimeLinkMetric(d) => {
-                NativeEndian::write_u16(buffer, *d)
+                emit_u16(buffer, *d).unwrap()
             }
             Nl80211StationInfo::InactiveTime(d)
             | Nl80211StationInfo::TxBytes(d)
@@ -313,7 +311,7 @@ impl Nla for Nl80211StationInfo {
             | Nl80211StationInfo::ConnectedTime(d)
             | Nl80211StationInfo::ExpectedThroughput(d)
             | Nl80211StationInfo::BeaconLoss(d) => {
-                NativeEndian::write_u32(buffer, *d)
+                emit_u32(buffer, *d).unwrap()
             }
             Nl80211StationInfo::TxBytes64(d)
             | Nl80211StationInfo::RxBytes64(d)
@@ -322,10 +320,10 @@ impl Nla for Nl80211StationInfo {
             | Nl80211StationInfo::TxDuration(d)
             | Nl80211StationInfo::RxDuration(d)
             | Nl80211StationInfo::AssociationAtBoottime(d) => {
-                NativeEndian::write_u64(buffer, *d)
+                emit_u64(buffer, *d).unwrap()
             }
             Nl80211StationInfo::TimingOffset(d) => {
-                NativeEndian::write_i64(buffer, *d)
+                emit_i64(buffer, *d).unwrap()
             }
             Nl80211StationInfo::TxBitrate(nlas)
             | Nl80211StationInfo::RxBitrate(nlas) => {
@@ -334,13 +332,13 @@ impl Nla for Nl80211StationInfo {
             Nl80211StationInfo::PeerLinkState(d) => buffer[0] = (*d).into(),
             Nl80211StationInfo::BssParam(nlas) => nlas.as_slice().emit(buffer),
             Nl80211StationInfo::StationFlags(d) => {
-                NativeEndian::write_u32(&mut buffer[0..4], (&d.mask).into());
-                NativeEndian::write_u32(&mut buffer[4..8], (&d.set).into());
+                emit_u32(&mut buffer[0..4], (&d.mask).into()).unwrap();
+                emit_u32(&mut buffer[4..8], (&d.set).into()).unwrap();
             }
             Nl80211StationInfo::LocalPowerMode(d)
             | Nl80211StationInfo::PeerPowerMode(d)
             | Nl80211StationInfo::NonPeerPowerMode(d) => {
-                NativeEndian::write_u32(buffer, (*d).into())
+                emit_u32(buffer, (*d).into()).unwrap()
             }
             Nl80211StationInfo::ChainSignal(d)
             | Nl80211StationInfo::ChainSignalAvg(d) => {
@@ -363,7 +361,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
 {
     fn parse(
         buf: &NlaBuffer<&'a T>,
-    ) -> Result<Self, netlink_packet_utils::DecodeError> {
+    ) -> Result<Self, netlink_packet_core::DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_STA_INFO_INACTIVE_TIME => {
@@ -513,7 +511,12 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     "Invalid NL80211_STA_INFO_T_OFFSET value {payload:?}"
                 );
                 Self::TimingOffset(i64::from_ne_bytes(
-                    payload.try_into().context(err_msg)?,
+                    payload
+                        .try_into()
+                        .map_err(|e: std::array::TryFromSliceError| {
+                            DecodeError::from(e.to_string())
+                        })
+                        .context(err_msg)?,
                 ))
             }
             NL80211_STA_INFO_LOCAL_PM => {
@@ -611,7 +614,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 let err_msg = format!(
                     "Invalid NL80211_STA_INFO_ACK_SIGNAL_AVG value {payload:?}"
                 );
-                Self::AckSignalAvg(*payload.first().context(err_msg)? as i8)
+                Self::AckSignalAvg(
+                    *payload.first().ok_or(DecodeError::from(err_msg))? as i8,
+                )
             }
             NL80211_STA_INFO_RX_MPDUS => {
                 let err_msg = format!(
@@ -781,7 +786,7 @@ impl Nla for Nl80211StationBssParam {
             Self::CtsProtection | Self::ShortPreamble | Self::ShortSlotTime => {
             }
             Self::DtimPeriod(d) => buffer[0] = *d,
-            Self::BeaconInterval(d) => NativeEndian::write_u16(buffer, *d),
+            Self::BeaconInterval(d) => emit_u16(buffer, *d).unwrap(),
             Self::Other(d) => (*d).emit(buffer),
         }
     }
@@ -792,7 +797,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
 {
     fn parse(
         buf: &NlaBuffer<&'a T>,
-    ) -> Result<Self, netlink_packet_utils::DecodeError> {
+    ) -> Result<Self, netlink_packet_core::DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_STA_BSS_PARAM_CTS_PROT => Self::CtsProtection,

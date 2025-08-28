@@ -2,7 +2,7 @@
 
 // WIFI 7(802.11be) specific data types
 
-use netlink_packet_utils::{DecodeError, Emitable};
+use netlink_packet_core::{DecodeError, Emitable};
 
 const EHT_MAC_CAP_INFO_LEN: usize = 2;
 

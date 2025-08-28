@@ -32,11 +32,9 @@
 use std::convert::TryInto;
 use std::fmt::Debug;
 
-use anyhow::Context;
-use netlink_packet_utils::{
-    nla::{DefaultNla, Nla, NlaBuffer},
-    parsers::{parse_u16, parse_u32, parse_u64, parse_u8},
-    DecodeError, Emitable, Parseable,
+use netlink_packet_core::{
+    parse_u16, parse_u32, parse_u64, parse_u8, DecodeError, DefaultNla,
+    Emitable, ErrorContext, Nla, NlaBuffer, Parseable,
 };
 
 use crate::{
@@ -298,7 +296,12 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 let err_msg =
                     format!("Invalid NL80211_BSS_SIGNAL_MBM value {payload:?}");
                 Self::SignalMbm(i32::from_ne_bytes(
-                    payload.try_into().context(err_msg)?,
+                    payload
+                        .try_into()
+                        .map_err(|e: std::array::TryFromSliceError| {
+                            DecodeError::from(e.to_string())
+                        })
+                        .context(err_msg)?,
                 ))
             }
             NL80211_BSS_SIGNAL_UNSPEC => {

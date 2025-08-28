@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-use netlink_packet_utils::nla::Nla;
+use netlink_packet_core::Nla;
 
 use crate::Nl80211Attr;
 

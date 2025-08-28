@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-use netlink_packet_utils::nla::Nla;
+use netlink_packet_core::Nla;
 
 use crate::{
     Nl80211Attr, Nl80211AttrsBuilder, Nl80211Handle, Nl80211SurveyGetRequest,

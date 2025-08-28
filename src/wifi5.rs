@@ -2,9 +2,8 @@
 
 // Hold WIFI 5(802.11ac) specific data types
 
-use anyhow::Context;
-use netlink_packet_utils::{
-    parsers::parse_u32, DecodeError, Emitable, Parseable,
+use netlink_packet_core::{
+    parse_u32, DecodeError, Emitable, ErrorContext, Parseable,
 };
 
 use crate::bytes::write_u16_le;

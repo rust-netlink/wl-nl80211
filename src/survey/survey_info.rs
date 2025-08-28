@@ -30,11 +30,9 @@
  */
 use std::fmt::Debug;
 
-use anyhow::Context;
-use netlink_packet_utils::{
-    nla::{DefaultNla, Nla, NlaBuffer},
-    parsers::{parse_u32, parse_u64},
-    DecodeError, Emitable, Parseable,
+use netlink_packet_core::{
+    parse_u32, parse_u64, DecodeError, DefaultNla, Emitable, ErrorContext, Nla,
+    NlaBuffer, Parseable,
 };
 
 use crate::bytes::{write_u32, write_u64};
@@ -117,7 +115,7 @@ impl Nla for Nl80211SurveyInfo {
     }
 }
 
-// TODO: Use netlink_packet_utils version, once released.
+// TODO: Use netlink_packet_core version, once released.
 pub fn parse_i8(payload: &[u8]) -> Result<i8, DecodeError> {
     if payload.len() != 1 {
         return Err(format!("invalid i8: {payload:?}").into());
