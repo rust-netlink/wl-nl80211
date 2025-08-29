@@ -104,7 +104,7 @@ impl Nla for Nl80211SurveyInfo {
         #[allow(clippy::cast_sign_loss)]
         match self {
             Self::Frequency(d) => write_u32(buffer, *d),
-            Self::Noise(d) => buffer[0] = d.cast_unsigned(),
+            Self::Noise(d) => buffer[0] = *d as u8,
             Self::ActiveTime(d)
             | Self::BusyTime(d)
             | Self::ExtensionBusyTime(d)
@@ -120,8 +120,8 @@ pub fn parse_i8(payload: &[u8]) -> Result<i8, DecodeError> {
     if payload.len() != 1 {
         return Err(format!("invalid i8: {payload:?}").into());
     }
-    #[allow(clippy::cast_possible_wrap)]
-    Ok(payload[0].cast_signed())
+    #[allow(clippy::cast_sign_loss)]
+    Ok(payload[0] as i8)
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
