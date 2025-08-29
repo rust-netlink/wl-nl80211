@@ -19,7 +19,7 @@ pub use self::handle::{Nl80211Channel, Nl80211WiphyHandle};
 pub use self::ifmode::Nl80211IfMode;
 pub use self::set::Nl80211ChannelSwitchRequest;
 pub use self::wowlan::{
-    Nl80211WowlanTcpTrigerSupport, Nl80211WowlanTrigerPatternSupport,
+    Nl80211WowlanTcpTriggerSupport, Nl80211WowlanTriggerPatternSupport,
     Nl80211WowlanTriggersSupport,
 };
 
