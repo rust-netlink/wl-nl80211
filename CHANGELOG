@@ -1,4 +1,14 @@
 # Changelog
+## [0.3.2] - 2025-09-01
+### Breaking changes
+ - N/A
+
+### New features
+ - N/A
+
+### Bug fixes
+ - Leftover: Set minimum supported rust version to 1.77. (caed428)
+
 ## [0.3.1] - 2025-08-29
 ### Breaking changes
  - Set minimum supported rust version to 1.77. (d72680a)
