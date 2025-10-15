@@ -315,9 +315,9 @@ const NL80211_ATTR_VHT_CAPABILITY_MASK: u16 = 176;
 // const NL80211_ATTR_SUPPORT_5_MHZ:u16 = 192;
 // const NL80211_ATTR_SUPPORT_10_MHZ:u16 = 193;
 // const NL80211_ATTR_OPMODE_NOTIF:u16 = 194;
-// const NL80211_ATTR_VENDOR_ID:u16 = 195;
-// const NL80211_ATTR_VENDOR_SUBCMD:u16 = 196;
-// const NL80211_ATTR_VENDOR_DATA:u16 = 197;
+const NL80211_ATTR_VENDOR_ID: u16 = 195;
+const NL80211_ATTR_VENDOR_SUBCMD: u16 = 196;
+const NL80211_ATTR_VENDOR_DATA: u16 = 197;
 // const NL80211_ATTR_VENDOR_EVENTS:u16 = 198;
 // const NL80211_ATTR_QOS_MAP:u16 = 199;
 // const NL80211_ATTR_MAC_HINT:u16 = 200;
@@ -578,6 +578,14 @@ pub enum Nl80211Attr {
     /// executed sequentially.
     SchedScanPlans(Vec<Nl80211SchedScanPlan>),
     Other(DefaultNla),
+    /// 24-bit OUI, or an as yet unused Linux-specific ID.
+    ///
+    /// See <https://github.com/torvalds/linux/blob/v6.17/include/uapi/linux/nl80211.h#L2329>
+    VendorId(u32),
+    /// See <https://github.com/torvalds/linux/blob/v6.17/include/uapi/linux/nl80211.h#L2331>
+    VendorSubcmd(u32),
+    /// See <https://github.com/torvalds/linux/blob/v6.17/include/uapi/linux/nl80211.h#L2332>
+    VendorData(Vec<u8>),
 }
 
 impl Nla for Nl80211Attr {
@@ -609,7 +617,9 @@ impl Nla for Nl80211Attr {
             | Self::TransmitQueueMemoryLimit(_)
             | Self::TransmitQueueQuantum(_)
             | Self::SchedScanInterval(_)
-            | Self::SchedScanDelay(_) => 4,
+            | Self::SchedScanDelay(_)
+            | Self::VendorId(_)
+            | Self::VendorSubcmd(_) => 4,
             Self::Wdev(_) => 8,
             Self::IfName(s) | Self::Ssid(s) | Self::WiphyName(s) => s.len() + 1,
             Self::Mac(_) | Self::MacMask(_) => ETH_ALEN,
@@ -682,6 +692,7 @@ impl Nla for Nl80211Attr {
             Self::SchedScanMatch(v) => v.as_slice().buffer_len(),
             Self::SchedScanPlans(v) => v.as_slice().buffer_len(),
             Self::Other(attr) => attr.value_len(),
+            Self::VendorData(d) => d.len(),
         }
     }
 
@@ -789,6 +800,9 @@ impl Nla for Nl80211Attr {
             Self::ScanFrequencies(_) => NL80211_ATTR_SCAN_FREQUENCIES,
             Self::SchedScanMatch(_) => NL80211_ATTR_SCHED_SCAN_MATCH,
             Self::SchedScanPlans(_) => NL80211_ATTR_SCHED_SCAN_PLANS,
+            Self::VendorId(_) => NL80211_ATTR_VENDOR_ID,
+            Self::VendorSubcmd(_) => NL80211_ATTR_VENDOR_SUBCMD,
+            Self::VendorData(_) => NL80211_ATTR_VENDOR_DATA,
             Self::Other(attr) => attr.kind(),
         }
     }
@@ -818,7 +832,9 @@ impl Nla for Nl80211Attr {
             | Self::TransmitQueueMemoryLimit(d)
             | Self::TransmitQueueQuantum(d)
             | Self::SchedScanInterval(d)
-            | Self::SchedScanDelay(d) => write_u32(buffer, *d),
+            | Self::SchedScanDelay(d)
+            | Self::VendorId(d)
+            | Self::VendorSubcmd(d) => write_u32(buffer, *d),
             Self::MaxScanIeLen(d) | Self::MaxSchedScanIeLen(d) => {
                 write_u16(buffer, *d)
             }
@@ -907,6 +923,7 @@ impl Nla for Nl80211Attr {
             }
             Self::SchedScanMatch(v) => v.as_slice().emit(buffer),
             Self::SchedScanPlans(v) => v.as_slice().emit(buffer),
+            Self::VendorData(v) => buffer.copy_from_slice(v),
             Self::Other(attr) => attr.emit(buffer),
         }
     }
@@ -1452,6 +1469,17 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 }
                 Self::SchedScanPlans(nlas)
             }
+            NL80211_ATTR_VENDOR_ID => {
+                Self::VendorId(parse_u32(payload).context(format!(
+                    "Invalid NL80211_ATTR_VENDOR_ID {payload:?}"
+                ))?)
+            }
+            NL80211_ATTR_VENDOR_SUBCMD => {
+                Self::VendorSubcmd(parse_u32(payload).context(format!(
+                    "Invalid NL80211_ATTR_VENDOR_SUBCMD {payload:?}"
+                ))?)
+            }
+            NL80211_ATTR_VENDOR_DATA => Self::VendorData(payload.to_vec()),
             _ => Self::Other(
                 DefaultNla::parse(buf).context("invalid NLA (unknown kind)")?,
             ),

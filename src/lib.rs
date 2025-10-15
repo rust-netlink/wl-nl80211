@@ -27,6 +27,9 @@ mod wiphy;
 
 pub(crate) mod bytes;
 
+// used in public API
+pub use netlink_packet_generic;
+
 pub use self::attr::Nl80211Attr;
 pub use self::builder::Nl80211AttrsBuilder;
 pub use self::channel::Nl80211ChannelWidth;
@@ -48,7 +51,8 @@ pub use self::iface::{
     Nl80211IfaceCombLimitAttribute, Nl80211Interface,
     Nl80211InterfaceDeleteRequest, Nl80211InterfaceGetRequest,
     Nl80211InterfaceHandle, Nl80211InterfaceNewRequest,
-    Nl80211InterfaceSetRequest, Nl80211InterfaceType, Nl80211NewInterface,
+    Nl80211InterfaceSetRequest, Nl80211InterfaceType,
+    Nl80211InterfaceVendorRequest, Nl80211NewInterface, Nl80211Vendor,
 };
 pub use self::message::Nl80211Message;
 pub use self::mlo::Nl80211MloLink;
