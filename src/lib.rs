@@ -35,6 +35,7 @@ pub use self::command::Nl80211Command;
 pub use self::connection::new_connection;
 pub use self::connection::new_connection_with_socket;
 pub use self::element::Nl80211Element;
+pub use self::element::Nl80211ElementRsn;
 pub use self::error::Nl80211Error;
 pub use self::ext_cap::{
     Nl80211ExtendedCapability, Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas,
