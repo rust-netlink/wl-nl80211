@@ -35,6 +35,7 @@ pub use self::command::Nl80211Command;
 pub use self::connection::new_connection;
 pub use self::connection::new_connection_with_socket;
 pub use self::element::Nl80211Element;
+pub use self::element::Nl80211ElementRsn;
 pub use self::error::Nl80211Error;
 pub use self::ext_cap::{
     Nl80211ExtendedCapability, Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas,
@@ -90,8 +91,8 @@ pub use self::wiphy::{
     Nl80211Band, Nl80211BandInfo, Nl80211BandType, Nl80211BandTypes,
     Nl80211Channel, Nl80211ChannelSwitchRequest, Nl80211CipherSuit,
     Nl80211Frequency, Nl80211FrequencyInfo, Nl80211IfMode,
-    Nl80211WiphyGetRequest, Nl80211WiphyHandle, Nl80211WowlanTcpTrigerSupport,
-    Nl80211WowlanTrigerPatternSupport, Nl80211WowlanTriggersSupport,
+    Nl80211WiphyGetRequest, Nl80211WiphyHandle, Nl80211WowlanTcpTriggerSupport,
+    Nl80211WowlanTriggerPatternSupport, Nl80211WowlanTriggersSupport,
 };
 
 pub(crate) use self::element::Nl80211Elements;

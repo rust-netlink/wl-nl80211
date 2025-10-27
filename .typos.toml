@@ -1,0 +1,19 @@
+[default.extend-words]
+FILS = "FILS"
+UE = "UE"
+ND = "ND"
+BA = "BA"
+SME = "SME"
+OCE = "OCE"
+Oce = "Oce"
+
+[type.rust.extend-identifiers]
+# Ignore unfixable typo in a trait, which is defined outside this crate
+Emitable = "Emitable"
+
+[type.changelod]
+extend-glob = ["CHANGELOG"]
+extend-ignore-re = [
+    # ignore commit id in changelog file
+    '\([^\)]*\)',
+]

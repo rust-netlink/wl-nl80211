@@ -26,10 +26,10 @@
 ### New features
  - Support querying scan results. (3adb7b9)
  - Support parsing HT(WIFI4) capability. (dc5cc16)
- - Support scaning trigger and schedule. (c0dcf88)
+ - Support scanning trigger and schedule. (c0dcf88)
  - Support setting phy parameters. (25aef4e)
  - Support changing interface type. (2d86585)
- - Support specifying the interface on a get reques. (97bf087)
+ - Support specifying the interface on a get request. (97bf087)
  - Support dumpping survey. (cd9907f)
 
 ### Bug fixes
