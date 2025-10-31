@@ -46,7 +46,9 @@ pub use self::handle::Nl80211Handle;
 pub use self::iface::{
     Nl80211IfaceComb, Nl80211IfaceCombAttribute, Nl80211IfaceCombLimit,
     Nl80211IfaceCombLimitAttribute, Nl80211Interface,
-    Nl80211InterfaceGetRequest, Nl80211InterfaceHandle, Nl80211InterfaceType,
+    Nl80211InterfaceDeleteRequest, Nl80211InterfaceGetRequest,
+    Nl80211InterfaceHandle, Nl80211InterfaceNewRequest,
+    Nl80211InterfaceSetRequest, Nl80211InterfaceType, Nl80211NewInterface,
 };
 pub use self::message::Nl80211Message;
 pub use self::mlo::Nl80211MloLink;
