@@ -13,5 +13,5 @@ pub use self::rate_info::{
 };
 pub use self::station_info::{
     Nl80211MeshPowerMode, Nl80211PeerLinkState, Nl80211StationBssParam,
-    Nl80211StationFlag, Nl80211StationFlagUpdate, Nl80211StationInfo,
+    Nl80211StationFlagUpdate, Nl80211StationFlags, Nl80211StationInfo,
 };

@@ -61,7 +61,7 @@ pub use self::scan::{
 pub use self::station::{
     Nl80211EhtGi, Nl80211EhtRuAllocation, Nl80211HeGi, Nl80211HeRuAllocation,
     Nl80211MeshPowerMode, Nl80211PeerLinkState, Nl80211RateInfo,
-    Nl80211StationBssParam, Nl80211StationFlag, Nl80211StationFlagUpdate,
+    Nl80211StationBssParam, Nl80211StationFlagUpdate, Nl80211StationFlags,
     Nl80211StationGetRequest, Nl80211StationHandle, Nl80211StationInfo,
 };
 pub use self::stats::{
