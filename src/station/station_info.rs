@@ -332,8 +332,8 @@ impl Nla for Nl80211StationInfo {
             Nl80211StationInfo::PeerLinkState(d) => buffer[0] = (*d).into(),
             Nl80211StationInfo::BssParam(nlas) => nlas.as_slice().emit(buffer),
             Nl80211StationInfo::StationFlags(d) => {
-                emit_u32(&mut buffer[0..4], (&d.mask).into()).unwrap();
-                emit_u32(&mut buffer[4..8], (&d.set).into()).unwrap();
+                emit_u32(&mut buffer[0..4], d.mask.bits()).unwrap();
+                emit_u32(&mut buffer[4..8], d.set.bits()).unwrap();
             }
             Nl80211StationInfo::LocalPowerMode(d)
             | Nl80211StationInfo::PeerPowerMode(d)
@@ -489,8 +489,8 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                         parse_u32(&payload[0..4]).context(err_msg.clone())?;
                     let set = parse_u32(&payload[4..8]).context(err_msg)?;
                     Nl80211StationFlagUpdate {
-                        mask: mask.into(),
-                        set: set.into(),
+                        mask: Nl80211StationFlags::from_bits_retain(mask),
+                        set: Nl80211StationFlags::from_bits_retain(set),
                     }
                 } else {
                     return Err(format!(
@@ -677,13 +677,13 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
     }
 }
 
-pub const NL80211_PLINK_LISTEN: u8 = 0;
-pub const NL80211_PLINK_OPN_SNT: u8 = 1;
-pub const NL80211_PLINK_OPN_RCVD: u8 = 2;
-pub const NL80211_PLINK_CNF_RCVD: u8 = 3;
-pub const NL80211_PLINK_ESTAB: u8 = 4;
-pub const NL80211_PLINK_HOLDING: u8 = 5;
-pub const NL80211_PLINK_BLOCKED: u8 = 6;
+const NL80211_PLINK_LISTEN: u8 = 0;
+const NL80211_PLINK_OPN_SNT: u8 = 1;
+const NL80211_PLINK_OPN_RCVD: u8 = 2;
+const NL80211_PLINK_CNF_RCVD: u8 = 3;
+const NL80211_PLINK_ESTAB: u8 = 4;
+const NL80211_PLINK_HOLDING: u8 = 5;
+const NL80211_PLINK_BLOCKED: u8 = 6;
 
 /// State of a mesh peer link finite state machine
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -825,142 +825,70 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Nl80211StationFlagUpdate {
     /// Mask of station flags to set
-    mask: VecNl80211StationFlag,
+    pub mask: Nl80211StationFlags,
     /// Which values to set them to
-    set: VecNl80211StationFlag,
+    pub set: Nl80211StationFlags,
 }
 
-pub const NL80211_STA_FLAG_AUTHORIZED: u32 = 1;
-pub const NL80211_STA_FLAG_SHORT_PREAMBLE: u32 = 2;
-pub const NL80211_STA_FLAG_WME: u32 = 3;
-pub const NL80211_STA_FLAG_MFP: u32 = 4;
-pub const NL80211_STA_FLAG_AUTHENTICATED: u32 = 5;
-pub const NL80211_STA_FLAG_TDLS_PEER: u32 = 6;
-pub const NL80211_STA_FLAG_ASSOCIATED: u32 = 7;
+const NL80211_STA_FLAG_AUTHORIZED: u32 = 1 << 1;
+const NL80211_STA_FLAG_SHORT_PREAMBLE: u32 = 1 << 2;
+const NL80211_STA_FLAG_WME: u32 = 1 << 3;
+const NL80211_STA_FLAG_MFP: u32 = 1 << 4;
+const NL80211_STA_FLAG_AUTHENTICATED: u32 = 1 << 5;
+const NL80211_STA_FLAG_TDLS_PEER: u32 = 1 << 6;
+const NL80211_STA_FLAG_ASSOCIATED: u32 = 1 << 7;
+const NL80211_STA_FLAG_SPP_AMSDU: u32 = 1 << 8;
 
-/// Station flags
-///
-/// When a station is added to an AP interface, it is assumed to
-/// be already associated (and hence authenticated.)
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub(crate) struct VecNl80211StationFlag(pub Vec<Nl80211StationFlag>);
-
-#[non_exhaustive]
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Nl80211StationFlag {
-    /// Station is authorized (802.1X)
-    Authorized,
-    /// Station is capable of receiving frames with short barker preamble
-    ShortPreamble,
-    /// Station is WME/QoS capable
-    Wme,
-    /// Station uses management frame protection
-    Mfp,
-    /// Station is authenticated
-    Authenticated,
-    /// Station is a TDLS peer. This flag should only be used in managed mode
-    /// (even in the flags mask). Note that the flag can't be changed, it is
-    /// only valid while adding a station, and attempts to change it will
-    /// silently be ignored (rather than rejected as errors.)
-    TdlsPeer,
-    /// station is associated; used with drivers that support
-    /// [crate::Nl80211Features::FullApClientState] to transition a previously
-    /// added station into associated state
-    Associated,
-    // Reserved: 25 bits,
-    Other(u32),
-}
-
-impl From<u32> for Nl80211StationFlag {
-    fn from(d: u32) -> Self {
-        match d {
-            NL80211_STA_FLAG_AUTHORIZED => Self::Authorized,
-            NL80211_STA_FLAG_SHORT_PREAMBLE => Self::ShortPreamble,
-            NL80211_STA_FLAG_WME => Self::Wme,
-            NL80211_STA_FLAG_MFP => Self::Mfp,
-            NL80211_STA_FLAG_AUTHENTICATED => Self::Authenticated,
-            NL80211_STA_FLAG_TDLS_PEER => Self::TdlsPeer,
-            NL80211_STA_FLAG_ASSOCIATED => Self::Associated,
-            _ => Self::Other(d),
-        }
+bitflags::bitflags! {
+    /// If not bands are set, it means don't care and the device will decide
+    /// what to use
+    #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
+    #[non_exhaustive]
+    pub struct Nl80211StationFlags: u32 {
+        /// Station is authorized (802.1X)
+        const Authorized = NL80211_STA_FLAG_AUTHORIZED;
+        /// Station is capable of receiving frames with short barker preamble
+        const ShortPreamble = NL80211_STA_FLAG_SHORT_PREAMBLE;
+        /// Station is WME/QoS capable
+        const Wme = NL80211_STA_FLAG_WME;
+        /// Station uses management frame protection
+        const Mfp = NL80211_STA_FLAG_MFP;
+        /// Station is authenticated
+        const Authenticated = NL80211_STA_FLAG_AUTHENTICATED;
+        /// Station is a TDLS peer. This flag should only be used in managed
+        /// mode (even in the flags mask). Note that the flag can't be changed,
+        /// it is only valid while adding a station, and attempts to change it
+        /// will silently be ignored (rather than rejected as errors.)
+        const TdlsPeer = NL80211_STA_FLAG_TDLS_PEER;
+        /// station is associated; used with drivers that support
+        /// [crate::Nl80211Features::FullApClientState] to transition a
+        /// previously added station into associated state
+        const Associated = NL80211_STA_FLAG_ASSOCIATED;
+        /// station supports SPP A-MSDUs
+        const SppAmsdu = NL80211_STA_FLAG_SPP_AMSDU;
+        const _ = !0;
     }
 }
 
-impl From<Nl80211StationFlag> for u32 {
-    fn from(v: Nl80211StationFlag) -> Self {
-        match v {
-            Nl80211StationFlag::Authorized => NL80211_STA_FLAG_AUTHORIZED,
-            Nl80211StationFlag::ShortPreamble => {
-                NL80211_STA_FLAG_SHORT_PREAMBLE
-            }
-            Nl80211StationFlag::Wme => NL80211_STA_FLAG_WME,
-            Nl80211StationFlag::Mfp => NL80211_STA_FLAG_MFP,
-            Nl80211StationFlag::Authenticated => NL80211_STA_FLAG_AUTHENTICATED,
-            Nl80211StationFlag::TdlsPeer => NL80211_STA_FLAG_TDLS_PEER,
-            Nl80211StationFlag::Associated => NL80211_STA_FLAG_ASSOCIATED,
-            Nl80211StationFlag::Other(d) => d,
-        }
-    }
-}
-
-impl std::fmt::Display for Nl80211StationFlag {
+impl std::fmt::Display for Nl80211StationFlags {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Nl80211StationFlag::Authorized => write!(f, "AUTHORIZED"),
-            Nl80211StationFlag::ShortPreamble => write!(f, "SHORT_PREAMBLE"),
-            Nl80211StationFlag::Wme => write!(f, "WME"),
-            Nl80211StationFlag::Mfp => write!(f, "MFP"),
-            Nl80211StationFlag::Authenticated => write!(f, "AUTHENTICATED"),
-            Nl80211StationFlag::TdlsPeer => write!(f, "TDLS_PEER"),
-            Nl80211StationFlag::Associated => write!(f, "ASSOCIATED"),
-            Nl80211StationFlag::Other(d) => write!(f, "Other({d})"),
+        match *self {
+            Self::Authorized => write!(f, "AUTHORIZED"),
+            Self::ShortPreamble => write!(f, "SHORT_PREAMBLE"),
+            Self::Wme => write!(f, "WME"),
+            Self::Mfp => write!(f, "MFP"),
+            Self::Authenticated => write!(f, "AUTHENTICATED"),
+            Self::TdlsPeer => write!(f, "TDLS_PEER"),
+            Self::Associated => write!(f, "ASSOCIATED"),
+            _ => write!(f, "{self:?}"),
         }
     }
 }
 
-const ALL_STATION_FLAGS: [Nl80211StationFlag; 7] = [
-    Nl80211StationFlag::Associated,
-    Nl80211StationFlag::Authenticated,
-    Nl80211StationFlag::Authorized,
-    Nl80211StationFlag::Mfp,
-    Nl80211StationFlag::ShortPreamble,
-    Nl80211StationFlag::TdlsPeer,
-    Nl80211StationFlag::Wme,
-];
-
-impl From<u32> for VecNl80211StationFlag {
-    fn from(d: u32) -> Self {
-        let mut got: u32 = 0;
-        let mut ret = Vec::new();
-
-        for flag in ALL_STATION_FLAGS {
-            if (d & u32::from(flag)) > 0 {
-                ret.push(flag);
-                got += u32::from(flag);
-            }
-        }
-        if got != d {
-            ret.push(Nl80211StationFlag::Other(d - got));
-        }
-
-        Self(ret)
-    }
-}
-
-impl From<&VecNl80211StationFlag> for u32 {
-    fn from(v: &VecNl80211StationFlag) -> u32 {
-        let mut d: u32 = 0;
-        for flag in &v.0 {
-            d += u32::from(*flag);
-        }
-        d
-    }
-}
-
-pub const NL80211_MESH_POWER_UNKNOWN: u32 = 0;
-pub const NL80211_MESH_POWER_ACTIVE: u32 = 1;
-pub const NL80211_MESH_POWER_LIGHT_SLEEP: u32 = 2;
-pub const NL80211_MESH_POWER_DEEP_SLEEP: u32 = 3;
+const NL80211_MESH_POWER_UNKNOWN: u32 = 0;
+const NL80211_MESH_POWER_ACTIVE: u32 = 1;
+const NL80211_MESH_POWER_LIGHT_SLEEP: u32 = 2;
+const NL80211_MESH_POWER_DEEP_SLEEP: u32 = 3;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Nl80211MeshPowerMode {
