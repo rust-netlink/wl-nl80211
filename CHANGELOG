@@ -1,4 +1,17 @@
 # Changelog
+## [0.4.0] - 2025-11-11
+### Breaking changes
+ - station: Use bitflag for Nl80211StationFlags. (2913d4d)
+ - station: Hide all public constants in rate_info. (88e675d)
+
+### New features
+ - Add support for creating and deleting interfaces. (600ed26)
+
+### Bug fixes
+ - make Nl80211ElementRsn public. (2f74341)
+ - Add spelling CI job and fix further typos. (243c821)
+ - Remove debug and todo statements. (105e614)
+
 ## [0.3.2] - 2025-09-01
 ### Breaking changes
  - N/A
