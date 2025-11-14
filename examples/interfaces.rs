@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-//! CLI tool to create and delete interfaces.
+//! CLI tool to manipulate interfaces.
 //!
 //! To create an interface:
 //!
@@ -13,14 +13,24 @@
 //! ```
 //! .../interfaces del [ifname]
 //! ```
+//!
+//! To send a vendor command:
+//!
+//! ```
+//! .../interfaces vendor [ifname] [vendor OUI in hex] [vendor subcmd in hex] [vendor data in hex]
+//! ```
+//!
+//! This is equivalent to `iw dev [device] vendor send [oui hex] [subcmd hex]
+//! [data hex]`, except that this doesn't use `0x` prefixes, and that the data
+//! is one hex string instead of individual bytes as arguments.
 
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context};
 use futures::stream::TryStreamExt;
 use log::{debug, info};
 use std::env;
 use wl_nl80211::{
     Nl80211Attr, Nl80211Command, Nl80211Handle, Nl80211Interface,
-    Nl80211InterfaceType, Nl80211Message, Nl80211NewInterface,
+    Nl80211InterfaceType, Nl80211Message, Nl80211NewInterface, Nl80211Vendor,
 };
 
 fn main() -> anyhow::Result<()> {
@@ -62,6 +72,41 @@ fn main() -> anyhow::Result<()> {
                 .ok_or_else(|| anyhow!("No interface specified"))?;
 
             rt.block_on(del_interface(handle, if_name))
+        }
+        Some("vendor") => {
+            let if_name = args
+                .next()
+                .ok_or_else(|| anyhow!("No interface specified"))?;
+            let vendor_oui = args
+                .next()
+                .ok_or_else(|| anyhow!("No vendor OUI specified"))
+                .and_then(|s| u32::from_str_radix(&s, 16).map_err(|e| e.into()))
+                // OUI are 24-bit
+                .and_then(|n| {
+                    if n <= 0xFFFFFF {
+                        Ok(n)
+                    } else {
+                        Err(anyhow!("OUI out of range"))
+                    }
+                })
+                .context("vendor oui")?;
+            let vendor_subcmd = args
+                .next()
+                .ok_or_else(|| anyhow!("No vendor subcommand specified"))
+                .and_then(|s| u32::from_str_radix(&s, 16).map_err(|e| e.into()))
+                .context("vendor subcmd")?;
+            let data = args
+                .next()
+                .ok_or_else(|| anyhow!("No vendor data specified"))
+                .and_then(|s| hex::decode(s).map_err(|e| e.into()))
+                .context("vendor data")?;
+            rt.block_on(send_vendor_cmd(
+                handle,
+                &if_name,
+                vendor_oui,
+                vendor_subcmd,
+                data,
+            ))
         }
         None | Some(_) => bail!("Must specify op: <new> or <del>"),
     }
@@ -123,39 +168,7 @@ async fn del_interface(
     handle: Nl80211Handle,
     if_name: String,
 ) -> anyhow::Result<()> {
-    let mut if_attributes = std::pin::pin!(handle
-	        .interface()
-            // no attributes = all interfaces
-	        .get(vec![])
-	        .execute()
-	        .await
-	        .try_filter_map(|msg| {
-                let iname = if_name.clone();
-                async move {
-                    match msg.payload {
-                        Nl80211Message {
-                            cmd: Nl80211Command::NewInterface,
-                            attributes,
-                        } if attributes
-                            .iter()
-                            .any(|f| matches!(f, wl_nl80211::Nl80211Attr::IfName(name) if *name == iname))
-                         => Ok(Some(attributes)),
-                        _ => Ok(None),
-                    }
-	            }
-        }));
-
-    let if_index = *if_attributes
-        .try_next()
-        .await?
-        .ok_or_else(|| anyhow!("Could not find interface <{if_name}>"))?
-        .iter()
-        .find_map(|attr| match attr {
-            Nl80211Attr::IfIndex(i) => Some(i),
-            _ => None,
-        })
-        .ok_or_else(|| anyhow!("Could not find interface <{if_name}>"))?;
-
+    let if_index = find_interface_index(&handle, &if_name).await?;
     debug!("Using interface index {if_index}");
 
     let mut if_handle = handle
@@ -169,4 +182,70 @@ async fn del_interface(
     }
 
     Ok(())
+}
+
+async fn send_vendor_cmd(
+    handle: Nl80211Handle,
+    if_name: &str,
+    vendor_oui: u32,
+    vendor_subcmd: u32,
+    data: Vec<u8>,
+) -> anyhow::Result<()> {
+    let if_index = find_interface_index(&handle, if_name).await?;
+
+    info!("Sending cmd to {if_name} (idx {if_index}) vendor {vendor_oui:#X} subcmd {vendor_subcmd:#X}");
+
+    let mut vendor_stream = handle
+        .interface()
+        .vendor(
+            Nl80211Vendor::new(vendor_oui, vendor_subcmd, data)
+                .if_index(if_index)
+                .build(),
+        )
+        .execute()
+        .await;
+
+    while let Some(gmsg) = vendor_stream.try_next().await? {
+        info!("Vendor response: {gmsg:?}")
+    }
+
+    Ok(())
+}
+
+async fn find_interface_index(
+    handle: &Nl80211Handle,
+    if_name: &str,
+) -> anyhow::Result<u32> {
+    let mut if_attributes = std::pin::pin!(handle
+	        .interface()
+            // no attributes = all interfaces
+	        .get(vec![])
+	        .execute()
+	        .await
+	        .try_filter_map(|msg| {
+                async move {
+                    match msg.payload {
+                        Nl80211Message {
+                            cmd: Nl80211Command::NewInterface,
+                            attributes,
+                        } if attributes
+                            .iter()
+                            .any(|f| matches!(f, wl_nl80211::Nl80211Attr::IfName(name) if *name == if_name))
+                         => Ok(Some(attributes)),
+                        _ => Ok(None),
+                    }
+	            }
+        }));
+
+    if_attributes
+        .try_next()
+        .await?
+        .ok_or_else(|| anyhow!("Could not find interface <{if_name}>"))?
+        .iter()
+        .find_map(|attr| match attr {
+            Nl80211Attr::IfIndex(i) => Some(i),
+            _ => None,
+        })
+        .ok_or_else(|| anyhow!("Could not find interface <{if_name}>"))
+        .copied()
 }
