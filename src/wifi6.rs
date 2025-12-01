@@ -11,7 +11,7 @@ const HE_MAC_CAP_INFO_LEN: usize = 6;
 /// "HE MAC Capabilities Information field"
 ///
 /// IEEE 802.11ax-2021 section 9.4.2.248.2
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Nl80211HeMacCapInfo(pub [u8; HE_MAC_CAP_INFO_LEN]);
 
 impl Nl80211HeMacCapInfo {
@@ -160,7 +160,7 @@ const HE_PHY_CAP_INFO_LEN: usize = 11;
 /// "HE PHY Capabilities Information field"
 ///
 /// IEEE 802.11ax-2021 section 9.4.2.248.3
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Nl80211HePhyCapInfo(pub [u8; HE_PHY_CAP_INFO_LEN]);
 
 impl Nl80211HePhyCapInfo {
@@ -204,9 +204,10 @@ const NL80211_HE_MCS_NSS_SUPP_LEN: usize = 12;
 
 /// Tx/Rx HE MCS NSS Support Field
 ///
-/// The released 802.11ax-2021 has no `Tx/Rx HE MCS NSS Support` section, this
-/// struct is merely copy of linux kernel `struct ieee80211_he_mcs_nss_supp`.
-#[derive(Debug, PartialEq, Eq, Clone)]
+/// IEEE 802-11 2020: 9.4.2.157.3 Supported VHT-MCS and NSS Set field
+/// The IEEE standard indicate the size is 4, 8, or 12. But kernel
+/// struct is `struct ieee80211_he_mcs_nss_supp` which is always size 12.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
 pub struct Nl80211HeMcsNssSupp {
     /// Rx MCS map 2 bits for each stream, total 8 streams, for channel widths
@@ -412,5 +413,81 @@ impl Emitable for Nl80211He6GhzCapa {
             return;
         }
         buffer[..IEEE80211_HE_6GHZ_CAP_LEN].copy_from_slice(&self.0)
+    }
+}
+
+const ELEMENT_ID_EXTENSION_HE_CAP: u8 = 35;
+
+/// IEEE 802-11 2024: 9.4.2.247 HE Capabilities element
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct Nl80211ElementHeCap {
+    /// HE MAC Capabilities Info
+    pub mac_caps: Nl80211HeMacCapInfo,
+    /// HE PHY Capabilities Info
+    pub phy_caps: Nl80211HePhyCapInfo,
+    /// Supported VHT-MCS and NSS Set
+    pub mcs_nss_set: Nl80211HeMcsNssSupp,
+}
+
+impl Nl80211ElementHeCap {
+    // valid size is from 22 to 30
+    pub const LENGTH: usize = 22;
+    const MAX_LENGTH: usize = 30;
+
+    pub fn parse(buf: &[u8]) -> Result<Self, DecodeError> {
+        if buf.len() < Self::LENGTH {
+            return Err(format!(
+                "Nl80211ElementHeCap buffer size is smaller than \
+                minimum size {}: {buf:?}",
+                Self::LENGTH
+            )
+            .into());
+        }
+        // first byte is extension id 35
+        let mut offset = 1usize;
+        let mac_caps =
+            Nl80211HeMacCapInfo::new(&buf[offset..Nl80211HeMacCapInfo::LENGTH]);
+        offset += Nl80211HeMacCapInfo::LENGTH;
+
+        let phy_caps =
+            Nl80211HePhyCapInfo::new(&buf[offset..Nl80211HePhyCapInfo::LENGTH]);
+        offset += Nl80211HePhyCapInfo::LENGTH;
+
+        let remains = &buf[offset..];
+        let mut raw = vec![0u8; Nl80211HeMcsNssSupp::LENGTH];
+
+        raw[..remains.len()].copy_from_slice(remains);
+
+        let mcs_nss_set = Nl80211HeMcsNssSupp::parse(&raw)?;
+
+        Ok(Self {
+            mac_caps,
+            phy_caps,
+            mcs_nss_set,
+        })
+    }
+}
+
+impl Emitable for Nl80211ElementHeCap {
+    fn buffer_len(&self) -> usize {
+        Self::MAX_LENGTH
+    }
+
+    fn emit(&self, buffer: &mut [u8]) {
+        if buffer.len() < Self::MAX_LENGTH {
+            log::error!(
+                "Nl80211ElementHeCap buffer size is smaller than \
+                required size {}: {buffer:?}",
+                Self::LENGTH
+            );
+            return;
+        }
+        buffer[0] = ELEMENT_ID_EXTENSION_HE_CAP;
+        let mut offset = 1;
+        self.mac_caps.emit(&mut buffer[offset..]);
+        offset += Nl80211HeMacCapInfo::LENGTH;
+        self.phy_caps.emit(&mut buffer[offset..]);
+        offset += Nl80211HePhyCapInfo::LENGTH;
+        self.mcs_nss_set.emit(&mut buffer[offset..]);
     }
 }
