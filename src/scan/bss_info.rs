@@ -155,7 +155,11 @@ pub enum Nl80211BssInfo {
     /// Beacon interval of the (I)BSS
     BeaconInterval(u16),
     Capability(Nl80211BssCapabilities),
+    /// Holding parsed Information Elements.
     InformationElements(Vec<Nl80211Element>),
+    /// Holding un-parse Information Elements when this crate failed to parse
+    /// it.
+    RawInformationElements(Vec<u8>),
     SignalMbm(i32),
     SignalUnspec(u8),
     Status(u32),
@@ -192,6 +196,7 @@ impl Nla for Nl80211BssInfo {
             | Self::ProbeResponseInformationElements(v) => {
                 Nl80211Elements::from(v).buffer_len()
             }
+            Self::RawInformationElements(v) => v.len(),
             Self::Capability(_) => Nl80211BssCapabilities::LENGTH,
             Self::UseFor(_) => Nl80211BssUseFor::LENGTH,
             Self::Other(attr) => attr.value_len(),
@@ -204,6 +209,7 @@ impl Nla for Nl80211BssInfo {
             Self::Frequency(_) => NL80211_BSS_FREQUENCY,
             Self::Tsf(_) => NL80211_BSS_TSF,
             Self::BeaconInterval(_) => NL80211_BSS_BEACON_INTERVAL,
+            Self::RawInformationElements(_) => NL80211_BSS_INFORMATION_ELEMENTS,
             Self::InformationElements(_) => NL80211_BSS_INFORMATION_ELEMENTS,
             Self::SignalMbm(_) => NL80211_BSS_SIGNAL_MBM,
             Self::SignalUnspec(_) => NL80211_BSS_SIGNAL_UNSPEC,
@@ -234,6 +240,9 @@ impl Nla for Nl80211BssInfo {
             Self::SignalMbm(d) => write_i32(buffer, *d),
             Self::BeaconTsf(d) | Self::Tsf(d) | Self::LastSeenBootTime(d) => {
                 write_u64(buffer, *d)
+            }
+            Self::RawInformationElements(v) => {
+                buffer[..v.len()].copy_from_slice(v.as_slice())
             }
             Self::InformationElements(v)
             | Self::BeaconInformationElements(v)
@@ -286,9 +295,19 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             NL80211_BSS_BEACON_IES => Self::BeaconInformationElements(
                 Nl80211Elements::parse(payload)?.into(),
             ),
-            NL80211_BSS_INFORMATION_ELEMENTS => Self::InformationElements(
-                Nl80211Elements::parse(payload)?.into(),
-            ),
+            NL80211_BSS_INFORMATION_ELEMENTS => {
+                match Nl80211Elements::parse(payload) {
+                    Ok(r) => Self::InformationElements(r.into()),
+                    Err(e) => {
+                        log::debug!(
+                            "Failed to parse \
+                            NL80211_BSS_INFORMATION_ELEMENTS, \
+                            storing to RawInformationElements: {e}"
+                        );
+                        Self::RawInformationElements(payload.to_vec())
+                    }
+                }
+            }
             NL80211_BSS_PRESP_DATA => Self::ProbeResponseInformationElements(
                 Nl80211Elements::parse(payload)?.into(),
             ),
