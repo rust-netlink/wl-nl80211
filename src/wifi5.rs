@@ -12,6 +12,7 @@ const NL80211_BAND_VHT_MCS_INFO_LEN: usize = 8;
 
 // We cannot use buffer! macro here as these u16 are all little endian while
 // The `buffer!` does not support little endian yet.
+/// IEEE 802-11 2020: 9.4.2.157.3 Supported VHT-MCS and NSS Set field
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Nl80211VhtMcsInfo {
     pub rx_mcs_map: u16,
@@ -105,6 +106,7 @@ const IEEE80211_VHT_CAP_TX_ANTENNA_PATTERN: u32 = 0x20000000;
 const IEEE80211_VHT_CAP_EXT_NSS_BW_MASK: u32 = 0xc0000000;
 
 bitflags::bitflags! {
+    /// IEEE 802-11 2020: 9.4.2.157.2 VHT Capabilities Information field
     #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
     #[non_exhaustive]
     pub struct Nl80211VhtCapInfo: u32 {
@@ -221,5 +223,59 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211VhtCapability {
                 )?,
             })
         }
+    }
+}
+
+/// IEEE 802-11 2020: 9.4.2.157 VHT Capabilities element
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct Nl80211ElementVhtCap {
+    /// Vht Capabilities Info
+    pub caps: Nl80211VhtCapInfo,
+    /// Supported VHT-MCS and NSS Set
+    pub mcs_nss_set: Nl80211VhtMcsInfo,
+}
+
+impl Nl80211ElementVhtCap {
+    // Hard coded by IEEE 802.11-2020: 9.4.2.157
+    pub const LENGTH: usize = 12;
+
+    pub fn parse(buf: &[u8]) -> Result<Self, DecodeError> {
+        if buf.len() < Self::LENGTH {
+            return Err(format!(
+                "Nl80211ElementVhtCap buffer size is smaller than \
+                required size {}: {buf:?}",
+                Self::LENGTH
+            )
+            .into());
+        }
+        let mut offset = 0;
+        let caps = Nl80211VhtCapInfo::parse(
+            &buf[offset..offset + Nl80211VhtCapInfo::LENGTH],
+        )?;
+        offset += Nl80211VhtCapInfo::LENGTH;
+
+        let mcs_nss_set = Nl80211VhtMcsInfo::parse(&buf[offset..])?;
+        Ok(Self { caps, mcs_nss_set })
+    }
+}
+
+impl Emitable for Nl80211ElementVhtCap {
+    fn buffer_len(&self) -> usize {
+        Self::LENGTH
+    }
+
+    fn emit(&self, buffer: &mut [u8]) {
+        if buffer.len() < Self::LENGTH {
+            log::error!(
+                "Nl80211ElementVhtCap buffer size is smaller than \
+                required size {}: {buffer:?}",
+                Self::LENGTH
+            );
+            return;
+        }
+        let mut offset = 0;
+        self.caps.emit(&mut buffer[offset..]);
+        offset += Nl80211VhtCapInfo::LENGTH;
+        self.mcs_nss_set.emit(&mut buffer[offset..]);
     }
 }

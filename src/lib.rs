@@ -83,11 +83,12 @@ pub use self::wifi4::{
     Nl80211HtWiphyChannelType,
 };
 pub use self::wifi5::{
-    Nl80211VhtCapInfo, Nl80211VhtCapability, Nl80211VhtMcsInfo,
+    Nl80211ElementVhtCap, Nl80211VhtCapInfo, Nl80211VhtCapability,
+    Nl80211VhtMcsInfo,
 };
 pub use self::wifi6::{
-    Nl80211He6GhzCapa, Nl80211HeMacCapInfo, Nl80211HeMcsNssSupp,
-    Nl80211HePhyCapInfo, Nl80211HePpeThreshold,
+    Nl80211ElementHeCap, Nl80211He6GhzCapa, Nl80211HeMacCapInfo,
+    Nl80211HeMcsNssSupp, Nl80211HePhyCapInfo, Nl80211HePpeThreshold,
 };
 pub use self::wifi7::{
     Nl80211EhtMacCapInfo, Nl80211EhtMcsNssSupp,

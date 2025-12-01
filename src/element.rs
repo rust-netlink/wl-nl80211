@@ -6,7 +6,7 @@ use netlink_packet_core::{
 
 use crate::{
     bytes::{parse_u16_le, write_u16_le, write_u32_le},
-    Nl80211ElementHtCap,
+    Nl80211ElementHeCap, Nl80211ElementHtCap, Nl80211ElementVhtCap,
 };
 
 /// [Nl80211Elements] Vec
@@ -64,7 +64,10 @@ const ELEMENT_ID_CHANNEL: u8 = 3;
 const ELEMENT_ID_COUNTRY: u8 = 7;
 const ELEMENT_ID_HT_CAP: u8 = 45;
 const ELEMENT_ID_RSN: u8 = 48;
+const ELEMENT_ID_VHT_CAP: u8 = 191;
 const ELEMENT_ID_VENDOR: u8 = 221;
+const ELEMENT_ID_EXTENSION: u8 = 255;
+const ELEMENT_ID_EXTENSION_HE_CAP: u8 = 35;
 
 /// IEEE 802.11-2020 `9.4.2 Elements`
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -79,8 +82,10 @@ pub enum Nl80211Element {
     Country(Nl80211ElementCountry),
     HtCapability(Nl80211ElementHtCap),
     Rsn(Nl80211ElementRsn),
+    VhtCapability(Nl80211ElementVhtCap),
     /// Vendor specific data.
     Vendor(Vec<u8>),
+    HeCapability(Nl80211ElementHeCap),
     Other(u8, Vec<u8>),
 }
 
@@ -95,6 +100,8 @@ impl Nl80211Element {
             Self::Rsn(_) => ELEMENT_ID_RSN,
             Self::Vendor(_) => ELEMENT_ID_VENDOR,
             Self::HtCapability(_) => ELEMENT_ID_HT_CAP,
+            Self::VhtCapability(_) => ELEMENT_ID_VHT_CAP,
+            Self::HeCapability(_) => ELEMENT_ID_EXTENSION,
             Self::Other(id, _) => *id,
         }
     }
@@ -109,6 +116,8 @@ impl Nl80211Element {
             Self::Rsn(v) => v.buffer_len() as u8,
             Self::Vendor(v) => v.len() as u8,
             Self::HtCapability(v) => v.buffer_len() as u8,
+            Self::VhtCapability(v) => v.buffer_len() as u8,
+            Self::HeCapability(v) => v.buffer_len() as u8,
             Self::Other(_, data) => (data.len()) as u8,
         }
     }
@@ -147,6 +156,16 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211Element {
             ELEMENT_ID_HT_CAP => {
                 Self::HtCapability(Nl80211ElementHtCap::parse(payload)?)
             }
+            ELEMENT_ID_VHT_CAP => {
+                Self::VhtCapability(Nl80211ElementVhtCap::parse(payload)?)
+            }
+            ELEMENT_ID_EXTENSION => {
+                if payload[0] == ELEMENT_ID_EXTENSION_HE_CAP {
+                    Self::HeCapability(Nl80211ElementHeCap::parse(payload)?)
+                } else {
+                    Self::Other(ELEMENT_ID_EXTENSION, payload.to_vec())
+                }
+            }
             _ => Self::Other(id, payload.to_vec()),
         })
     }
@@ -160,25 +179,27 @@ impl Emitable for Nl80211Element {
     fn emit(&self, buffer: &mut [u8]) {
         buffer[0] = self.id();
         buffer[1] = self.length();
-        let payload = &mut buffer[2..self.length() as usize + 2];
+        let buffer = &mut buffer[2..self.length() as usize + 2];
         match self {
             Self::Ssid(s) => {
                 // IEEE 802.11-2020 indicate it is optional to have NULL
                 // terminator for this string.
-                payload.copy_from_slice(s.as_bytes());
+                buffer.copy_from_slice(s.as_bytes());
             }
             Self::SupportedRatesAndSelectors(v) => {
                 let raw: Vec<u8> =
                     v.as_slice().iter().map(|v| u8::from(*v)).collect();
-                payload.copy_from_slice(raw.as_slice());
+                buffer.copy_from_slice(raw.as_slice());
             }
             Self::Channel(v) => buffer[0] = *v,
             Self::Country(v) => v.emit(buffer),
             Self::Rsn(v) => v.emit(buffer),
             Self::Vendor(v) => buffer[..v.len()].copy_from_slice(v.as_slice()),
             Self::HtCapability(v) => v.emit(buffer),
+            Self::VhtCapability(v) => v.emit(buffer),
+            Self::HeCapability(v) => v.emit(buffer),
             Self::Other(_, data) => {
-                payload.copy_from_slice(data.as_slice());
+                buffer.copy_from_slice(data.as_slice());
             }
         }
     }
