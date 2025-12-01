@@ -39,6 +39,7 @@ pub use self::connection::new_connection;
 pub use self::connection::new_connection_with_socket;
 pub use self::element::Nl80211Element;
 pub use self::element::Nl80211ElementRsn;
+pub use self::element::Nl80211Elements;
 pub use self::error::Nl80211Error;
 pub use self::ext_cap::{
     Nl80211ExtendedCapability, Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas,
@@ -101,7 +102,6 @@ pub use self::wiphy::{
     Nl80211WowlanTriggerPatternSupport, Nl80211WowlanTriggersSupport,
 };
 
-pub(crate) use self::element::Nl80211Elements;
 pub(crate) use self::feature::Nl80211ExtFeatures;
 pub(crate) use self::handle::nl80211_execute;
 pub(crate) use self::iface::Nl80211InterfaceTypes;

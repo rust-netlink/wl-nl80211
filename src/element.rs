@@ -9,7 +9,9 @@ use crate::{
     Nl80211ElementHtCap,
 };
 
-pub(crate) struct Nl80211Elements(Vec<Nl80211Element>);
+/// [Nl80211Elements] Vec
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Nl80211Elements(pub Vec<Nl80211Element>);
 
 impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211Elements {
     fn parse(buf: &T) -> Result<Self, DecodeError> {
