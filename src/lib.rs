@@ -11,6 +11,7 @@ mod ext_cap;
 mod feature;
 mod frame_type;
 mod handle;
+mod helper;
 mod iface;
 mod macros;
 mod message;
