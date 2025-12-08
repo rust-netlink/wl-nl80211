@@ -25,6 +25,9 @@ mod wifi6;
 mod wifi7;
 mod wiphy;
 
+#[cfg(test)]
+mod tests;
+
 pub(crate) mod bytes;
 
 // used in public API
@@ -37,9 +40,12 @@ pub use self::command::Nl80211Command;
 #[cfg(feature = "tokio_socket")]
 pub use self::connection::new_connection;
 pub use self::connection::new_connection_with_socket;
-pub use self::element::Nl80211Element;
-pub use self::element::Nl80211ElementRsn;
-pub use self::element::Nl80211Elements;
+pub use self::element::{
+    Nl80211AkmSuite, Nl80211CipherSuite, Nl80211Element,
+    Nl80211ElementCountryEnvironment, Nl80211ElementCountryTriplet,
+    Nl80211ElementRsn, Nl80211Elements, Nl80211Pmkid, Nl80211RateAndSelector,
+    Nl80211RsnCapbilities,
+};
 pub use self::error::Nl80211Error;
 pub use self::ext_cap::{
     Nl80211ExtendedCapability, Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas,
