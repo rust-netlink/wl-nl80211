@@ -456,7 +456,12 @@ impl Nl80211ElementHeCap {
         let remains = &buf[offset..];
         let mut raw = vec![0u8; Nl80211HeMcsNssSupp::LENGTH];
 
-        raw[..remains.len()].copy_from_slice(remains);
+        if remains.len() > Nl80211HeMcsNssSupp::LENGTH {
+            raw[..Nl80211HeMcsNssSupp::LENGTH]
+                .copy_from_slice(&remains[..Nl80211HeMcsNssSupp::LENGTH]);
+        } else {
+            raw[..remains.len()].copy_from_slice(remains);
+        }
 
         let mcs_nss_set = Nl80211HeMcsNssSupp::parse(&raw)?;
 
