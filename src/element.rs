@@ -257,21 +257,21 @@ impl From<u8> for Nl80211RateAndSelector {
 impl From<Nl80211RateAndSelector> for u8 {
     fn from(v: Nl80211RateAndSelector) -> u8 {
         match v {
-            Nl80211RateAndSelector::BssBasicRateSet(r) => (r * 2) & 1 << 7,
+            Nl80211RateAndSelector::BssBasicRateSet(r) => (r * 2) | 1 << 7,
             Nl80211RateAndSelector::SelectorHt => {
-                BSS_MEMBERSHIP_SELECTOR_HT_PHY & 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_HT_PHY | 1 << 7
             }
             Nl80211RateAndSelector::SelectorVht => {
-                BSS_MEMBERSHIP_SELECTOR_VHT_PHY & 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_VHT_PHY | 1 << 7
             }
             Nl80211RateAndSelector::SelectorGlk => {
-                BSS_MEMBERSHIP_SELECTOR_GLK & 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_GLK | 1 << 7
             }
             Nl80211RateAndSelector::SelectorEpd => {
-                BSS_MEMBERSHIP_SELECTOR_EPD & 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_EPD | 1 << 7
             }
             Nl80211RateAndSelector::SelectorSaeHash => {
-                BSS_MEMBERSHIP_SELECTOR_SAE_HASH & 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_SAE_HASH | 1 << 7
             }
             Nl80211RateAndSelector::Rate(r) => r * 2,
         }
