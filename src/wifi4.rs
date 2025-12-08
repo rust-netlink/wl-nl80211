@@ -9,6 +9,9 @@ use netlink_packet_core::{
 
 use crate::bytes::{get_bit, get_bits_as_u8, write_u16_le};
 
+#[cfg(test)]
+mod test;
+
 const NL80211_CHAN_NO_HT: u32 = 0;
 const NL80211_CHAN_HT20: u32 = 1;
 const NL80211_CHAN_HT40MINUS: u32 = 2;
@@ -123,7 +126,7 @@ impl Emitable for Nl80211HtCaps {
     }
 
     fn emit(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&self.bits().to_ne_bytes())
+        buffer[0..self.buffer_len()].copy_from_slice(&self.bits().to_ne_bytes())
     }
 }
 
@@ -469,9 +472,9 @@ impl From<Nl80211HtExtendedCap> for [u8; 2] {
     fn from(v: Nl80211HtExtendedCap) -> [u8; 2] {
         [
             v.pco as u8 | (v.pco_trans_time << 1) | (v.mcs_feedback & 0b1) << 7,
-            ((v.mcs_feedback & 0b10) >> 1)
-                | ((v.support_ht_control as u8) << 1)
-                | ((v.rd_responder as u8) << 2),
+            (v.mcs_feedback & 0b11)
+                | ((v.support_ht_control as u8) << 2)
+                | ((v.rd_responder as u8) << 3),
         ]
     }
 }
@@ -626,7 +629,7 @@ impl Emitable for Nl80211HtTransmitBeamformingCaps {
     }
 
     fn emit(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&self.bits().to_ne_bytes())
+        buffer[0..self.buffer_len()].copy_from_slice(&self.bits().to_ne_bytes())
     }
 }
 
@@ -674,6 +677,6 @@ impl Emitable for Nl80211HtAselCaps {
     }
 
     fn emit(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&self.bits().to_ne_bytes())
+        buffer[0..self.buffer_len()].copy_from_slice(&self.bits().to_ne_bytes())
     }
 }
