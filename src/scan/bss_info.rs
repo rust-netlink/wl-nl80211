@@ -37,10 +37,7 @@ use netlink_packet_core::{
     Emitable, ErrorContext, Nla, NlaBuffer, Parseable,
 };
 
-use crate::{
-    bytes::{write_i32, write_u16, write_u32, write_u64},
-    Nl80211Element, Nl80211Elements,
-};
+use crate::bytes::{write_i32, write_u16, write_u32, write_u64};
 
 bitflags::bitflags! {
     /// IEEE 802.11-202, 9.4.1.4 Capability Information field
@@ -155,15 +152,27 @@ pub enum Nl80211BssInfo {
     /// Beacon interval of the (I)BSS
     BeaconInterval(u16),
     Capability(Nl80211BssCapabilities),
-    InformationElements(Vec<Nl80211Element>),
+    /// Considering this information element is provided by WIFI hardware
+    /// vendor which might provide malformed data causing parsing error, we
+    /// only store unparsed Information Elements(IEs) here, please parsed by
+    /// [Nl80211Elements::parse()]
+    RawInformationElements(Vec<u8>),
     SignalMbm(i32),
     SignalUnspec(u8),
     Status(u32),
     SeenMsAgo(u32),
-    BeaconInformationElements(Vec<Nl80211Element>),
+    /// Considering this information element is provided by WIFI hardware
+    /// vendor which might provide malformed data causing parsing error, we
+    /// only store unparsed beacon Information Elements(IEs) here, please
+    /// parsed by [Nl80211Elements::parse()]
+    RawBeaconInformationElements(Vec<u8>),
     ChanWidth(u32),
     BeaconTsf(u64),
-    ProbeResponseInformationElements(Vec<Nl80211Element>),
+    /// Considering this information element is provided by WIFI hardware
+    /// vendor which might provide malformed data causing parsing error, we
+    /// only store unparsed probe response Information Elements(IEs) here,
+    /// please parsed by [Nl80211Elements::parse()]
+    RawProbeResponseInformationElements(Vec<u8>),
     /// `CLOCK_BOOTTIME` timestamp when this entry was last updated by a
     /// received frame. The value is expected to be accurate to about 10ms.
     /// (u64, nanoseconds)
@@ -187,11 +196,9 @@ impl Nla for Nl80211BssInfo {
             | Self::ChanWidth(_)
             | Self::FrequencyOffset(_) => 4,
             Self::BeaconTsf(_) | Self::Tsf(_) | Self::LastSeenBootTime(_) => 8,
-            Self::InformationElements(v)
-            | Self::BeaconInformationElements(v)
-            | Self::ProbeResponseInformationElements(v) => {
-                Nl80211Elements::from(v).buffer_len()
-            }
+            Self::RawInformationElements(v)
+            | Self::RawBeaconInformationElements(v)
+            | Self::RawProbeResponseInformationElements(v) => v.len(),
             Self::Capability(_) => Nl80211BssCapabilities::LENGTH,
             Self::UseFor(_) => Nl80211BssUseFor::LENGTH,
             Self::Other(attr) => attr.value_len(),
@@ -204,16 +211,18 @@ impl Nla for Nl80211BssInfo {
             Self::Frequency(_) => NL80211_BSS_FREQUENCY,
             Self::Tsf(_) => NL80211_BSS_TSF,
             Self::BeaconInterval(_) => NL80211_BSS_BEACON_INTERVAL,
-            Self::InformationElements(_) => NL80211_BSS_INFORMATION_ELEMENTS,
+            Self::RawInformationElements(_) => NL80211_BSS_INFORMATION_ELEMENTS,
             Self::SignalMbm(_) => NL80211_BSS_SIGNAL_MBM,
             Self::SignalUnspec(_) => NL80211_BSS_SIGNAL_UNSPEC,
             Self::Status(_) => NL80211_BSS_STATUS,
             Self::SeenMsAgo(_) => NL80211_BSS_SEEN_MS_AGO,
             Self::ChanWidth(_) => NL80211_BSS_CHAN_WIDTH,
             Self::BeaconTsf(_) => NL80211_BSS_BEACON_TSF,
-            Self::BeaconInformationElements(_) => NL80211_BSS_BEACON_IES,
+            Self::RawBeaconInformationElements(_) => NL80211_BSS_BEACON_IES,
             Self::Capability(_) => NL80211_BSS_CAPABILITY,
-            Self::ProbeResponseInformationElements(_) => NL80211_BSS_PRESP_DATA,
+            Self::RawProbeResponseInformationElements(_) => {
+                NL80211_BSS_PRESP_DATA
+            }
             Self::LastSeenBootTime(_) => NL80211_BSS_LAST_SEEN_BOOTTIME,
             Self::FrequencyOffset(_) => NL80211_BSS_FREQUENCY_OFFSET,
             Self::UseFor(_) => NL80211_BSS_USE_FOR,
@@ -235,10 +244,10 @@ impl Nla for Nl80211BssInfo {
             Self::BeaconTsf(d) | Self::Tsf(d) | Self::LastSeenBootTime(d) => {
                 write_u64(buffer, *d)
             }
-            Self::InformationElements(v)
-            | Self::BeaconInformationElements(v)
-            | Self::ProbeResponseInformationElements(v) => {
-                Nl80211Elements::from(v).emit(buffer)
+            Self::RawInformationElements(v)
+            | Self::RawBeaconInformationElements(v)
+            | Self::RawProbeResponseInformationElements(v) => {
+                buffer[..v.len()].copy_from_slice(v)
             }
             Self::Capability(v) => v.emit(buffer),
             Self::UseFor(v) => v.emit(buffer),
@@ -283,15 +292,15 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             NL80211_BSS_CAPABILITY => {
                 Self::Capability(Nl80211BssCapabilities::parse(payload)?)
             }
-            NL80211_BSS_BEACON_IES => Self::BeaconInformationElements(
-                Nl80211Elements::parse(payload)?.into(),
-            ),
-            NL80211_BSS_INFORMATION_ELEMENTS => Self::InformationElements(
-                Nl80211Elements::parse(payload)?.into(),
-            ),
-            NL80211_BSS_PRESP_DATA => Self::ProbeResponseInformationElements(
-                Nl80211Elements::parse(payload)?.into(),
-            ),
+            NL80211_BSS_BEACON_IES => {
+                Self::RawBeaconInformationElements(payload.to_vec())
+            }
+            NL80211_BSS_INFORMATION_ELEMENTS => {
+                Self::RawInformationElements(payload.to_vec())
+            }
+            NL80211_BSS_PRESP_DATA => {
+                Self::RawProbeResponseInformationElements(payload.to_vec())
+            }
             NL80211_BSS_SIGNAL_MBM => {
                 let err_msg =
                     format!("Invalid NL80211_BSS_SIGNAL_MBM value {payload:?}");
