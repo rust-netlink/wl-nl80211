@@ -214,9 +214,9 @@ const BSS_MEMBERSHIP_SELECTOR_HT_PHY: u8 = 127;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
 pub enum Nl80211RateAndSelector {
-    /// BSS basic rate set in Mb/s.
+    /// BSS basic rate set in 500 kb/s.
     BssBasicRateSet(u8),
-    /// Rate in Mb/s.
+    /// Rate in 500kb/s.
     Rate(u8),
     SelectorHt,
     SelectorVht,
@@ -239,6 +239,7 @@ impl From<u8> for Nl80211RateAndSelector {
     fn from(d: u8) -> Self {
         let msb: bool = (d & 1 << 7) > 0;
         let value = d & 0b01111111;
+
         if msb {
             match value {
                 BSS_MEMBERSHIP_SELECTOR_SAE_HASH => Self::SelectorSaeHash,
@@ -246,10 +247,10 @@ impl From<u8> for Nl80211RateAndSelector {
                 BSS_MEMBERSHIP_SELECTOR_GLK => Self::SelectorGlk,
                 BSS_MEMBERSHIP_SELECTOR_VHT_PHY => Self::SelectorVht,
                 BSS_MEMBERSHIP_SELECTOR_HT_PHY => Self::SelectorHt,
-                _ => Self::BssBasicRateSet(value / 2),
+                _ => Self::BssBasicRateSet(value),
             }
         } else {
-            Self::Rate(value / 2)
+            Self::Rate(value)
         }
     }
 }
@@ -257,7 +258,7 @@ impl From<u8> for Nl80211RateAndSelector {
 impl From<Nl80211RateAndSelector> for u8 {
     fn from(v: Nl80211RateAndSelector) -> u8 {
         match v {
-            Nl80211RateAndSelector::BssBasicRateSet(r) => (r * 2) | 1 << 7,
+            Nl80211RateAndSelector::BssBasicRateSet(r) => (r) | 1 << 7,
             Nl80211RateAndSelector::SelectorHt => {
                 BSS_MEMBERSHIP_SELECTOR_HT_PHY | 1 << 7
             }
@@ -273,7 +274,7 @@ impl From<Nl80211RateAndSelector> for u8 {
             Nl80211RateAndSelector::SelectorSaeHash => {
                 BSS_MEMBERSHIP_SELECTOR_SAE_HASH | 1 << 7
             }
-            Nl80211RateAndSelector::Rate(r) => r * 2,
+            Nl80211RateAndSelector::Rate(r) => r,
         }
     }
 }
@@ -480,6 +481,8 @@ impl From<[u8; 3]> for Nl80211ElementOperating {
 }
 
 /// Robust Security Network Element
+///
+/// IEEE 802.11-2024: 9.4.2.23 RSNE
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct Nl80211ElementRsn {
     pub version: u16,
@@ -508,7 +511,9 @@ impl Nl80211ElementRsn {
 
         let mut offset = 2;
 
-        if offset >= payload.len() {
+        if offset >= payload.len()
+            || offset + Nl80211CipherSuite::LENGTH > payload.len()
+        {
             return Ok(ret);
         }
 
@@ -517,7 +522,7 @@ impl Nl80211ElementRsn {
         )?);
         offset += Nl80211CipherSuite::LENGTH;
 
-        if offset >= payload.len() || offset + 2 >= payload.len() {
+        if offset >= payload.len() || offset + 2 > payload.len() {
             return Ok(ret);
         }
         let pairwise_cipher_count =
@@ -536,8 +541,7 @@ impl Nl80211ElementRsn {
             )?);
             offset += Nl80211CipherSuite::LENGTH;
         }
-
-        if offset >= payload.len() || offset + 2 >= payload.len() {
+        if offset >= payload.len() || offset + 2 > payload.len() {
             return Ok(ret);
         }
         let akm_count =
@@ -547,7 +551,7 @@ impl Nl80211ElementRsn {
             return Ok(ret);
         }
         for _ in 0..akm_count {
-            if offset + Nl80211AkmSuite::LENGTH >= payload.len() {
+            if offset + Nl80211AkmSuite::LENGTH > payload.len() {
                 return Ok(ret);
             }
             ret.akm_suits.push(Nl80211AkmSuite::parse(
@@ -555,7 +559,7 @@ impl Nl80211ElementRsn {
             )?);
             offset += Nl80211AkmSuite::LENGTH;
         }
-        if offset >= payload.len() || offset + 2 >= payload.len() {
+        if offset >= payload.len() || offset + 2 > payload.len() {
             return Ok(ret);
         }
 
@@ -563,7 +567,7 @@ impl Nl80211ElementRsn {
             Some(Nl80211RsnCapbilities::parse(&payload[offset..offset + 2])?);
         offset += 2;
 
-        if offset >= payload.len() || offset + 2 >= payload.len() {
+        if offset >= payload.len() || offset + 2 > payload.len() {
             return Ok(ret);
         }
         let pmkids_count =
@@ -573,7 +577,7 @@ impl Nl80211ElementRsn {
             return Ok(ret);
         }
         for _ in 0..pmkids_count {
-            if offset + Nl80211Pmkid::LENGTH >= payload.len() {
+            if offset + Nl80211Pmkid::LENGTH > payload.len() {
                 return Ok(ret);
             }
             ret.pmkids.push(Nl80211Pmkid::parse(
@@ -583,7 +587,7 @@ impl Nl80211ElementRsn {
         }
 
         if offset >= payload.len()
-            || offset + Nl80211CipherSuite::LENGTH >= payload.len()
+            || offset + Nl80211CipherSuite::LENGTH > payload.len()
         {
             return Ok(ret);
         }
@@ -591,7 +595,6 @@ impl Nl80211ElementRsn {
         ret.group_mgmt_cipher = Some(Nl80211CipherSuite::parse(
             &payload[offset..offset + Nl80211CipherSuite::LENGTH],
         )?);
-
         Ok(ret)
     }
 }
@@ -639,16 +642,48 @@ impl Emitable for Nl80211ElementRsn {
     }
 
     fn emit(&self, buffer: &mut [u8]) {
+        let mut offset = 0;
         write_u16_le(&mut buffer[0..2], self.version);
+        offset += 2;
         if let Some(g) = self.group_cipher {
-            write_u32_le(&mut buffer[2..6], u32::from(g));
-            write_u16_le(&mut buffer[6..8], self.pairwise_ciphers.len() as u16);
-        }
-        for (i, cipher) in self.pairwise_ciphers.as_slice().iter().enumerate() {
-            write_u32_le(
-                &mut buffer[(8 + i * 4)..(12 + i * 4)],
-                u32::from(*cipher),
+            write_u32_le(&mut buffer[offset..offset + 4], u32::from(g));
+            offset += 4;
+            write_u16_le(
+                &mut buffer[offset..offset + 2],
+                self.pairwise_ciphers.len() as u16,
             );
+            offset += 2;
+        }
+        for cipher in self.pairwise_ciphers.as_slice().iter() {
+            write_u32_le(&mut buffer[offset..offset + 4], u32::from(*cipher));
+            offset += 4;
+        }
+        if !self.akm_suits.is_empty() {
+            write_u16_le(
+                &mut buffer[offset..offset + 2],
+                self.akm_suits.len() as u16,
+            );
+            offset += 2;
+            for akm in self.akm_suits.as_slice() {
+                write_u32_le(&mut buffer[offset..offset + 4], u32::from(*akm));
+                offset += 4;
+            }
+        }
+        if let Some(rsn_cap) = self.rsn_capbilities {
+            write_u16_le(&mut buffer[offset..offset + 2], rsn_cap.bits());
+            offset += 2;
+        }
+
+        if !self.pmkids.is_empty() {
+            write_u16_le(
+                &mut buffer[offset..offset + 2],
+                self.pmkids.len() as u16,
+            );
+            offset += 2;
+            for pmkid in self.pmkids.as_slice() {
+                pmkid.emit(&mut buffer[offset..]);
+                offset += Nl80211Pmkid::LENGTH;
+            }
         }
     }
 }
@@ -1010,5 +1045,9 @@ impl Nl80211Pmkid {
             raw.copy_from_slice(&payload[..Self::LENGTH]);
             Ok(Self(raw))
         }
+    }
+
+    pub fn emit(&self, buffer: &mut [u8]) {
+        buffer[..Self::LENGTH].copy_from_slice(&self.0);
     }
 }
