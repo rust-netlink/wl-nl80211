@@ -13,7 +13,7 @@ const NL80211_CMD_NEW_SCAN_RESULTS: u8 = 34;
 // nlmon capture of `iw wlan0 scan`
 // The raw data is copied since the generic netlink command property.
 #[test]
-fn test_triger_scan() {
+fn test_trigger_scan() {
     let raw = vec![
         0x21, 0x00, 0x00, 0x00, 0x08, 0x00, 0x03, 0x00, 0x02, 0x00, 0x00, 0x00,
         0x08, 0x00, 0x2d, 0x00, 0x04, 0x00, 0x01, 0x00, 0x08, 0x00, 0x9e, 0x00,
@@ -212,14 +212,14 @@ fn test_parse_ies() {
         Nl80211Element::Other(6, vec![]),
         Nl80211Element::Ssid("Test-WIFI".to_string()),
         Nl80211Element::SupportedRatesAndSelectors(vec![
-            Nl80211RateAndSelector::BssBasicRateSet(1),
             Nl80211RateAndSelector::BssBasicRateSet(2),
-            Nl80211RateAndSelector::BssBasicRateSet(5),
+            Nl80211RateAndSelector::BssBasicRateSet(4),
             Nl80211RateAndSelector::BssBasicRateSet(11),
-            Nl80211RateAndSelector::Rate(6),
-            Nl80211RateAndSelector::Rate(9),
+            Nl80211RateAndSelector::BssBasicRateSet(22),
             Nl80211RateAndSelector::Rate(12),
             Nl80211RateAndSelector::Rate(18),
+            Nl80211RateAndSelector::Rate(24),
+            Nl80211RateAndSelector::Rate(36),
         ]),
         Nl80211Element::Channel(1),
         Nl80211Element::Other(42, vec![4]),
@@ -229,7 +229,9 @@ fn test_parse_ies() {
             group_cipher: Some(Nl80211CipherSuite::Ccmp128),
             pairwise_ciphers: vec![Nl80211CipherSuite::Ccmp128],
             akm_suits: vec![Nl80211AkmSuite::Sae],
-            rsn_capbilities: None,
+            rsn_capbilities: Some(
+                Nl80211RsnCapbilities::Mfpr | Nl80211RsnCapbilities::Mfpc,
+            ),
             pmkids: vec![],
             group_mgmt_cipher: None,
         }),
