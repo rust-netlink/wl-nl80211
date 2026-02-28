@@ -30,8 +30,9 @@ mod tests;
 
 pub(crate) mod bytes;
 
-// used in public API
-pub use netlink_packet_generic;
+// reexport public API of packet_core and packet_generic
+pub use netlink_packet_core as packet_core;
+pub use netlink_packet_generic as packet_generic;
 
 pub use self::attr::Nl80211Attr;
 pub use self::builder::Nl80211AttrsBuilder;
