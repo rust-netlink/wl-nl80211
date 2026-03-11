@@ -9,6 +9,9 @@ use crate::{
     Nl80211ElementHeCap, Nl80211ElementHtCap, Nl80211ElementVhtCap,
 };
 
+#[cfg(test)]
+mod test;
+
 /// [Nl80211Elements] Vec
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Nl80211Elements(pub Vec<Nl80211Element>);
@@ -214,9 +217,10 @@ const BSS_MEMBERSHIP_SELECTOR_HT_PHY: u8 = 127;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
 pub enum Nl80211RateAndSelector {
-    /// BSS basic rate set in 500 kb/s.
+    /// BSS basic rate in units of 500 kb/s, if necessary rounded up to the
+    /// next 500 kbs.
     BssBasicRateSet(u8),
-    /// Rate in 500kb/s.
+    /// Rate in units of 500 kb/s, if necessary rounded up to the next 500 kbs.
     Rate(u8),
     SelectorHt,
     SelectorVht,
@@ -237,9 +241,9 @@ pub enum Nl80211RateAndSelector {
 
 impl From<u8> for Nl80211RateAndSelector {
     fn from(d: u8) -> Self {
-        let msb: bool = (d & 1 << 7) > 0;
-        let value = d & 0b01111111;
-
+        const MSB_MASK: u8 = 0b1000_0000;
+        let msb: bool = (d & MSB_MASK) == MSB_MASK;
+        let value = d & !MSB_MASK;
         if msb {
             match value {
                 BSS_MEMBERSHIP_SELECTOR_SAE_HASH => Self::SelectorSaeHash,
@@ -257,22 +261,23 @@ impl From<u8> for Nl80211RateAndSelector {
 
 impl From<Nl80211RateAndSelector> for u8 {
     fn from(v: Nl80211RateAndSelector) -> u8 {
+        const MSB: u8 = 0b1000_0000;
         match v {
-            Nl80211RateAndSelector::BssBasicRateSet(r) => (r) | 1 << 7,
+            Nl80211RateAndSelector::BssBasicRateSet(r) => r & !MSB | MSB,
             Nl80211RateAndSelector::SelectorHt => {
-                BSS_MEMBERSHIP_SELECTOR_HT_PHY | 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_HT_PHY | MSB
             }
             Nl80211RateAndSelector::SelectorVht => {
-                BSS_MEMBERSHIP_SELECTOR_VHT_PHY | 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_VHT_PHY | MSB
             }
             Nl80211RateAndSelector::SelectorGlk => {
-                BSS_MEMBERSHIP_SELECTOR_GLK | 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_GLK | MSB
             }
             Nl80211RateAndSelector::SelectorEpd => {
-                BSS_MEMBERSHIP_SELECTOR_EPD | 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_EPD | MSB
             }
             Nl80211RateAndSelector::SelectorSaeHash => {
-                BSS_MEMBERSHIP_SELECTOR_SAE_HASH | 1 << 7
+                BSS_MEMBERSHIP_SELECTOR_SAE_HASH | MSB
             }
             Nl80211RateAndSelector::Rate(r) => r,
         }
@@ -334,7 +339,7 @@ impl Emitable for Nl80211ElementCountry {
             buffer[0] = self.country.as_bytes()[0];
             buffer[1] = self.country.as_bytes()[1];
         }
-        buffer[3] = self.environment.into();
+        buffer[2] = self.environment.into();
         for (i, triplet) in self.triplets.as_slice().iter().enumerate() {
             triplet.emit(&mut buffer[(i + 1) * 3..(i + 2) * 3]);
         }
