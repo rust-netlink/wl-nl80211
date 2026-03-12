@@ -103,11 +103,12 @@ pub use self::wifi7::{
     Nl80211EhtPhyCapInfo, Nl80211EhtPpeThres,
 };
 pub use self::wiphy::{
-    Nl80211Band, Nl80211BandInfo, Nl80211BandType, Nl80211BandTypes,
-    Nl80211Channel, Nl80211ChannelSwitchRequest, Nl80211CipherSuit,
-    Nl80211Frequency, Nl80211FrequencyInfo, Nl80211IfMode,
-    Nl80211WiphyGetRequest, Nl80211WiphyHandle, Nl80211WowlanTcpTriggerSupport,
-    Nl80211WowlanTriggerPatternSupport, Nl80211WowlanTriggersSupport,
+    Nl80211Band, Nl80211BandIftypeData, Nl80211BandInfo, Nl80211BandType,
+    Nl80211BandTypes, Nl80211Channel, Nl80211ChannelSwitchRequest,
+    Nl80211CipherSuit, Nl80211Frequency, Nl80211FrequencyInfo, Nl80211IfMode,
+    Nl80211Rate, Nl80211WiphyGetRequest, Nl80211WiphyHandle,
+    Nl80211WowlanTcpTriggerSupport, Nl80211WowlanTriggerPatternSupport,
+    Nl80211WowlanTriggersSupport,
 };
 
 pub(crate) use self::feature::Nl80211ExtFeatures;
