@@ -2,7 +2,7 @@
 # The crate name `nl80211` is occupied
 name = "wl-nl80211"
 version = "0.4.0"
-authors = ["Gris Ge <fge@redhat.com>"]
+authors = ["Gris Ge <cnfourt@gmail.com>"]
 license = "MIT"
 edition = "2021"
 rust-version = "1.77"
