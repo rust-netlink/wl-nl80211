@@ -497,10 +497,13 @@ pub struct Nl80211ElementRsn {
 
 impl Nl80211ElementRsn {
     pub fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
-        if payload.len() != 2 && payload.len() < 8 {
+        // Per IEEE 802.11-2020 9.4.2.24.1 the RSNE contains up to and including
+        // the mandatory 2-octet Version field; every field after it is
+        // optional.
+        if payload.len() < 2 {
             return Err(format!(
                 "Invalid buffer length of Nl80211ElementRsn, \
-                expecting 2 or bigger than 7, but got {payload:?}"
+                expecting at least 2, but got {payload:?}"
             )
             .into());
         }
@@ -533,7 +536,7 @@ impl Nl80211ElementRsn {
         }
 
         for _ in 0..pairwise_cipher_count {
-            if offset + Nl80211CipherSuite::LENGTH >= payload.len() {
+            if offset + Nl80211CipherSuite::LENGTH > payload.len() {
                 return Ok(ret);
             }
             ret.pairwise_ciphers.push(Nl80211CipherSuite::parse(
@@ -627,14 +630,14 @@ impl Emitable for Nl80211ElementRsn {
             len += 2;
         }
 
-        if self.pmkids.is_empty() {
+        if self.pmkids.is_empty() && self.group_mgmt_cipher.is_none() {
             return len;
-        } else {
-            len += 2 + self.pmkids.len() * Nl80211Pmkid::LENGTH;
         }
-        if self.group_mgmt_cipher.is_none() {
-            return len;
-        } else {
+        // PMKID count is always present once a PMKID list and/or a group
+        // management cipher follows the RSN capabilities.
+        len += 2 + self.pmkids.len() * Nl80211Pmkid::LENGTH;
+
+        if self.group_mgmt_cipher.is_some() {
             len += Nl80211CipherSuite::LENGTH;
         }
 
@@ -674,7 +677,7 @@ impl Emitable for Nl80211ElementRsn {
             offset += 2;
         }
 
-        if !self.pmkids.is_empty() {
+        if !self.pmkids.is_empty() || self.group_mgmt_cipher.is_some() {
             write_u16_le(
                 &mut buffer[offset..offset + 2],
                 self.pmkids.len() as u16,
@@ -683,6 +686,9 @@ impl Emitable for Nl80211ElementRsn {
             for pmkid in self.pmkids.as_slice() {
                 pmkid.emit(&mut buffer[offset..]);
                 offset += Nl80211Pmkid::LENGTH;
+            }
+            if let Some(c) = self.group_mgmt_cipher {
+                write_u32_le(&mut buffer[offset..offset + 4], u32::from(c));
             }
         }
     }

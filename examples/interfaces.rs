@@ -63,7 +63,7 @@ fn main() -> anyhow::Result<()> {
                     _ => Err(anyhow!("Unknown interface type")),
                 })
                 .ok_or_else(|| anyhow!("No type specified"))
-                .flatten()?;
+                .and_then(|x| x)?;
             rt.block_on(new_interface(handle, phy_name, if_name, if_type))
         }
         Some("del") => {

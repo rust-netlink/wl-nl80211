@@ -5,8 +5,9 @@ use netlink_packet_core::{
     NlasIterator, Parseable,
 };
 
+use crate::attr::NL80211_ATTR_MAC;
+
 const ETH_ALEN: usize = 6;
-const NL80211_ATTR_MAC: u16 = 6;
 const NL80211_ATTR_MLO_LINK_ID: u16 = 313;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
