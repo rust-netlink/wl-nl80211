@@ -5,7 +5,9 @@ use netlink_packet_core::{
     NlasIterator, Parseable,
 };
 
-use crate::{bytes::write_u16, Nl80211InterfaceType};
+use crate::{
+    attr::NL80211_ATTR_FRAME_TYPE, bytes::write_u16, Nl80211InterfaceType,
+};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]
@@ -27,8 +29,6 @@ impl Nla for Nl80211IfaceFrameType {
         self.attributes.as_slice().emit(buffer)
     }
 }
-
-const NL80211_ATTR_FRAME_TYPE: u16 = 101;
 
 impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
     for Nl80211IfaceFrameType

@@ -39,18 +39,81 @@ use crate::{
     bytes::{write_u16, write_u32, write_u64},
     scan::{Nla80211ScanFreqNlas, Nla80211ScanSsidNlas},
     wiphy::Nl80211Commands,
-    Nl80211Band, Nl80211BandTypes, Nl80211BssInfo, Nl80211ChannelWidth,
-    Nl80211CipherSuit, Nl80211Command, Nl80211ExtFeature, Nl80211ExtFeatures,
-    Nl80211ExtendedCapability, Nl80211Features, Nl80211HtCapabilityMask,
-    Nl80211HtWiphyChannelType, Nl80211IfMode, Nl80211IfTypeExtCapa,
-    Nl80211IfTypeExtCapas, Nl80211IfaceComb, Nl80211IfaceFrameType,
-    Nl80211InterfaceType, Nl80211InterfaceTypes, Nl80211MloLink,
-    Nl80211ScanFlags, Nl80211SchedScanMatch, Nl80211SchedScanPlan,
-    Nl80211StationInfo, Nl80211SurveyInfo, Nl80211TransmitQueueStat,
-    Nl80211VhtCapability, Nl80211WowlanTriggersSupport,
+    Nl80211AkmSuite, Nl80211AuthType, Nl80211Band, Nl80211BandTypes,
+    Nl80211BssInfo, Nl80211ChannelWidth, Nl80211CipherSuit, Nl80211CipherSuite,
+    Nl80211Command, Nl80211ExtFeature, Nl80211ExtFeatures,
+    Nl80211ExtendedCapability, Nl80211ExternalAuthAction, Nl80211Features,
+    Nl80211HtCapabilityMask, Nl80211HtWiphyChannelType, Nl80211IfMode,
+    Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas, Nl80211IfaceComb,
+    Nl80211IfaceFrameType, Nl80211InterfaceType, Nl80211InterfaceTypes,
+    Nl80211MloLink, Nl80211ScanFlags, Nl80211SchedScanMatch,
+    Nl80211SchedScanPlan, Nl80211StationInfo, Nl80211SurveyInfo,
+    Nl80211TransmitQueueStat, Nl80211UseMfp, Nl80211VhtCapability,
+    Nl80211WowlanTriggersSupport, Nl80211WpaVersions,
 };
 
 const ETH_ALEN: usize = 6;
+
+fn parse_cipher_suites(
+    payload: &[u8],
+) -> Result<Vec<Nl80211CipherSuite>, DecodeError> {
+    if payload.len() % 4 != 0 {
+        return Err(format!(
+            "Invalid cipher suite list length {}, expecting multiple of 4",
+            payload.len()
+        )
+        .into());
+    }
+    Ok(payload
+        .chunks_exact(4)
+        .map(|c| {
+            // The kernel carries cipher-suite selectors as a *native-endian*
+            // u32 of the IEEE 802.11 OUI-based constant (e.g. `0x000fac04`
+            // for CCMP-128, see `WLAN_CIPHER_SUITE_CCMP`). `from_ne_bytes`
+            // recovers that constant regardless of host endianness: on
+            // little-endian the wire bytes `[0x04, 0xac, 0x0f, 0x00]` and on
+            // big-endian `[0x00, 0x0f, 0xac, 0x04]` both decode to
+            // `0x000fac04`.
+            //
+            // `.swap_bytes()` is then required because `Nl80211CipherSuite`
+            // (from element.rs) does NOT store the kernel constant: its u32 is
+            // the byte-reverse of it (`0x04ac0f00` = `IEEE_80211_OUI |
+            // (4 << 24)`), because that type derives its value from the
+            // information-element selector `[00, 0f, ac, 04]` read as
+            // little-endian. Swapping bridges the kernel constant
+            // (`0x000fac04`) and our internal representation (`0x04ac0f00`).
+            Nl80211CipherSuite::from(
+                u32::from_ne_bytes([c[0], c[1], c[2], c[3]]).swap_bytes(),
+            )
+        })
+        .collect())
+}
+
+fn parse_akm_suites(
+    payload: &[u8],
+) -> Result<Vec<Nl80211AkmSuite>, DecodeError> {
+    if payload.len() % 4 != 0 {
+        return Err(format!(
+            "Invalid AKM suite list length {}, expecting multiple of 4",
+            payload.len()
+        )
+        .into());
+    }
+    Ok(payload
+        .chunks_exact(4)
+        .map(|c| {
+            // AKM-suite selectors use the same wire encoding as cipher
+            // suites: a native-endian u32 of the kernel's OUI-based constant
+            // (e.g. `0x000fac08` for SAE). `.swap_bytes()` converts that
+            // constant to `Nl80211AkmSuite`'s byte-reversed internal
+            // representation (`0x08ac0f00` = `IEEE_80211_OUI | (8 << 24)`).
+            // See `parse_cipher_suites` for the full rationale.
+            Nl80211AkmSuite::from(
+                u32::from_ne_bytes([c[0], c[1], c[2], c[3]]).swap_bytes(),
+            )
+        })
+        .collect())
+}
 
 struct MacAddressNlas(Vec<MacAddressNla>);
 
@@ -125,7 +188,8 @@ const NL80211_ATTR_WIPHY_NAME: u16 = 2;
 const NL80211_ATTR_IFINDEX: u16 = 3;
 const NL80211_ATTR_IFNAME: u16 = 4;
 const NL80211_ATTR_IFTYPE: u16 = 5;
-const NL80211_ATTR_MAC: u16 = 6;
+// Also used by mlo.rs.
+pub(crate) const NL80211_ATTR_MAC: u16 = 6;
 // const NL80211_ATTR_KEY_DATA:u16 = 7;
 // const NL80211_ATTR_KEY_IDX:u16 = 8;
 // const NL80211_ATTR_KEY_CIPHER:u16 = 9;
@@ -161,7 +225,7 @@ const NL80211_ATTR_WIPHY_FREQ: u16 = 38;
 const NL80211_ATTR_WIPHY_CHANNEL_TYPE: u16 = 39;
 // const NL80211_ATTR_KEY_DEFAULT_MGMT:u16 = 40;
 // const NL80211_ATTR_MGMT_SUBTYPE:u16 = 41;
-// const NL80211_ATTR_IE:u16 = 42;
+const NL80211_ATTR_IE: u16 = 42;
 const NL80211_ATTR_MAX_NUM_SCAN_SSIDS: u16 = 43;
 const NL80211_ATTR_SCAN_FREQUENCIES: u16 = 44;
 const NL80211_ATTR_SCAN_SSIDS: u16 = 45;
@@ -170,10 +234,10 @@ const NL80211_ATTR_BSS: u16 = 47;
 // const NL80211_ATTR_REG_INITIATOR:u16 = 48;
 // const NL80211_ATTR_REG_TYPE:u16 = 49;
 const NL80211_ATTR_SUPPORTED_COMMANDS: u16 = 50;
-// const NL80211_ATTR_FRAME:u16 = 51;
+const NL80211_ATTR_FRAME: u16 = 51;
 const NL80211_ATTR_SSID: u16 = 52;
-// const NL80211_ATTR_AUTH_TYPE:u16 = 53;
-// const NL80211_ATTR_REASON_CODE:u16 = 54;
+const NL80211_ATTR_AUTH_TYPE: u16 = 53;
+const NL80211_ATTR_REASON_CODE: u16 = 54;
 // const NL80211_ATTR_KEY_TYPE:u16 = 55;
 const NL80211_ATTR_MAX_SCAN_IE_LEN: u16 = 56;
 const NL80211_ATTR_CIPHER_SUITES: u16 = 57;
@@ -185,17 +249,17 @@ const NL80211_ATTR_WIPHY_RETRY_LONG: u16 = 62;
 const NL80211_ATTR_WIPHY_FRAG_THRESHOLD: u16 = 63;
 const NL80211_ATTR_WIPHY_RTS_THRESHOLD: u16 = 64;
 // const NL80211_ATTR_TIMED_OUT:u16 = 65;
-// const NL80211_ATTR_USE_MFP:u16 = 66;
+const NL80211_ATTR_USE_MFP: u16 = 66;
 // const NL80211_ATTR_STA_FLAGS2:u16 = 67;
 // const NL80211_ATTR_CONTROL_PORT:u16 = 68;
 // const NL80211_ATTR_TESTDATA:u16 = 69;
-// const NL80211_ATTR_PRIVACY:u16 = 70;
+const NL80211_ATTR_PRIVACY: u16 = 70;
 // const NL80211_ATTR_DISCONNECTED_BY_AP:u16 = 71;
-// const NL80211_ATTR_STATUS_CODE:u16 = 72;
-// const NL80211_ATTR_CIPHER_SUITES_PAIRWISE:u16 = 73;
-// const NL80211_ATTR_CIPHER_SUITE_GROUP:u16 = 74;
-// const NL80211_ATTR_WPA_VERSIONS:u16 = 75;
-// const NL80211_ATTR_AKM_SUITES:u16 = 76;
+const NL80211_ATTR_STATUS_CODE: u16 = 72;
+const NL80211_ATTR_CIPHER_SUITES_PAIRWISE: u16 = 73;
+const NL80211_ATTR_CIPHER_SUITE_GROUP: u16 = 74;
+const NL80211_ATTR_WPA_VERSIONS: u16 = 75;
+const NL80211_ATTR_AKM_SUITES: u16 = 76;
 // const NL80211_ATTR_REQ_IE:u16 = 77;
 // const NL80211_ATTR_RESP_IE:u16 = 78;
 // const NL80211_ATTR_PREV_BSSID:u16 = 79;
@@ -207,11 +271,11 @@ const NL80211_ATTR_SURVEY_INFO: u16 = 84;
 // const NL80211_ATTR_PMKID:u16 = 85;
 const NL80211_ATTR_MAX_NUM_PMKIDS: u16 = 86;
 // const NL80211_ATTR_DURATION:u16 = 87;
-// const NL80211_ATTR_COOKIE:u16 = 88;
+const NL80211_ATTR_COOKIE: u16 = 88;
 const NL80211_ATTR_WIPHY_COVERAGE_CLASS: u16 = 89;
 // const NL80211_ATTR_TX_RATES:u16 = 90;
-// const NL80211_ATTR_FRAME_MATCH:u16 = 91;
-// const NL80211_ATTR_ACK:u16 = 92;
+const NL80211_ATTR_FRAME_MATCH: u16 = 91;
+const NL80211_ATTR_ACK: u16 = 92;
 // const NL80211_ATTR_PS_STATE:u16 = 93;
 // const NL80211_ATTR_CQM:u16 = 94;
 // const NL80211_ATTR_LOCAL_STATE_CHANGE:u16 = 95;
@@ -220,8 +284,9 @@ const NL80211_ATTR_WIPHY_COVERAGE_CLASS: u16 = 89;
 const NL80211_ATTR_WIPHY_TX_POWER_LEVEL: u16 = 98;
 const NL80211_ATTR_TX_FRAME_TYPES: u16 = 99;
 const NL80211_ATTR_RX_FRAME_TYPES: u16 = 100;
-// Covered by frame_type.rs
-// const NL80211_ATTR_FRAME_TYPE:u16 = 101;
+// Also used as a nested sub-attribute of NL80211_ATTR_{TX,RX}_FRAME_TYPES,
+// see frame_type.rs.
+pub(crate) const NL80211_ATTR_FRAME_TYPE: u16 = 101;
 const NL80211_ATTR_CONTROL_PORT_ETHERTYPE: u16 = 102;
 // const NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT:u16 = 103;
 const NL80211_ATTR_SUPPORT_IBSS_RSN: u16 = 104;
@@ -324,7 +389,7 @@ const NL80211_ATTR_VENDOR_DATA: u16 = 197;
 // const NL80211_ATTR_WIPHY_FREQ_HINT:u16 = 201;
 // const NL80211_ATTR_MAX_AP_ASSOC_STA:u16 = 202;
 // const NL80211_ATTR_TDLS_PEER_CAPABILITY:u16 = 203;
-// const NL80211_ATTR_SOCKET_OWNER:u16 = 204;
+const NL80211_ATTR_SOCKET_OWNER: u16 = 204;
 // const NL80211_ATTR_CSA_C_OFFSETS_TX:u16 = 205;
 const NL80211_ATTR_MAX_CSA_COUNTERS: u16 = 206;
 // const NL80211_ATTR_TDLS_INITIATOR:u16 = 207;
@@ -365,7 +430,7 @@ const NL80211_ATTR_BANDS: u16 = 239;
 // const NL80211_ATTR_FILS_KEK:u16 = 242;
 // const NL80211_ATTR_FILS_NONCES:u16 = 243;
 // const NL80211_ATTR_MULTICAST_TO_UNICAST_ENABLED:u16 = 244;
-// const NL80211_ATTR_BSSID:u16 = 245;
+const NL80211_ATTR_BSSID: u16 = 245;
 // const NL80211_ATTR_SCHED_SCAN_RELATIVE_RSSI:u16 = 246;
 // const NL80211_ATTR_SCHED_SCAN_RSSI_ADJUST:u16 = 247;
 // const NL80211_ATTR_TIMEOUT_REASON:u16 = 248;
@@ -380,11 +445,11 @@ const NL80211_ATTR_SCHED_SCAN_MAX_REQS: u16 = 256;
 // const NL80211_ATTR_WANT_1X_4WAY_HS:u16 = 257;
 // const NL80211_ATTR_PMKR0_NAME:u16 = 258;
 // const NL80211_ATTR_PORT_AUTHORIZED:u16 = 259;
-// const NL80211_ATTR_EXTERNAL_AUTH_ACTION:u16 = 260;
-// const NL80211_ATTR_EXTERNAL_AUTH_SUPPORT:u16 = 261;
+const NL80211_ATTR_EXTERNAL_AUTH_ACTION: u16 = 260;
+const NL80211_ATTR_EXTERNAL_AUTH_SUPPORT: u16 = 261;
 // const NL80211_ATTR_NSS:u16 = 262;
 // const NL80211_ATTR_ACK_SIGNAL:u16 = 263;
-// const NL80211_ATTR_CONTROL_PORT_OVER_NL80211:u16 = 264;
+const NL80211_ATTR_CONTROL_PORT_OVER_NL80211: u16 = 264;
 const NL80211_ATTR_TXQ_STATS: u16 = 265;
 const NL80211_ATTR_TXQ_LIMIT: u16 = 266;
 const NL80211_ATTR_TXQ_MEMORY_LIMIT: u16 = 267;
@@ -577,6 +642,66 @@ pub enum Nl80211Attr {
     /// iterations, only the interval between scans. The scan plans are
     /// executed sequentially.
     SchedScanPlans(Vec<Nl80211SchedScanPlan>),
+    /// Authentication type. Used by the `NL80211_CMD_CONNECT` and
+    /// `NL80211_CMD_AUTHENTICATE` commands.
+    AuthType(Nl80211AuthType),
+    /// IEEE 802.11 reason code for `NL80211_CMD_DISCONNECT` /
+    /// `NL80211_CMD_DEAUTHENTICATE`. Default is unspecified (3).
+    ReasonCode(u16),
+    /// IEEE 802.11 status code reported by the access point, e.g. as part of
+    /// the result of a `NL80211_CMD_CONNECT`.
+    StatusCode(u16),
+    /// Whether management frame protection (IEEE 802.11w) is used for the
+    /// connection. Mandatory for WPA3.
+    UseMfp(Nl80211UseMfp),
+    /// Flag attribute, set when connecting to a privacy-enabled (encrypted)
+    /// BSS.
+    Privacy,
+    /// Used with `NL80211_CMD_CONNECT` to indicate which WPA/RSN version(s)
+    /// are enabled.
+    WpaVersions(Nl80211WpaVersions),
+    /// Unicast (pairwise) cipher suites used for the connection.
+    CiphersPairwise(Vec<Nl80211CipherSuite>),
+    /// Group (broadcast/multicast) cipher suite used for the connection.
+    CipherGroup(Nl80211CipherSuite),
+    /// Authentication and Key Management (AKM) suites used for the connection,
+    /// e.g. SAE for WPA3-Personal.
+    AkmSuites(Vec<Nl80211AkmSuite>),
+    /// Raw information element(s) (e.g. an RSN element) to be added to the
+    /// (re)association request.
+    Ie(Vec<u8>),
+    /// A full IEEE 802.11 management frame (e.g. an SAE Authentication frame)
+    /// to transmit with `NL80211_CMD_FRAME`, or as received from the kernel.
+    Frame(Vec<u8>),
+    /// Prefix to match the start of received management frames against, used
+    /// when registering for frames with `NL80211_CMD_REGISTER_FRAME`.
+    FrameMatch(Vec<u8>),
+    /// IEEE 802.11 frame type/subtype to register for / that a frame belongs
+    /// to (the 16-bit frame control type+subtype field).
+    FrameType(u16),
+    /// Cookie identifying a transmitted management frame, used to correlate a
+    /// `NL80211_CMD_FRAME` request with its `NL80211_CMD_FRAME_TX_STATUS`.
+    Cookie(u64),
+    /// Flag attribute present in a frame TX status to indicate the frame was
+    /// acknowledged by the peer.
+    Ack,
+    /// BSSID, used with `NL80211_CMD_EXTERNAL_AUTH` (distinct from the generic
+    /// `NL80211_ATTR_MAC`).
+    Bssid([u8; ETH_ALEN]),
+    /// External authentication action (start/abort), used with
+    /// `NL80211_CMD_EXTERNAL_AUTH`.
+    ExternalAuthAction(Nl80211ExternalAuthAction),
+    /// Flag attribute set on `NL80211_CMD_CONNECT` to indicate that userspace
+    /// will perform the authentication (e.g. SAE) externally, via
+    /// `NL80211_CMD_EXTERNAL_AUTH`.
+    ExternalAuthSupport,
+    /// Flag attribute requesting that the EAPOL (802.1X) control port frames
+    /// are sent and received over nl80211 instead of a network interface.
+    ControlPortOverNl80211,
+    /// Flag attribute indicating that the netlink socket owning this request
+    /// owns the created object (e.g. the connection), so it is destroyed when
+    /// the socket is closed.
+    SocketOwner,
     Other(DefaultNla),
     /// 24-bit OUI, or an as yet unused Linux-specific ID.
     ///
@@ -691,6 +816,20 @@ impl Nla for Nl80211Attr {
             }
             Self::SchedScanMatch(v) => v.as_slice().buffer_len(),
             Self::SchedScanPlans(v) => v.as_slice().buffer_len(),
+            Self::AuthType(_) | Self::UseMfp(_) | Self::WpaVersions(_) => 4,
+            Self::ExternalAuthAction(_) => 4,
+            Self::ReasonCode(_) | Self::StatusCode(_) | Self::FrameType(_) => 2,
+            Self::Cookie(_) => 8,
+            Self::Privacy
+            | Self::ControlPortOverNl80211
+            | Self::ExternalAuthSupport
+            | Self::Ack
+            | Self::SocketOwner => 0,
+            Self::CiphersPairwise(s) => 4 * s.len(),
+            Self::CipherGroup(_) => 4,
+            Self::AkmSuites(s) => 4 * s.len(),
+            Self::Bssid(_) => ETH_ALEN,
+            Self::Ie(v) | Self::Frame(v) | Self::FrameMatch(v) => v.len(),
             Self::Other(attr) => attr.value_len(),
             Self::VendorData(d) => d.len(),
         }
@@ -803,6 +942,28 @@ impl Nla for Nl80211Attr {
             Self::VendorId(_) => NL80211_ATTR_VENDOR_ID,
             Self::VendorSubcmd(_) => NL80211_ATTR_VENDOR_SUBCMD,
             Self::VendorData(_) => NL80211_ATTR_VENDOR_DATA,
+            Self::AuthType(_) => NL80211_ATTR_AUTH_TYPE,
+            Self::ReasonCode(_) => NL80211_ATTR_REASON_CODE,
+            Self::StatusCode(_) => NL80211_ATTR_STATUS_CODE,
+            Self::UseMfp(_) => NL80211_ATTR_USE_MFP,
+            Self::Privacy => NL80211_ATTR_PRIVACY,
+            Self::WpaVersions(_) => NL80211_ATTR_WPA_VERSIONS,
+            Self::CiphersPairwise(_) => NL80211_ATTR_CIPHER_SUITES_PAIRWISE,
+            Self::CipherGroup(_) => NL80211_ATTR_CIPHER_SUITE_GROUP,
+            Self::AkmSuites(_) => NL80211_ATTR_AKM_SUITES,
+            Self::Ie(_) => NL80211_ATTR_IE,
+            Self::Frame(_) => NL80211_ATTR_FRAME,
+            Self::FrameMatch(_) => NL80211_ATTR_FRAME_MATCH,
+            Self::FrameType(_) => NL80211_ATTR_FRAME_TYPE,
+            Self::Cookie(_) => NL80211_ATTR_COOKIE,
+            Self::Ack => NL80211_ATTR_ACK,
+            Self::Bssid(_) => NL80211_ATTR_BSSID,
+            Self::ExternalAuthAction(_) => NL80211_ATTR_EXTERNAL_AUTH_ACTION,
+            Self::ExternalAuthSupport => NL80211_ATTR_EXTERNAL_AUTH_SUPPORT,
+            Self::ControlPortOverNl80211 => {
+                NL80211_ATTR_CONTROL_PORT_OVER_NL80211
+            }
+            Self::SocketOwner => NL80211_ATTR_SOCKET_OWNER,
             Self::Other(attr) => attr.kind(),
         }
     }
@@ -924,6 +1085,45 @@ impl Nla for Nl80211Attr {
             Self::SchedScanMatch(v) => v.as_slice().emit(buffer),
             Self::SchedScanPlans(v) => v.as_slice().emit(buffer),
             Self::VendorData(v) => buffer.copy_from_slice(v),
+            Self::AuthType(d) => write_u32(buffer, u32::from(*d)),
+            Self::UseMfp(d) => write_u32(buffer, u32::from(*d)),
+            Self::WpaVersions(d) => write_u32(buffer, d.bits()),
+            Self::ReasonCode(d) | Self::StatusCode(d) => write_u16(buffer, *d),
+            Self::FrameType(d) => write_u16(buffer, *d),
+            Self::Cookie(d) => write_u64(buffer, *d),
+            Self::ExternalAuthAction(d) => write_u32(buffer, u32::from(*d)),
+            Self::Privacy
+            | Self::ControlPortOverNl80211
+            | Self::ExternalAuthSupport
+            | Self::Ack
+            | Self::SocketOwner => (),
+            Self::CiphersPairwise(suits) => {
+                // `.swap_bytes()` converts our byte-reversed internal value
+                // (`0x04ac0f00`) back to the kernel's OUI constant
+                // (`0x000fac04`); `to_ne_bytes` then lays it out in native
+                // order to match the kernel's `nla_put_u32` wire format on any
+                // host. See `parse_cipher_suites` for the full rationale.
+                for (i, c) in suits.iter().enumerate() {
+                    buffer[i * 4..(i + 1) * 4].copy_from_slice(
+                        &u32::from(*c).swap_bytes().to_ne_bytes(),
+                    );
+                }
+            }
+            // Same byte-swap + native-order encoding as the pairwise ciphers.
+            Self::CipherGroup(c) => buffer[..4]
+                .copy_from_slice(&u32::from(*c).swap_bytes().to_ne_bytes()),
+            Self::AkmSuites(suits) => {
+                // Same byte-swap + native-order encoding as cipher suites.
+                for (i, a) in suits.iter().enumerate() {
+                    buffer[i * 4..(i + 1) * 4].copy_from_slice(
+                        &u32::from(*a).swap_bytes().to_ne_bytes(),
+                    );
+                }
+            }
+            Self::Bssid(d) => buffer[..ETH_ALEN].copy_from_slice(d),
+            Self::Ie(v) | Self::Frame(v) | Self::FrameMatch(v) => {
+                buffer[..v.len()].copy_from_slice(v)
+            }
             Self::Other(attr) => attr.emit(buffer),
         }
     }
@@ -1480,6 +1680,101 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 ))?)
             }
             NL80211_ATTR_VENDOR_DATA => Self::VendorData(payload.to_vec()),
+            NL80211_ATTR_AUTH_TYPE => {
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_AUTH_TYPE value {payload:?}");
+                Self::AuthType(Nl80211AuthType::from(
+                    parse_u32(payload).context(err_msg)?,
+                ))
+            }
+            NL80211_ATTR_REASON_CODE => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_REASON_CODE value {payload:?}"
+                );
+                Self::ReasonCode(parse_u16(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_STATUS_CODE => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_STATUS_CODE value {payload:?}"
+                );
+                Self::StatusCode(parse_u16(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_USE_MFP => {
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_USE_MFP value {payload:?}");
+                Self::UseMfp(Nl80211UseMfp::from(
+                    parse_u32(payload).context(err_msg)?,
+                ))
+            }
+            NL80211_ATTR_PRIVACY => Self::Privacy,
+            NL80211_ATTR_WPA_VERSIONS => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_WPA_VERSIONS value {payload:?}"
+                );
+                Self::WpaVersions(Nl80211WpaVersions::from_bits_retain(
+                    parse_u32(payload).context(err_msg)?,
+                ))
+            }
+            NL80211_ATTR_CIPHER_SUITES_PAIRWISE => {
+                Self::CiphersPairwise(parse_cipher_suites(payload)?)
+            }
+            NL80211_ATTR_CIPHER_SUITE_GROUP => {
+                if payload.len() != 4 {
+                    return Err(format!(
+                        "Invalid NL80211_ATTR_CIPHER_SUITE_GROUP length {}, \
+                        expecting 4",
+                        payload.len()
+                    )
+                    .into());
+                }
+                // `.swap_bytes()` bridges the kernel's native-endian OUI
+                // constant and our byte-reversed representation; see
+                // `parse_cipher_suites` for the full rationale.
+                Self::CipherGroup(Nl80211CipherSuite::from(
+                    u32::from_ne_bytes(payload.try_into().unwrap())
+                        .swap_bytes(),
+                ))
+            }
+            NL80211_ATTR_AKM_SUITES => {
+                Self::AkmSuites(parse_akm_suites(payload)?)
+            }
+            NL80211_ATTR_IE => Self::Ie(payload.to_vec()),
+            NL80211_ATTR_FRAME => Self::Frame(payload.to_vec()),
+            NL80211_ATTR_FRAME_MATCH => Self::FrameMatch(payload.to_vec()),
+            NL80211_ATTR_FRAME_TYPE => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_FRAME_TYPE value {payload:?}"
+                );
+                Self::FrameType(parse_u16(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_COOKIE => {
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_COOKIE value {payload:?}");
+                Self::Cookie(parse_u64(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_ACK => Self::Ack,
+            NL80211_ATTR_BSSID => {
+                Self::Bssid(payload.try_into().map_err(|_| {
+                    format!(
+                        "Invalid length of NL80211_ATTR_BSSID, \
+                        expected length {ETH_ALEN} got {payload:?}"
+                    )
+                })?)
+            }
+            NL80211_ATTR_EXTERNAL_AUTH_ACTION => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_EXTERNAL_AUTH_ACTION value \
+                    {payload:?}"
+                );
+                Self::ExternalAuthAction(Nl80211ExternalAuthAction::from(
+                    parse_u32(payload).context(err_msg)?,
+                ))
+            }
+            NL80211_ATTR_EXTERNAL_AUTH_SUPPORT => Self::ExternalAuthSupport,
+            NL80211_ATTR_CONTROL_PORT_OVER_NL80211 => {
+                Self::ControlPortOverNl80211
+            }
+            NL80211_ATTR_SOCKET_OWNER => Self::SocketOwner,
             _ => Self::Other(
                 DefaultNla::parse(buf).context("invalid NLA (unknown kind)")?,
             ),
