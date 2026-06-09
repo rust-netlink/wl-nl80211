@@ -1124,7 +1124,7 @@ impl Nla for Nl80211Attr {
             Self::Ie(v) | Self::Frame(v) | Self::FrameMatch(v) => {
                 buffer[..v.len()].copy_from_slice(v)
             }
-            Self::Other(attr) => attr.emit(buffer),
+            Self::Other(attr) => attr.emit_value(buffer),
         }
     }
 }
