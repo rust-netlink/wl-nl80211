@@ -53,8 +53,8 @@ pub use self::connection::new_connection_with_socket;
 pub use self::element::{
     Nl80211AkmSuite, Nl80211CipherSuite, Nl80211Element,
     Nl80211ElementCountryEnvironment, Nl80211ElementCountryTriplet,
-    Nl80211ElementRsn, Nl80211Elements, Nl80211Pmkid, Nl80211RateAndSelector,
-    Nl80211RsnCapbilities,
+    Nl80211ElementRsn, Nl80211ElementRsnExt, Nl80211Elements, Nl80211Pmkid,
+    Nl80211RateAndSelector, Nl80211RsnCapbilities, Nl80211RsnExtCapbilities,
 };
 pub use self::error::Nl80211Error;
 pub use self::ext_cap::{

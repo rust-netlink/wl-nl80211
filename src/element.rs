@@ -67,6 +67,7 @@ const ELEMENT_ID_CHANNEL: u8 = 3;
 const ELEMENT_ID_COUNTRY: u8 = 7;
 const ELEMENT_ID_HT_CAP: u8 = 45;
 const ELEMENT_ID_RSN: u8 = 48;
+const ELEMENT_ID_RSN_EXT: u8 = 244;
 const ELEMENT_ID_VHT_CAP: u8 = 191;
 const ELEMENT_ID_VENDOR: u8 = 221;
 const ELEMENT_ID_EXTENSION: u8 = 255;
@@ -85,6 +86,9 @@ pub enum Nl80211Element {
     Country(Nl80211ElementCountry),
     HtCapability(Nl80211ElementHtCap),
     Rsn(Nl80211ElementRsn),
+    /// Extended RSN Capabilities (RSNXE), e.g. the SAE Hash-to-Element
+    /// indicator.
+    RsnExt(Nl80211ElementRsnExt),
     VhtCapability(Nl80211ElementVhtCap),
     /// Vendor specific data.
     Vendor(Vec<u8>),
@@ -101,6 +105,7 @@ impl Nl80211Element {
             Self::Channel(_) => ELEMENT_ID_CHANNEL,
             Self::Country(_) => ELEMENT_ID_COUNTRY,
             Self::Rsn(_) => ELEMENT_ID_RSN,
+            Self::RsnExt(_) => ELEMENT_ID_RSN_EXT,
             Self::Vendor(_) => ELEMENT_ID_VENDOR,
             Self::HtCapability(_) => ELEMENT_ID_HT_CAP,
             Self::VhtCapability(_) => ELEMENT_ID_VHT_CAP,
@@ -117,6 +122,7 @@ impl Nl80211Element {
             Self::Channel(_) => 1,
             Self::Country(v) => v.buffer_len() as u8,
             Self::Rsn(v) => v.buffer_len() as u8,
+            Self::RsnExt(v) => v.buffer_len() as u8,
             Self::Vendor(v) => v.len() as u8,
             Self::HtCapability(v) => v.buffer_len() as u8,
             Self::VhtCapability(v) => v.buffer_len() as u8,
@@ -155,6 +161,9 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211Element {
                 Self::Country(Nl80211ElementCountry::parse(payload)?)
             }
             ELEMENT_ID_RSN => Self::Rsn(Nl80211ElementRsn::parse(payload)?),
+            ELEMENT_ID_RSN_EXT => {
+                Self::RsnExt(Nl80211ElementRsnExt::parse(payload)?)
+            }
             ELEMENT_ID_VENDOR => Self::Vendor(payload.to_vec()),
             ELEMENT_ID_HT_CAP => {
                 Self::HtCapability(Nl80211ElementHtCap::parse(payload)?)
@@ -197,6 +206,7 @@ impl Emitable for Nl80211Element {
             Self::Channel(v) => buffer[0] = *v,
             Self::Country(v) => v.emit(buffer),
             Self::Rsn(v) => v.emit(buffer),
+            Self::RsnExt(v) => v.emit(buffer),
             Self::Vendor(v) => buffer[..v.len()].copy_from_slice(v.as_slice()),
             Self::HtCapability(v) => v.emit(buffer),
             Self::VhtCapability(v) => v.emit(buffer),
@@ -1033,6 +1043,144 @@ impl Emitable for Nl80211RsnCapbilities {
 
     fn emit(&self, buffer: &mut [u8]) {
         buffer.copy_from_slice(&self.bits().to_le_bytes())
+    }
+}
+
+// Extended RSN Capabilities bit positions (within the field, where bits 0-3
+// are the Field length subfield and bits 4+ are capabilities). Per IEEE Std
+// 802.11-2024 Table 9-373 (Extended RSN Capabilities field). Bit 6 is
+// allocated to the Wi-Fi Alliance (used for SAE-PK).
+//
+// The Field length subfield (n - 1) is 4 bits, so the field is at most 16
+// octets (128 bits); the capabilities are therefore stored in a u128.
+const RSNX_CAP_PROTECTED_TWT: u128 = 1 << 4;
+const RSNX_CAP_SAE_H2E: u128 = 1 << 5;
+const RSNX_CAP_SAE_PK: u128 = 1 << 6;
+const RSNX_CAP_PROTECTED_WUR_FRAME: u128 = 1 << 7;
+const RSNX_CAP_SECURE_LTF: u128 = 1 << 8;
+const RSNX_CAP_SECURE_RTT: u128 = 1 << 9;
+const RSNX_CAP_URNM_MFPR_X20: u128 = 1 << 10;
+const RSNX_CAP_PROTECTED_ANNOUNCE: u128 = 1 << 11;
+const RSNX_CAP_PBAC: u128 = 1 << 12;
+const RSNX_CAP_EXTENDED_S1G_ACTION_PROTECTION: u128 = 1 << 13;
+const RSNX_CAP_SPP_A_MSDU_CAPABLE: u128 = 1 << 14;
+const RSNX_CAP_URNM_MFPR: u128 = 1 << 15;
+const RSNX_CAP_SSID_PROTECTION: u128 = 1 << 21;
+const RSNX_CAP_QMF_ACI_UNMASK: u128 = 1 << 22;
+
+/// Maximum length of the Extended RSN Capabilities field in octets (the 4-bit
+/// Field length subfield holds n - 1, so n is at most 16).
+const RSNX_FIELD_MAX_OCTETS: usize = 16;
+
+// Mask of the Field length subfield (low nibble of the first octet); not part
+// of the capability bits.
+const RSNX_FIELD_LEN_MASK: u128 = 0x0000_000F;
+
+bitflags::bitflags! {
+    /// Extended RSN Capabilities, carried in the RSNXE (RSN Extension
+    /// element). Bits are defined in IEEE Std 802.11-2024 Table 9-373.
+    ///
+    /// A `u128` backing type is used because the Extended RSN Capabilities
+    /// field is variable length: its first 4 bits are the Field length
+    /// subfield holding `n - 1`, where `n` is the field length in octets. With
+    /// a 4-bit subfield, `n` is at most 16 octets = 128 bits, so a `u128` can
+    /// represent every possible capability bit (a `u32` could not).
+    #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
+    #[non_exhaustive]
+    pub struct Nl80211RsnExtCapbilities: u128 {
+        /// Protected TWT Operations Support (bit 4).
+        const ProtectedTwt = RSNX_CAP_PROTECTED_TWT;
+        /// SAE Hash-to-element (H2E) password derivation supported (bit 5).
+        const SaeH2e = RSNX_CAP_SAE_H2E;
+        /// SAE Public Key (SAE-PK) supported (bit 6, Wi-Fi Alliance).
+        const SaePk = RSNX_CAP_SAE_PK;
+        /// Protected WUR Frame Support (bit 7).
+        const ProtectedWurFrame = RSNX_CAP_PROTECTED_WUR_FRAME;
+        /// Secure HE-LTF Support (bit 8).
+        const SecureLtf = RSNX_CAP_SECURE_LTF;
+        /// Secure RTT Support (bit 9).
+        const SecureRtt = RSNX_CAP_SECURE_RTT;
+        /// URNM-MFPR-X20 (bit 10): unassociated range negotiation/measurement,
+        /// management frame protection required (dot11RSTARequiresPMF = 1).
+        const UrnmMfprX20 = RSNX_CAP_URNM_MFPR_X20;
+        /// Protected Announce Support (bit 11).
+        const ProtectedAnnounce = RSNX_CAP_PROTECTED_ANNOUNCE;
+        /// Protected Block Ack Agreement Capable (PBAC) (bit 12).
+        const Pbac = RSNX_CAP_PBAC;
+        /// Extended S1G Action Protection (bit 13).
+        const ExtendedS1gActionProtection =
+            RSNX_CAP_EXTENDED_S1G_ACTION_PROTECTION;
+        /// SPP A-MSDU Capable (bit 14).
+        const SppAMsduCapable = RSNX_CAP_SPP_A_MSDU_CAPABLE;
+        /// URNM-MFPR (bit 15): unassociated range negotiation/measurement,
+        /// management frame protection required (dot11RSTARequiresPMF = 2).
+        const UrnmMfpr = RSNX_CAP_URNM_MFPR;
+        /// SSID Protection in the 4-way handshake supported (bit 21).
+        const SsidProtection = RSNX_CAP_SSID_PROTECTION;
+        /// QMF ACI Subfield Unmask Support (bit 22).
+        const QmfAciUnmask = RSNX_CAP_QMF_ACI_UNMASK;
+        const _ = !0;
+    }
+}
+
+/// RSN Extension element (RSNXE), IEEE 802.11 element id 244.
+///
+/// Carries the Extended RSN Capabilities; for WPA3 the most relevant bit is
+/// [`Nl80211RsnExtCapbilities::SaeH2e`]. The Field length subfield in the low
+/// nibble of the first octet is computed automatically from the capability
+/// bits and need not be set by the caller.
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
+pub struct Nl80211ElementRsnExt {
+    pub capabilities: Nl80211RsnExtCapbilities,
+}
+
+impl Nl80211ElementRsnExt {
+    /// Number of octets of the Extended RSN Capabilities field needed to hold
+    /// the set capability bits (at least 1, at most [`RSNX_FIELD_MAX_OCTETS`]).
+    fn octet_len(&self) -> usize {
+        let caps = self.capabilities.bits() & !RSNX_FIELD_LEN_MASK;
+        if caps == 0 {
+            1
+        } else {
+            ((127 - caps.leading_zeros()) as usize / 8 + 1)
+                .min(RSNX_FIELD_MAX_OCTETS)
+        }
+    }
+
+    pub fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
+        if payload.is_empty() {
+            return Err(format!(
+                "Invalid Nl80211ElementRsnExt payload {payload:?}"
+            )
+            .into());
+        }
+        // The authoritative field length is the Field length subfield (low 4
+        // bits of the first octet) plus 1, capped at the 16-octet maximum.
+        // Trust it over the slice length so trailing padding / extra bytes are
+        // not misparsed as higher-order capability bits.
+        let n = ((payload[0] & RSNX_FIELD_LEN_MASK as u8) as usize + 1)
+            .min(RSNX_FIELD_MAX_OCTETS);
+        let len = payload.len().min(n);
+        let mut raw = [0u8; RSNX_FIELD_MAX_OCTETS];
+        raw[..len].copy_from_slice(&payload[..len]);
+        // Drop the Field length subfield (low nibble); keep the capabilities.
+        let bits = u128::from_le_bytes(raw) & !RSNX_FIELD_LEN_MASK;
+        Ok(Self {
+            capabilities: Nl80211RsnExtCapbilities::from_bits_retain(bits),
+        })
+    }
+}
+
+impl Emitable for Nl80211ElementRsnExt {
+    fn buffer_len(&self) -> usize {
+        self.octet_len()
+    }
+
+    fn emit(&self, buffer: &mut [u8]) {
+        let octets = self.octet_len();
+        let caps = self.capabilities.bits() & !RSNX_FIELD_LEN_MASK;
+        let field = caps | ((octets as u128 - 1) & RSNX_FIELD_LEN_MASK);
+        buffer[..octets].copy_from_slice(&field.to_le_bytes()[..octets]);
     }
 }
 
