@@ -746,7 +746,11 @@ impl Nla for Nl80211Attr {
             | Self::VendorId(_)
             | Self::VendorSubcmd(_) => 4,
             Self::Wdev(_) => 8,
-            Self::IfName(s) | Self::Ssid(s) | Self::WiphyName(s) => s.len() + 1,
+            Self::IfName(s) | Self::WiphyName(s) => s.len() + 1,
+            // NL80211_ATTR_SSID is a binary attribute (0..32 octets) and must
+            // not be NUL-terminated, otherwise the kernel's SSID matching
+            // (e.g. cfg80211_get_bss) fails.
+            Self::Ssid(s) => s.len(),
             Self::Mac(_) | Self::MacMask(_) => ETH_ALEN,
             Self::MacAddrs(s) => {
                 MacAddressNlas::from(s).as_slice().buffer_len()
@@ -1005,9 +1009,13 @@ impl Nla for Nl80211Attr {
             Self::MacAddrs(s) => {
                 MacAddressNlas::from(s).as_slice().emit(buffer)
             }
-            Self::IfName(s) | Self::Ssid(s) | Self::WiphyName(s) => {
+            Self::IfName(s) | Self::WiphyName(s) => {
                 buffer[..s.len()].copy_from_slice(s.as_bytes());
                 buffer[s.len()] = 0;
+            }
+            // NL80211_ATTR_SSID: binary, not NUL-terminated.
+            Self::Ssid(s) => {
+                buffer[..s.len()].copy_from_slice(s.as_bytes());
             }
             Self::Use4Addr(d) => buffer[0] = *d as u8,
             Self::SupportIbssRsn
