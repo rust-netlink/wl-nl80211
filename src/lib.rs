@@ -13,6 +13,7 @@ mod feature;
 mod frame_type;
 mod handle;
 mod iface;
+mod key;
 mod macros;
 mod message;
 mod mlo;
@@ -70,6 +71,7 @@ pub use self::iface::{
     Nl80211InterfaceSetRequest, Nl80211InterfaceType,
     Nl80211InterfaceVendorRequest, Nl80211NewInterface, Nl80211Vendor,
 };
+pub use self::key::{Nl80211KeyAttr, Nl80211KeyType};
 pub use self::message::Nl80211Message;
 pub use self::mlo::Nl80211MloLink;
 pub use self::scan::{
