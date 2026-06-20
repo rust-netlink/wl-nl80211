@@ -568,7 +568,10 @@ pub enum Nl80211Attr {
     TdlsExternalSetup,
     CipherSuites(Vec<Nl80211CipherSuit>),
     MaxNumPmkids(u8),
-    ControlPortEthertype,
+    /// EtherType of the control-port (802.1X/EAPOL) frames, used with
+    /// `NL80211_CMD_CONTROL_PORT_FRAME` and on connect/associate. Typically
+    /// `0x888E` (ETH_P_PAE).
+    ControlPortEthertype(u16),
     WiphyAntennaAvailTx(u32),
     WiphyAntennaAvailRx(u32),
     ApProbeRespOffload(u32),
@@ -768,13 +771,13 @@ impl Nla for Nl80211Attr {
             Self::SurveyInfo(nlas) => nlas.as_slice().buffer_len(),
             Self::MloLinks(links) => links.as_slice().buffer_len(),
             Self::MaxScanIeLen(_) | Self::MaxSchedScanIeLen(_) => 2,
+            Self::ControlPortEthertype(_) => 2,
             Self::SupportIbssRsn
             | Self::SupportMeshAuth
             | Self::SupportApUapsd
             | Self::RoamSupport
             | Self::TdlsSupport
             | Self::TdlsExternalSetup
-            | Self::ControlPortEthertype
             | Self::OffchannelTxOk
             | Self::SurveyRadioStats
             | Self::WiphySelfManagedReg => 0,
@@ -888,7 +891,9 @@ impl Nla for Nl80211Attr {
             Self::TdlsExternalSetup => NL80211_ATTR_TDLS_EXTERNAL_SETUP,
             Self::CipherSuites(_) => NL80211_ATTR_CIPHER_SUITES,
             Self::MaxNumPmkids(_) => NL80211_ATTR_MAX_NUM_PMKIDS,
-            Self::ControlPortEthertype => NL80211_ATTR_CONTROL_PORT_ETHERTYPE,
+            Self::ControlPortEthertype(_) => {
+                NL80211_ATTR_CONTROL_PORT_ETHERTYPE
+            }
             Self::WiphyAntennaAvailTx(_) => NL80211_ATTR_WIPHY_ANTENNA_AVAIL_TX,
             Self::WiphyAntennaAvailRx(_) => NL80211_ATTR_WIPHY_ANTENNA_AVAIL_RX,
             Self::ApProbeRespOffload(_) => NL80211_ATTR_PROBE_RESP_OFFLOAD,
@@ -1018,13 +1023,13 @@ impl Nla for Nl80211Attr {
                 buffer[..s.len()].copy_from_slice(s.as_bytes());
             }
             Self::Use4Addr(d) => buffer[0] = *d as u8,
+            Self::ControlPortEthertype(d) => write_u16(buffer, *d),
             Self::SupportIbssRsn
             | Self::SupportMeshAuth
             | Self::SupportApUapsd
             | Self::RoamSupport
             | Self::TdlsSupport
             | Self::TdlsExternalSetup
-            | Self::ControlPortEthertype
             | Self::OffchannelTxOk
             | Self::SurveyRadioStats
             | Self::WiphySelfManagedReg => (),
@@ -1421,7 +1426,12 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 );
                 Self::MaxNumPmkids(parse_u8(payload).context(err_msg)?)
             }
-            NL80211_ATTR_CONTROL_PORT_ETHERTYPE => Self::ControlPortEthertype,
+            NL80211_ATTR_CONTROL_PORT_ETHERTYPE => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_CONTROL_PORT_ETHERTYPE {payload:?}"
+                );
+                Self::ControlPortEthertype(parse_u16(payload).context(err_msg)?)
+            }
             NL80211_ATTR_WIPHY_ANTENNA_AVAIL_TX => {
                 let err_msg = format!(
                     "Invalid NL80211_ATTR_WIPHY_ANTENNA_AVAIL_TX value {payload:?}"
