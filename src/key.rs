@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    emit_u32, parse_u32, parse_u8, DecodeError, DefaultNla, ErrorContext, Nla,
-    NlaBuffer, Parseable,
+    emit_u32, parse_u32, parse_u8, DecodeError, DefaultNla, Emitable,
+    ErrorContext, Nla, NlaBuffer, NlasIterator, Parseable,
 };
 
 const NL80211_KEYTYPE_GROUP: u32 = 0;
@@ -55,7 +55,67 @@ const NL80211_KEY_SEQ: u16 = 4;
 const NL80211_KEY_DEFAULT: u16 = 5;
 const NL80211_KEY_DEFAULT_MGMT: u16 = 6;
 const NL80211_KEY_TYPE: u16 = 7;
+const NL80211_KEY_DEFAULT_TYPES: u16 = 8;
 const NL80211_KEY_MODE: u16 = 9;
+
+const NL80211_KEY_DEFAULT_TYPE_UNICAST: u8 = 1;
+const NL80211_KEY_DEFAULT_TYPE_MULTICAST: u8 = 2;
+
+/// Key default type, used as a sub-attribute within
+/// `NL80211_KEY_DEFAULT_TYPES`.
+///
+/// Mirrors the kernel `enum nl80211_key_default_types`.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Nl80211KeyDefaultType {
+    /// Key should be used as default unicast key.
+    Unicast,
+    /// Key should be used as default multicast key.
+    Multicast,
+    /// Any other / kernel-version-specific value.
+    Other(u8),
+}
+
+impl From<u8> for Nl80211KeyDefaultType {
+    fn from(d: u8) -> Self {
+        match d {
+            NL80211_KEY_DEFAULT_TYPE_UNICAST => Self::Unicast,
+            NL80211_KEY_DEFAULT_TYPE_MULTICAST => Self::Multicast,
+            _ => Self::Other(d),
+        }
+    }
+}
+
+impl From<Nl80211KeyDefaultType> for u8 {
+    fn from(v: Nl80211KeyDefaultType) -> u8 {
+        match v {
+            Nl80211KeyDefaultType::Unicast => NL80211_KEY_DEFAULT_TYPE_UNICAST,
+            Nl80211KeyDefaultType::Multicast => {
+                NL80211_KEY_DEFAULT_TYPE_MULTICAST
+            }
+            Nl80211KeyDefaultType::Other(d) => d,
+        }
+    }
+}
+
+impl Nla for Nl80211KeyDefaultType {
+    fn value_len(&self) -> usize {
+        0
+    }
+
+    fn kind(&self) -> u16 {
+        u8::from(*self) as u16
+    }
+
+    fn emit_value(&self, _buffer: &mut [u8]) {}
+}
+
+impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
+    for Nl80211KeyDefaultType
+{
+    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+        Ok(Nl80211KeyDefaultType::from(buf.kind() as u8))
+    }
+}
 
 /// Key sub-attribute within the nested `NL80211_ATTR_KEY` attribute, used to
 /// install a key with `NL80211_CMD_NEW_KEY` / `NL80211_CMD_SET_KEY`.
@@ -81,6 +141,9 @@ pub enum Nl80211KeyAttr {
     Type(Nl80211KeyType),
     /// Key mode (see kernel `enum nl80211_key_mode`).
     Mode(u8),
+    /// Nested attribute specifying what traffic types this key is the
+    /// default for (see `Nl80211KeyDefaultType`).
+    DefaultTypes(Vec<Nl80211KeyDefaultType>),
     /// Any other / kernel-version-specific sub-attribute.
     Other(DefaultNla),
 }
@@ -92,6 +155,7 @@ impl Nla for Nl80211KeyAttr {
             Self::Idx(_) | Self::Mode(_) => 1,
             Self::Cipher(_) | Self::Type(_) => 4,
             Self::Default | Self::DefaultMgmt => 0,
+            Self::DefaultTypes(types) => types.as_slice().buffer_len(),
             Self::Other(attr) => attr.value_len(),
         }
     }
@@ -105,6 +169,7 @@ impl Nla for Nl80211KeyAttr {
             Self::Default => NL80211_KEY_DEFAULT,
             Self::DefaultMgmt => NL80211_KEY_DEFAULT_MGMT,
             Self::Type(_) => NL80211_KEY_TYPE,
+            Self::DefaultTypes(_) => NL80211_KEY_DEFAULT_TYPES,
             Self::Mode(_) => NL80211_KEY_MODE,
             Self::Other(attr) => attr.kind(),
         }
@@ -119,6 +184,7 @@ impl Nla for Nl80211KeyAttr {
             Self::Cipher(d) => emit_u32(buffer, *d).unwrap(),
             Self::Type(d) => emit_u32(buffer, u32::from(*d)).unwrap(),
             Self::Default | Self::DefaultMgmt => (),
+            Self::DefaultTypes(types) => types.as_slice().emit(buffer),
             Self::Other(attr) => attr.emit_value(buffer),
         }
     }
@@ -150,6 +216,20 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_KEY_DEFAULT => Self::Default,
             NL80211_KEY_DEFAULT_MGMT => Self::DefaultMgmt,
+            NL80211_KEY_DEFAULT_TYPES => {
+                let err_msg = format!(
+                    "Invalid NL80211_KEY_DEFAULT_TYPES value {payload:?}"
+                );
+                let mut types = Vec::new();
+                for nla in NlasIterator::new(payload) {
+                    let nla = &nla.context(err_msg.clone())?;
+                    types.push(
+                        Nl80211KeyDefaultType::parse(nla)
+                            .context(err_msg.clone())?,
+                    );
+                }
+                Self::DefaultTypes(types)
+            }
             _ => Self::Other(DefaultNla::parse(buf)?),
         })
     }
