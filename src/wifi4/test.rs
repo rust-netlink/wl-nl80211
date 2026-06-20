@@ -100,8 +100,8 @@ fn mcs_info() {
 #[test]
 fn a_mpdu_para() {
     let val: Nl80211HtAMpduPara = Nl80211HtAMpduPara {
-        max_len_exponent: u8::MAX & 0b11,
-        min_space: u8::MAX & 0b111,
+        max_len_exponent: 0b11,
+        min_space: 0b111,
     };
     let into: u8 = val.into();
     assert_eq!(<Nl80211HtAMpduPara>::from(into), val,);
