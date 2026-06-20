@@ -46,7 +46,7 @@ use crate::{
     Nl80211HtCapabilityMask, Nl80211HtWiphyChannelType, Nl80211IfMode,
     Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas, Nl80211IfaceComb,
     Nl80211IfaceFrameType, Nl80211InterfaceType, Nl80211InterfaceTypes,
-    Nl80211MloLink, Nl80211ScanFlags, Nl80211SchedScanMatch,
+    Nl80211KeyAttr, Nl80211MloLink, Nl80211ScanFlags, Nl80211SchedScanMatch,
     Nl80211SchedScanPlan, Nl80211StationInfo, Nl80211SurveyInfo,
     Nl80211TransmitQueueStat, Nl80211UseMfp, Nl80211VhtCapability,
     Nl80211WowlanTriggersSupport, Nl80211WpaVersions,
@@ -263,7 +263,7 @@ const NL80211_ATTR_AKM_SUITES: u16 = 76;
 // const NL80211_ATTR_REQ_IE:u16 = 77;
 // const NL80211_ATTR_RESP_IE:u16 = 78;
 // const NL80211_ATTR_PREV_BSSID:u16 = 79;
-// const NL80211_ATTR_KEY:u16 = 80;
+const NL80211_ATTR_KEY: u16 = 80;
 // const NL80211_ATTR_KEYS:u16 = 81;
 // const NL80211_ATTR_PID:u16 = 82;
 const NL80211_ATTR_4ADDR: u16 = 83;
@@ -341,7 +341,7 @@ const NL80211_ATTR_HT_CAPABILITY_MASK: u16 = 148;
 const NL80211_ATTR_WDEV: u16 = 153;
 // const NL80211_ATTR_USER_REG_HINT_TYPE:u16 = 154;
 // const NL80211_ATTR_CONN_FAILED_REASON:u16 = 155;
-// const NL80211_ATTR_AUTH_DATA:u16 = 156;
+const NL80211_ATTR_AUTH_DATA: u16 = 156;
 const NL80211_ATTR_VHT_CAPABILITY: u16 = 157;
 const NL80211_ATTR_SCAN_FLAGS: u16 = 158;
 const NL80211_ATTR_CHANNEL_WIDTH: u16 = 159;
@@ -679,6 +679,16 @@ pub enum Nl80211Attr {
     /// Prefix to match the start of received management frames against, used
     /// when registering for frames with `NL80211_CMD_REGISTER_FRAME`.
     FrameMatch(Vec<u8>),
+    /// Fields and elements in Authentication frames (e.g. the SAE
+    /// commit/confirm payload), used with `NL80211_CMD_AUTHENTICATE`. The
+    /// content is the authentication frame body starting at the authentication
+    /// transaction sequence number (transaction || status || elements).
+    AuthData(Vec<u8>),
+    /// Key parameters for `NL80211_CMD_NEW_KEY` / `NL80211_CMD_SET_KEY`,
+    /// carried as the nested `NL80211_ATTR_KEY` attribute (a list of
+    /// [`Nl80211KeyAttr`] sub-attributes: the key material, index, cipher,
+    /// sequence/RSC, type, etc.).
+    Key(Vec<Nl80211KeyAttr>),
     /// IEEE 802.11 frame type/subtype to register for / that a frame belongs
     /// to (the 16-bit frame control type+subtype field).
     FrameType(u16),
@@ -837,6 +847,8 @@ impl Nla for Nl80211Attr {
             Self::AkmSuites(s) => 4 * s.len(),
             Self::Bssid(_) => ETH_ALEN,
             Self::Ie(v) | Self::Frame(v) | Self::FrameMatch(v) => v.len(),
+            Self::AuthData(v) => v.len(),
+            Self::Key(nlas) => nlas.as_slice().buffer_len(),
             Self::Other(attr) => attr.value_len(),
             Self::VendorData(d) => d.len(),
         }
@@ -963,6 +975,8 @@ impl Nla for Nl80211Attr {
             Self::Ie(_) => NL80211_ATTR_IE,
             Self::Frame(_) => NL80211_ATTR_FRAME,
             Self::FrameMatch(_) => NL80211_ATTR_FRAME_MATCH,
+            Self::AuthData(_) => NL80211_ATTR_AUTH_DATA,
+            Self::Key(_) => NL80211_ATTR_KEY,
             Self::FrameType(_) => NL80211_ATTR_FRAME_TYPE,
             Self::Cookie(_) => NL80211_ATTR_COOKIE,
             Self::Ack => NL80211_ATTR_ACK,
@@ -1137,6 +1151,8 @@ impl Nla for Nl80211Attr {
             Self::Ie(v) | Self::Frame(v) | Self::FrameMatch(v) => {
                 buffer[..v.len()].copy_from_slice(v)
             }
+            Self::AuthData(v) => buffer[..v.len()].copy_from_slice(v),
+            Self::Key(nlas) => nlas.as_slice().emit(buffer),
             Self::Other(attr) => attr.emit_value(buffer),
         }
     }
@@ -1759,6 +1775,19 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             NL80211_ATTR_IE => Self::Ie(payload.to_vec()),
             NL80211_ATTR_FRAME => Self::Frame(payload.to_vec()),
             NL80211_ATTR_FRAME_MATCH => Self::FrameMatch(payload.to_vec()),
+            NL80211_ATTR_AUTH_DATA => Self::AuthData(payload.to_vec()),
+            NL80211_ATTR_KEY => {
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_KEY value {payload:?}");
+                let mut nlas = Vec::new();
+                for nla in NlasIterator::new(payload) {
+                    let nla = &nla.context(err_msg.clone())?;
+                    nlas.push(
+                        Nl80211KeyAttr::parse(nla).context(err_msg.clone())?,
+                    );
+                }
+                Self::Key(nlas)
+            }
             NL80211_ATTR_FRAME_TYPE => {
                 let err_msg = format!(
                     "Invalid NL80211_ATTR_FRAME_TYPE value {payload:?}"
