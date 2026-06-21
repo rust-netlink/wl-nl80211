@@ -9,9 +9,6 @@ use crate::{
     Nl80211ElementHeCap, Nl80211ElementHtCap, Nl80211ElementVhtCap,
 };
 
-#[cfg(test)]
-mod test;
-
 /// [Nl80211Elements] Vec
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Nl80211Elements(pub Vec<Nl80211Element>);
