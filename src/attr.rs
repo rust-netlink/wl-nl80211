@@ -46,10 +46,10 @@ use crate::{
     Nl80211HtCapabilityMask, Nl80211HtWiphyChannelType, Nl80211IfMode,
     Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas, Nl80211IfaceComb,
     Nl80211IfaceFrameType, Nl80211InterfaceType, Nl80211InterfaceTypes,
-    Nl80211KeyAttr, Nl80211MloLink, Nl80211ScanFlags, Nl80211SchedScanMatch,
-    Nl80211SchedScanPlan, Nl80211StationInfo, Nl80211SurveyInfo,
-    Nl80211TransmitQueueStat, Nl80211UseMfp, Nl80211VhtCapability,
-    Nl80211WowlanTriggersSupport, Nl80211WpaVersions,
+    Nl80211KeyAttr, Nl80211MloLink, Nl80211RekeyData, Nl80211ScanFlags,
+    Nl80211SchedScanMatch, Nl80211SchedScanPlan, Nl80211StationInfo,
+    Nl80211SurveyInfo, Nl80211TransmitQueueStat, Nl80211UseMfp,
+    Nl80211VhtCapability, Nl80211WowlanTriggersSupport, Nl80211WpaVersions,
 };
 
 const ETH_ALEN: usize = 6;
@@ -307,7 +307,7 @@ const NL80211_ATTR_WOWLAN_TRIGGERS_SUPPORTED: u16 = 118;
 const NL80211_ATTR_SCHED_SCAN_INTERVAL: u16 = 119;
 const NL80211_ATTR_INTERFACE_COMBINATIONS: u16 = 120;
 const NL80211_ATTR_SOFTWARE_IFTYPES: u16 = 121;
-// const NL80211_ATTR_REKEY_DATA:u16 = 122;
+const NL80211_ATTR_REKEY_DATA: u16 = 122;
 const NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS: u16 = 123;
 const NL80211_ATTR_MAX_SCHED_SCAN_IE_LEN: u16 = 124;
 // const NL80211_ATTR_SCAN_SUPP_RATES:u16 = 125;
@@ -689,6 +689,10 @@ pub enum Nl80211Attr {
     /// [`Nl80211KeyAttr`] sub-attributes: the key material, index, cipher,
     /// sequence/RSC, type, etc.).
     Key(Vec<Nl80211KeyAttr>),
+    /// GTK rekey offload parameters for `NL80211_CMD_SET_REKEY_OFFLOAD`,
+    /// carried as the nested `NL80211_ATTR_REKEY_DATA` attribute (a list of
+    /// [`Nl80211RekeyData`] sub-attributes: KEK, KCK, replay counter, AKM).
+    RekeyData(Vec<Nl80211RekeyData>),
     /// IEEE 802.11 frame type/subtype to register for / that a frame belongs
     /// to (the 16-bit frame control type+subtype field).
     FrameType(u16),
@@ -849,6 +853,7 @@ impl Nla for Nl80211Attr {
             Self::Ie(v) | Self::Frame(v) | Self::FrameMatch(v) => v.len(),
             Self::AuthData(v) => v.len(),
             Self::Key(nlas) => nlas.as_slice().buffer_len(),
+            Self::RekeyData(nlas) => nlas.as_slice().buffer_len(),
             Self::Other(attr) => attr.value_len(),
             Self::VendorData(d) => d.len(),
         }
@@ -977,6 +982,7 @@ impl Nla for Nl80211Attr {
             Self::FrameMatch(_) => NL80211_ATTR_FRAME_MATCH,
             Self::AuthData(_) => NL80211_ATTR_AUTH_DATA,
             Self::Key(_) => NL80211_ATTR_KEY,
+            Self::RekeyData(_) => NL80211_ATTR_REKEY_DATA,
             Self::FrameType(_) => NL80211_ATTR_FRAME_TYPE,
             Self::Cookie(_) => NL80211_ATTR_COOKIE,
             Self::Ack => NL80211_ATTR_ACK,
@@ -1153,6 +1159,7 @@ impl Nla for Nl80211Attr {
             }
             Self::AuthData(v) => buffer[..v.len()].copy_from_slice(v),
             Self::Key(nlas) => nlas.as_slice().emit(buffer),
+            Self::RekeyData(nlas) => nlas.as_slice().emit(buffer),
             Self::Other(attr) => attr.emit_value(buffer),
         }
     }
@@ -1787,6 +1794,20 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                     );
                 }
                 Self::Key(nlas)
+            }
+            NL80211_ATTR_REKEY_DATA => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_REKEY_DATA value {payload:?}"
+                );
+                let mut nlas = Vec::new();
+                for nla in NlasIterator::new(payload) {
+                    let nla = &nla.context(err_msg.clone())?;
+                    nlas.push(
+                        Nl80211RekeyData::parse(nla)
+                            .context(err_msg.clone())?,
+                    );
+                }
+                Self::RekeyData(nlas)
             }
             NL80211_ATTR_FRAME_TYPE => {
                 let err_msg = format!(
