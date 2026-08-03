@@ -17,6 +17,7 @@ mod key;
 mod macros;
 mod message;
 mod mlo;
+mod rekey;
 mod scan;
 mod station;
 mod stats;
@@ -74,6 +75,7 @@ pub use self::iface::{
 pub use self::key::{Nl80211KeyAttr, Nl80211KeyDefaultType, Nl80211KeyType};
 pub use self::message::Nl80211Message;
 pub use self::mlo::Nl80211MloLink;
+pub use self::rekey::Nl80211RekeyData;
 pub use self::scan::{
     Nl80211BssCapabilities, Nl80211BssInfo, Nl80211BssUseFor, Nl80211Scan,
     Nl80211ScanFlags, Nl80211ScanGetRequest, Nl80211ScanHandle,
