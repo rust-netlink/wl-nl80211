@@ -826,6 +826,7 @@ const AKM_FILS_SHA256_AES_SIV256_OR_1X: u32 = IEEE_80211_OUI | 14 << 24;
 const AKM_FILS_SHA384_AES_SIV512_OR_1X: u32 = IEEE_80211_OUI | 15 << 24;
 const AKM_FT_FILS_SHA256_AES_SIV256_OR_1X: u32 = IEEE_80211_OUI | 16 << 24;
 const AKM_FT_FILS_SHA384_AES_SIV512_OR_1X: u32 = IEEE_80211_OUI | 17 << 24;
+const AKM_OWE: u32 = IEEE_80211_OUI | 18 << 24;
 const AKM_FT_PSK_SHA384: u32 = IEEE_80211_OUI | 19 << 24;
 const AKM_PSK_SHA384: u32 = IEEE_80211_OUI | 20 << 24;
 const AKM_SAE_GROUP_HASH: u32 = IEEE_80211_OUI | 24 << 24;
@@ -852,6 +853,7 @@ pub enum Nl80211AkmSuite {
     FilsSha384AesSiv512OrIeee8021x,
     FtFilsSha256AesSiv256OrIeee8021x,
     FtFilsSha384AesSiv512OrIeee8021x,
+    Owe,
     FtPskSha384,
     PskSha384,
     // Defined in WPA 3 as 00-0F-AC:24
@@ -889,6 +891,7 @@ impl From<u32> for Nl80211AkmSuite {
             AKM_FT_FILS_SHA384_AES_SIV512_OR_1X => {
                 Self::FtFilsSha384AesSiv512OrIeee8021x
             }
+            AKM_OWE => Self::Owe,
             AKM_FT_PSK_SHA384 => Self::FtPskSha384,
             AKM_PSK_SHA384 => Self::PskSha384,
             AKM_SAE_GROUP_HASH => Self::SaeGroupDependentHash,
@@ -926,6 +929,7 @@ impl From<Nl80211AkmSuite> for u32 {
             Nl80211AkmSuite::FtFilsSha384AesSiv512OrIeee8021x => {
                 AKM_FT_FILS_SHA384_AES_SIV512_OR_1X
             }
+            Nl80211AkmSuite::Owe => AKM_OWE,
             Nl80211AkmSuite::FtPskSha384 => AKM_FT_PSK_SHA384,
             Nl80211AkmSuite::PskSha384 => AKM_PSK_SHA384,
             Nl80211AkmSuite::SaeGroupDependentHash => AKM_SAE_GROUP_HASH,
