@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 use crate::{
-    Nl80211Attr, Nl80211ConnectRequest, Nl80211DisconnectRequest,
+    Nl80211AssociateRequest, Nl80211Attr, Nl80211AuthenticateRequest,
+    Nl80211ConnectRequest, Nl80211DisconnectRequest,
     Nl80211ExternalAuthRequest, Nl80211FrameRequest, Nl80211Handle,
     Nl80211RegisterFrameRequest,
 };
@@ -46,6 +47,28 @@ impl Nl80211ConnectionHandle {
         attributes: Vec<Nl80211Attr>,
     ) -> Nl80211DisconnectRequest {
         Nl80211DisconnectRequest::new(self.0.clone(), attributes)
+    }
+
+    /// Authenticate to an AP (`NL80211_CMD_AUTHENTICATE`), the
+    /// SME-in-userspace path. For SAE the commit / confirm bodies are carried
+    /// in the `attributes`, normally produced by
+    /// [`crate::Nl80211Authenticate`].
+    pub fn authenticate(
+        &mut self,
+        attributes: Vec<Nl80211Attr>,
+    ) -> Nl80211AuthenticateRequest {
+        Nl80211AuthenticateRequest::new(self.0.clone(), attributes)
+    }
+
+    /// Associate to an AP (`NL80211_CMD_ASSOCIATE`), typically right after a
+    /// successful [`Self::authenticate`] exchange.
+    ///
+    /// The `attributes` are normally produced by [`crate::Nl80211Associate`].
+    pub fn associate(
+        &mut self,
+        attributes: Vec<Nl80211Attr>,
+    ) -> Nl80211AssociateRequest {
+        Nl80211AssociateRequest::new(self.0.clone(), attributes)
     }
 
     /// Report the result of an externally performed authentication
