@@ -3,6 +3,7 @@
 mod auth_assoc;
 mod connect;
 mod disconnect;
+mod event;
 mod key;
 mod register_frame;
 mod scan;

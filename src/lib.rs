@@ -8,8 +8,11 @@ mod connect;
 mod connection;
 mod element;
 mod error;
+mod event;
+mod event_status;
 mod ext_cap;
 mod feature;
+mod frame;
 mod frame_type;
 mod handle;
 mod iface;
@@ -53,6 +56,10 @@ pub use self::connect::{
 #[cfg(feature = "tokio_socket")]
 pub use self::connection::new_connection;
 pub use self::connection::new_connection_with_socket;
+#[cfg(feature = "tokio_socket")]
+pub use self::connection::new_multicast_connection;
+pub use self::connection::new_multicast_connection_with_socket;
+pub use self::connection::Nl80211MulticastGroup;
 pub use self::element::{
     Nl80211AkmSuite, Nl80211CipherSuite, Nl80211Element,
     Nl80211ElementCountryEnvironment, Nl80211ElementCountryTriplet,
@@ -60,10 +67,13 @@ pub use self::element::{
     Nl80211RateAndSelector, Nl80211RsnCapbilities, Nl80211RsnExtCapbilities,
 };
 pub use self::error::Nl80211Error;
+pub use self::event::Nl80211Event;
+pub use self::event_status::{Nl80211EventCode, Nl80211EventReason};
 pub use self::ext_cap::{
     Nl80211ExtendedCapability, Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas,
 };
 pub use self::feature::{Nl80211ExtFeature, Nl80211Features};
+pub use self::frame::{Nl80211AuthAlgorithm, Nl80211AuthFrame};
 pub use self::frame_type::{Nl80211FrameType, Nl80211IfaceFrameType};
 pub use self::handle::Nl80211Handle;
 pub use self::iface::{

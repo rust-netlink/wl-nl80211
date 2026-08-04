@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Parse a pcap captured on an nlmon (LINKTYPE_NETLINK=158) interface and
+# SPDX-License-Identifier: MIT
+
+"""
+Parse a pcap captured on an nlmon (LINKTYPE_NETLINK=158) interface and
 print generic-netlink (nl80211) messages: nlmsghdr type, genl cmd, flags.
 Usage: parse_nlmon.py <pcap> [cmd_filter...]
 """
