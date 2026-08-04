@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+mod assoc;
+mod auth;
 mod disconnect;
 mod external_auth;
 mod frame;
@@ -7,6 +9,8 @@ mod handle;
 mod request;
 mod types;
 
+pub use self::assoc::{Nl80211Associate, Nl80211AssociateRequest};
+pub use self::auth::{Nl80211Authenticate, Nl80211AuthenticateRequest};
 pub use self::disconnect::{Nl80211Disconnect, Nl80211DisconnectRequest};
 pub use self::external_auth::{
     Nl80211ExternalAuth, Nl80211ExternalAuthRequest,

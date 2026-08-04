@@ -42,11 +42,13 @@ pub use self::builder::Nl80211AttrsBuilder;
 pub use self::channel::Nl80211ChannelWidth;
 pub use self::command::Nl80211Command;
 pub use self::connect::{
-    Nl80211AuthType, Nl80211Connect, Nl80211ConnectRequest,
-    Nl80211ConnectionHandle, Nl80211Disconnect, Nl80211DisconnectRequest,
-    Nl80211ExternalAuth, Nl80211ExternalAuthAction, Nl80211ExternalAuthRequest,
-    Nl80211Frame, Nl80211FrameRequest, Nl80211RegisterFrame,
-    Nl80211RegisterFrameRequest, Nl80211UseMfp, Nl80211WpaVersions,
+    Nl80211Associate, Nl80211AssociateRequest, Nl80211AuthType,
+    Nl80211Authenticate, Nl80211AuthenticateRequest, Nl80211Connect,
+    Nl80211ConnectRequest, Nl80211ConnectionHandle, Nl80211Disconnect,
+    Nl80211DisconnectRequest, Nl80211ExternalAuth, Nl80211ExternalAuthAction,
+    Nl80211ExternalAuthRequest, Nl80211Frame, Nl80211FrameRequest,
+    Nl80211RegisterFrame, Nl80211RegisterFrameRequest, Nl80211UseMfp,
+    Nl80211WpaVersions,
 };
 #[cfg(feature = "tokio_socket")]
 pub use self::connection::new_connection;
