@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use futures::TryStream;
-use netlink_packet_core::{Nla, NLM_F_ACK, NLM_F_REQUEST};
+use netlink_packet_core::{EthernetProtocol, Nla, NLM_F_ACK, NLM_F_REQUEST};
 use netlink_packet_generic::GenlMessage;
 
 use crate::{
@@ -98,9 +98,9 @@ impl Nl80211AttrsBuilder<Nl80211Associate> {
     }
 
     /// Ethernet protocol of the control port frames (normally
-    /// `ETH_P_PAE` = 0x888E).
-    pub fn control_port_ethertype(self, ethertype: u16) -> Self {
-        self.replace(Nl80211Attr::ControlPortEthertype(ethertype))
+    /// [`EthernetProtocol::Pae`], `ETH_P_PAE` = 0x888E).
+    pub fn control_port_ethertype(self, ethertype: EthernetProtocol) -> Self {
+        self.replace(Nl80211Attr::ControlPortEthertype(u16::from(ethertype)))
     }
 }
 

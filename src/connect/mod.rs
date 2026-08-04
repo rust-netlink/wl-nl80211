@@ -16,8 +16,8 @@ pub use self::external_auth::{
     Nl80211ExternalAuth, Nl80211ExternalAuthRequest,
 };
 pub use self::frame::{
-    Nl80211Frame, Nl80211FrameRequest, Nl80211RegisterFrame,
-    Nl80211RegisterFrameRequest,
+    Nl80211ControlPortFrame, Nl80211ControlPortFrameRequest, Nl80211Frame,
+    Nl80211FrameRequest, Nl80211RegisterFrame, Nl80211RegisterFrameRequest,
 };
 pub use self::handle::Nl80211ConnectionHandle;
 pub use self::request::{Nl80211Connect, Nl80211ConnectRequest};

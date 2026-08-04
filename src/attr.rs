@@ -288,7 +288,7 @@ const NL80211_ATTR_RX_FRAME_TYPES: u16 = 100;
 // see frame_type.rs.
 pub(crate) const NL80211_ATTR_FRAME_TYPE: u16 = 101;
 const NL80211_ATTR_CONTROL_PORT_ETHERTYPE: u16 = 102;
-// const NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT:u16 = 103;
+const NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT: u16 = 103;
 const NL80211_ATTR_SUPPORT_IBSS_RSN: u16 = 104;
 const NL80211_ATTR_WIPHY_ANTENNA_TX: u16 = 105;
 const NL80211_ATTR_WIPHY_ANTENNA_RX: u16 = 106;
@@ -572,6 +572,9 @@ pub enum Nl80211Attr {
     /// `NL80211_CMD_CONTROL_PORT_FRAME` and on connect/associate. Typically
     /// `0x888E` (ETH_P_PAE).
     ControlPortEthertype(u16),
+    /// Flag attribute requesting that the control-port (802.1X/EAPOL) frames
+    /// be transmitted unencrypted (`NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT`).
+    ControlPortNoEncrypt,
     WiphyAntennaAvailTx(u32),
     WiphyAntennaAvailRx(u32),
     ApProbeRespOffload(u32),
@@ -845,7 +848,8 @@ impl Nla for Nl80211Attr {
             | Self::ControlPortOverNl80211
             | Self::ExternalAuthSupport
             | Self::Ack
-            | Self::SocketOwner => 0,
+            | Self::SocketOwner
+            | Self::ControlPortNoEncrypt => 0,
             Self::CiphersPairwise(s) => 4 * s.len(),
             Self::CipherGroup(_) => 4,
             Self::AkmSuites(s) => 4 * s.len(),
@@ -992,6 +996,7 @@ impl Nla for Nl80211Attr {
             Self::ControlPortOverNl80211 => {
                 NL80211_ATTR_CONTROL_PORT_OVER_NL80211
             }
+            Self::ControlPortNoEncrypt => NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT,
             Self::SocketOwner => NL80211_ATTR_SOCKET_OWNER,
             Self::Other(attr) => attr.kind(),
         }
@@ -1129,7 +1134,8 @@ impl Nla for Nl80211Attr {
             | Self::ControlPortOverNl80211
             | Self::ExternalAuthSupport
             | Self::Ack
-            | Self::SocketOwner => (),
+            | Self::SocketOwner
+            | Self::ControlPortNoEncrypt => (),
             Self::CiphersPairwise(suits) => {
                 // `.swap_bytes()` converts our byte-reversed internal value
                 // (`0x04ac0f00`) back to the kernel's OUI constant
@@ -1843,6 +1849,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 Self::ControlPortOverNl80211
             }
             NL80211_ATTR_SOCKET_OWNER => Self::SocketOwner,
+            NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT => Self::ControlPortNoEncrypt,
             _ => Self::Other(
                 DefaultNla::parse(buf).context("invalid NLA (unknown kind)")?,
             ),
