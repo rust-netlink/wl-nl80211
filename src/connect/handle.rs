@@ -2,9 +2,10 @@
 
 use crate::{
     Nl80211AssociateRequest, Nl80211Attr, Nl80211AuthenticateRequest,
-    Nl80211ConnectRequest, Nl80211DisconnectRequest,
-    Nl80211ExternalAuthRequest, Nl80211FrameRequest, Nl80211Handle,
-    Nl80211KeyRequest, Nl80211RegisterFrameRequest, Nl80211RekeyOffloadRequest,
+    Nl80211ConnectRequest, Nl80211ControlPortFrameRequest,
+    Nl80211DisconnectRequest, Nl80211ExternalAuthRequest, Nl80211FrameRequest,
+    Nl80211Handle, Nl80211KeyRequest, Nl80211RegisterFrameRequest,
+    Nl80211RekeyOffloadRequest,
 };
 
 /// A handle to send connection management commands (`NL80211_CMD_CONNECT` and
@@ -106,6 +107,17 @@ impl Nl80211ConnectionHandle {
         attributes: Vec<Nl80211Attr>,
     ) -> Nl80211RegisterFrameRequest {
         Nl80211RegisterFrameRequest::new(self.0.clone(), attributes)
+    }
+
+    /// Transmit an EAPOL control port frame (`NL80211_CMD_CONTROL_PORT_FRAME`).
+    ///
+    /// The `attributes` are normally produced by
+    /// [`crate::Nl80211ControlPortFrame`].
+    pub fn control_port_frame(
+        &mut self,
+        attributes: Vec<Nl80211Attr>,
+    ) -> Nl80211ControlPortFrameRequest {
+        Nl80211ControlPortFrameRequest::new(self.0.clone(), attributes)
     }
 
     /// Install a key (`NL80211_CMD_NEW_KEY`), used during the 4-way

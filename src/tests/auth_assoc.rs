@@ -15,6 +15,8 @@
 // the wire, and that the [`crate::Nl80211Authenticate`] /
 // [`crate::Nl80211Associate`] builders re-emit the same attribute set.
 
+use netlink_packet_core::EthernetProtocol;
+
 use std::collections::HashMap;
 
 use netlink_packet_core::{Nla, NlasIterator, Parseable};
@@ -246,7 +248,7 @@ fn test_captured_associate_wpa2() {
         .ciphers_pairwise(vec![Nl80211CipherSuite::Ccmp128])
         .cipher_group(Nl80211CipherSuite::Ccmp128)
         .akm_suites(vec![Nl80211AkmSuite::Psk])
-        .control_port_ethertype(0x888E)
+        .control_port_ethertype(EthernetProtocol::Pae)
         .control_port_over_nl80211(true)
         .socket_owner(true)
         .build();
@@ -297,7 +299,7 @@ fn test_captured_associate_sae() {
         .ciphers_pairwise(vec![Nl80211CipherSuite::Ccmp128])
         .cipher_group(Nl80211CipherSuite::Ccmp128)
         .akm_suites(vec![Nl80211AkmSuite::Sae])
-        .control_port_ethertype(0x888E)
+        .control_port_ethertype(EthernetProtocol::Pae)
         .control_port_over_nl80211(true)
         .use_mfp(Nl80211UseMfp::Required)
         .socket_owner(true)

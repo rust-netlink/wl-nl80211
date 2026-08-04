@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use futures::TryStream;
-use netlink_packet_core::{NLM_F_ACK, NLM_F_REQUEST};
+use netlink_packet_core::{EthernetProtocol, Nla, NLM_F_ACK, NLM_F_REQUEST};
 use netlink_packet_generic::GenlMessage;
 
 use crate::{
@@ -136,6 +136,86 @@ impl Nl80211RegisterFrameRequest {
 
         let nl80211_msg = Nl80211Message {
             cmd: Nl80211Command::RegisterFrame,
+            attributes,
+        };
+        let flags = NLM_F_REQUEST | NLM_F_ACK;
+
+        nl80211_execute(&mut handle, nl80211_msg, flags).await
+    }
+}
+
+/// Helper to build the attribute list for a `NL80211_CMD_CONTROL_PORT_FRAME`
+/// request, transmitting an EAPOL (802.1X control port) frame — e.g. the
+/// 4-way handshake messages when the control port is carried over nl80211
+/// (`NL80211_ATTR_CONTROL_PORT_OVER_NL80211`, wpa_supplicant's default).
+#[derive(Debug)]
+pub struct Nl80211ControlPortFrame;
+
+impl Nl80211ControlPortFrame {
+    /// Start building a control port frame transmit request for `if_index`.
+    pub fn new(if_index: u32) -> Nl80211AttrsBuilder<Self> {
+        Nl80211AttrsBuilder::<Self>::new().if_index(if_index)
+    }
+}
+
+impl Nl80211AttrsBuilder<Nl80211ControlPortFrame> {
+    /// BSSID of the AP the EAPOL frame is destined to.
+    pub fn mac(self, mac: [u8; 6]) -> Self {
+        self.replace(Nl80211Attr::Mac(mac))
+    }
+
+    /// The raw EAPOL frame, starting with the EAPOL header.
+    pub fn frame(self, frame: Vec<u8>) -> Self {
+        self.replace(Nl80211Attr::Frame(frame))
+    }
+
+    /// EtherType of the control port frames, e.g.
+    /// [`EthernetProtocol::Pae`] (`ETH_P_PAE`, 0x888E) for EAPOL.
+    pub fn control_port_ethertype(self, ethertype: EthernetProtocol) -> Self {
+        self.replace(Nl80211Attr::ControlPortEthertype(u16::from(ethertype)))
+    }
+
+    /// Whether the frames should be transmitted unencrypted
+    /// (`NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT`), e.g. for EAPOL frames that
+    /// carry their own encryption.
+    pub fn control_port_no_encrypt(self, enable: bool) -> Self {
+        if enable {
+            self.replace(Nl80211Attr::ControlPortNoEncrypt)
+        } else {
+            self.remove(Nl80211Attr::ControlPortNoEncrypt.kind())
+        }
+    }
+}
+
+pub struct Nl80211ControlPortFrameRequest {
+    handle: Nl80211Handle,
+    attributes: Vec<Nl80211Attr>,
+}
+
+impl Nl80211ControlPortFrameRequest {
+    pub(crate) fn new(
+        handle: Nl80211Handle,
+        attributes: Vec<Nl80211Attr>,
+    ) -> Self {
+        Nl80211ControlPortFrameRequest { handle, attributes }
+    }
+
+    /// Send the `NL80211_CMD_CONTROL_PORT_FRAME` request.
+    ///
+    /// A successful return only means the kernel accepted the frame for
+    /// transmission; the peer's response arrives as a
+    /// `NL80211_CMD_CONTROL_PORT_FRAME` event.
+    pub async fn execute(
+        self,
+    ) -> impl TryStream<Ok = GenlMessage<Nl80211Message>, Error = Nl80211Error>
+    {
+        let Nl80211ControlPortFrameRequest {
+            mut handle,
+            attributes,
+        } = self;
+
+        let nl80211_msg = Nl80211Message {
+            cmd: Nl80211Command::ControlPortFrame,
             attributes,
         };
         let flags = NLM_F_REQUEST | NLM_F_ACK;
