@@ -8,9 +8,12 @@
 // parsing and emitting against exactly what wpa_supplicant and the kernel
 // exchange.
 
-use netlink_packet_core::{Emitable, NlaBuffer, Parseable};
+use netlink_packet_core::{Emitable, NlaBuffer, NlasIterator, Parseable};
 
-use crate::{Nl80211Attr, Nl80211KeyAttr, Nl80211KeyDefaultType};
+use crate::{
+    Nl80211Attr, Nl80211CipherSuite, Nl80211Command, Nl80211Key,
+    Nl80211KeyAttr, Nl80211KeyDefaultType, Nl80211KeyType, Nl80211Message,
+};
 
 fn assert_roundtrip(expected: Nl80211Attr, raw: Vec<u8>) {
     assert_eq!(
@@ -140,4 +143,129 @@ fn test_captured_set_key_group_default_types() {
         Nl80211KeyAttr::DefaultTypes(vec![Nl80211KeyDefaultType::Multicast]),
     ]);
     assert_roundtrip(expected, raw);
+}
+
+// Full `NL80211_CMD_NEW_KEY` request messages (WPA2-PSK "Test-WIFI", AP
+// BSSID 02:00:00:00:01:00, ifindex 464), captured on the `nl0` nlmon
+// monitor while wpa_supplicant connected. The emitted attribute region must
+// byte-match the captured message exactly.
+
+fn emit_new_key_attributes(attributes: Vec<Nl80211Attr>) -> Vec<u8> {
+    let msg = Nl80211Message {
+        cmd: Nl80211Command::NewKey,
+        attributes,
+    };
+    let mut buf = vec![0u8; msg.buffer_len()];
+    msg.emit(&mut buf);
+    buf
+}
+
+fn parse_message_attributes(raw: &[u8]) -> Vec<Nl80211Attr> {
+    NlasIterator::new(raw)
+        .map(|nla| Nl80211Attr::parse(&nla.unwrap()).unwrap())
+        .collect()
+}
+
+// Installing the pairwise (CCMP-128) key: NL80211_ATTR_IFINDEX,
+// NL80211_ATTR_MAC, then NL80211_ATTR_KEY with KEY_DATA, KEY_CIPHER
+// (00-0f-ac:4), KEY_SEQ (6-byte RSC) and KEY_IDX (0).
+#[test]
+fn test_captured_new_key_message_pairwise() {
+    // nlmsghdr(16) + genl header(4), attributes start at offset 20.
+    let raw = vec![
+        0x5c, 0x00, 0x00, 0x00, 0x32, 0x00, 0x05, 0x00, 0xca, 0x75, 0x8e, 0x95,
+        0xa7, 0x9b, 0xc0, 0xf4, 0x0b, 0x00, 0x00, 0x00, 0x08, 0x00, 0x03, 0x00,
+        0xd0, 0x01, 0x00, 0x00, 0x0a, 0x00, 0x06, 0x00, 0x02, 0x00, 0x00, 0x00,
+        0x01, 0x00, 0x00, 0x00, 0x34, 0x00, 0x50, 0x00, 0x14, 0x00, 0x01, 0x00,
+        0x7d, 0x94, 0x07, 0x6d, 0x81, 0x6d, 0x04, 0x86, 0xbf, 0x22, 0x80, 0xa9,
+        0x56, 0xa7, 0xe6, 0x51, 0x08, 0x00, 0x03, 0x00, 0x04, 0xac, 0x0f, 0x00,
+        0x0a, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x05, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+    assert_eq!(92, raw.len());
+    let attributes = Nl80211Key::new(464)
+        .mac([0x02, 0x00, 0x00, 0x00, 0x01, 0x00])
+        .key_data(vec![
+            0x7d, 0x94, 0x07, 0x6d, 0x81, 0x6d, 0x04, 0x86, 0xbf, 0x22, 0x80,
+            0xa9, 0x56, 0xa7, 0xe6, 0x51,
+        ])
+        .key_index(0)
+        .cipher(Nl80211CipherSuite::Ccmp128)
+        .seq(vec![0u8; 6])
+        .build();
+    assert_eq!(&raw[20..], emit_new_key_attributes(attributes));
+}
+
+// Installing the group key (CCMP-128) at index 1: same shape but no
+// NL80211_ATTR_MAC and KEY_IDX (1).
+#[test]
+fn test_captured_new_key_message_group() {
+    let raw = vec![
+        0x50, 0x00, 0x00, 0x00, 0x32, 0x00, 0x05, 0x00, 0xcb, 0x75, 0x8e, 0x95,
+        0xa7, 0x9b, 0xc0, 0xf4, 0x0b, 0x00, 0x00, 0x00, 0x08, 0x00, 0x03, 0x00,
+        0xd0, 0x01, 0x00, 0x00, 0x34, 0x00, 0x50, 0x00, 0x14, 0x00, 0x01, 0x00,
+        0xb6, 0x29, 0xc4, 0x84, 0x95, 0x0e, 0x72, 0x3e, 0x1e, 0xfc, 0xe5, 0x31,
+        0x1e, 0x68, 0x2d, 0xf8, 0x08, 0x00, 0x03, 0x00, 0x04, 0xac, 0x0f, 0x00,
+        0x0a, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x05, 0x00, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00,
+    ];
+    assert_eq!(80, raw.len());
+    let attributes = Nl80211Key::new(464)
+        .key_data(vec![
+            0xb6, 0x29, 0xc4, 0x84, 0x95, 0x0e, 0x72, 0x3e, 0x1e, 0xfc, 0xe5,
+            0x31, 0x1e, 0x68, 0x2d, 0xf8,
+        ])
+        .key_index(1)
+        .cipher(Nl80211CipherSuite::Ccmp128)
+        .seq(vec![0u8; 6])
+        .build();
+    assert_eq!(&raw[20..], emit_new_key_attributes(attributes));
+}
+
+// The convenience constructors add what wpa_supplicant leaves off the wire:
+// NL80211_KEY_TYPE, and for the GTK the default-multicast
+// NL80211_KEY_DEFAULT_TYPES (the SET_KEY form of which is validated against
+// a capture above).
+#[test]
+fn test_new_key_conveniences() {
+    let ptk = emit_new_key_attributes(
+        Nl80211Key::new_ptk(
+            464,
+            [0x02, 0x00, 0x00, 0x00, 0x01, 0x00],
+            vec![0xaa; 16],
+        )
+        .build(),
+    );
+    assert_eq!(
+        vec![
+            Nl80211Attr::IfIndex(464),
+            Nl80211Attr::Mac([0x02, 0x00, 0x00, 0x00, 0x01, 0x00]),
+            Nl80211Attr::Key(vec![
+                Nl80211KeyAttr::Data(vec![0xaa; 16]),
+                Nl80211KeyAttr::Cipher(0x000F_AC04),
+                Nl80211KeyAttr::Idx(0),
+                Nl80211KeyAttr::Type(Nl80211KeyType::Pairwise),
+            ]),
+        ],
+        parse_message_attributes(&ptk)
+    );
+
+    let gtk = emit_new_key_attributes(
+        Nl80211Key::new_gtk(464, vec![0xbb; 16], 1).build(),
+    );
+    assert_eq!(
+        vec![
+            Nl80211Attr::IfIndex(464),
+            Nl80211Attr::Key(vec![
+                Nl80211KeyAttr::Data(vec![0xbb; 16]),
+                Nl80211KeyAttr::Cipher(0x000F_AC04),
+                Nl80211KeyAttr::Idx(1),
+                Nl80211KeyAttr::Type(Nl80211KeyType::Group),
+                Nl80211KeyAttr::DefaultTypes(vec![
+                    Nl80211KeyDefaultType::Multicast
+                ]),
+            ]),
+        ],
+        parse_message_attributes(&gtk)
+    );
 }

@@ -4,7 +4,7 @@ use crate::{
     Nl80211AssociateRequest, Nl80211Attr, Nl80211AuthenticateRequest,
     Nl80211ConnectRequest, Nl80211DisconnectRequest,
     Nl80211ExternalAuthRequest, Nl80211FrameRequest, Nl80211Handle,
-    Nl80211RegisterFrameRequest,
+    Nl80211KeyRequest, Nl80211RegisterFrameRequest, Nl80211RekeyOffloadRequest,
 };
 
 /// A handle to send connection management commands (`NL80211_CMD_CONNECT` and
@@ -106,5 +106,31 @@ impl Nl80211ConnectionHandle {
         attributes: Vec<Nl80211Attr>,
     ) -> Nl80211RegisterFrameRequest {
         Nl80211RegisterFrameRequest::new(self.0.clone(), attributes)
+    }
+
+    /// Install a key (`NL80211_CMD_NEW_KEY`), used during the 4-way
+    /// handshake to install the PTK / GTK.
+    ///
+    /// The `attributes` are normally produced by
+    /// [`crate::Nl80211Key`], e.g. [`crate::Nl80211Key::new_ptk`] or
+    /// [`crate::Nl80211Key::new_gtk`].
+    pub fn new_key(
+        &mut self,
+        attributes: Vec<Nl80211Attr>,
+    ) -> Nl80211KeyRequest {
+        Nl80211KeyRequest::new(self.0.clone(), attributes)
+    }
+
+    /// Hand GTK rekey material to the driver/firmware
+    /// (`NL80211_CMD_SET_REKEY_OFFLOAD`), so the device can keep receiving
+    /// while the host is suspended (WoWLAN).
+    ///
+    /// The `attributes` are normally produced by
+    /// [`crate::Nl80211RekeyOffload`].
+    pub fn set_rekey_offload(
+        &mut self,
+        attributes: Vec<Nl80211Attr>,
+    ) -> Nl80211RekeyOffloadRequest {
+        Nl80211RekeyOffloadRequest::new(self.0.clone(), attributes)
     }
 }

@@ -17,10 +17,12 @@ mod frame_type;
 mod handle;
 mod iface;
 mod key;
+mod key_request;
 mod macros;
 mod message;
 mod mlo;
 mod rekey;
+mod rekey_request;
 mod scan;
 mod station;
 mod stats;
@@ -85,9 +87,13 @@ pub use self::iface::{
     Nl80211InterfaceVendorRequest, Nl80211NewInterface, Nl80211Vendor,
 };
 pub use self::key::{Nl80211KeyAttr, Nl80211KeyDefaultType, Nl80211KeyType};
+pub use self::key_request::{Nl80211Key, Nl80211KeyRequest};
 pub use self::message::Nl80211Message;
 pub use self::mlo::Nl80211MloLink;
 pub use self::rekey::Nl80211RekeyData;
+pub use self::rekey_request::{
+    Nl80211RekeyOffload, Nl80211RekeyOffloadRequest,
+};
 pub use self::scan::{
     Nl80211BssCapabilities, Nl80211BssInfo, Nl80211BssUseFor, Nl80211Scan,
     Nl80211ScanFlags, Nl80211ScanGetRequest, Nl80211ScanHandle,
