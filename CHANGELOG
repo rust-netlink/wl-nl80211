@@ -1,4 +1,35 @@
 # Changelog
+## [0.5.0] - 2026-08-05
+### Breaking changes
+ - `Nl80211Attr::ControlPortEthertype` now holds `EthernetProtocol`. (7b53f23)
+
+### New features
+ - Add CONTROL_PORT_FRAME TX request and typed ethertype. (57fc31e)
+ - Add NEW_KEY and SET_REKEY_OFFLOAD request builders. (d0e6368)
+ - Add multicast event subscription and typed event parsing. (7e6dc04)
+ - Add AUTHENTICATE and ASSOCIATE request types. (2eacc97)
+ - Add Nl80211AkmSuite::Owe (00-0F-AC:18). (24a17f2)
+ - Add support for NL80211_ATTR_REKEY_DATA. (0a7941a)
+ - Add `Nl80211KeyDefaultType` and `NL80211_KEY_DEFAULT_TYPES` support. (88e4747)
+ - Add RSNXE (RSN Extension element) support. (771da5e)
+ - Add support of NL80211_ATTR_AUTH_DATA and NL80211_ATTR_KEY. (cec803d)
+ - Re-export `packet_core` and `packet_generic` as rtnetlink. (2543737)
+ - Make Nl80211BandIfTypeData public. (6e5c6d7)
+ - Make Nl80211 a public type. (bb7b63e)
+ - Add attributes for connect/disconnect/auth/deauth. (bd139d7)
+ - Support parsing elemtent ID for WIFI5 and WIFI6. (32d6951)
+ - Expose Nl80211Elements to public. (97930a9)
+ - Add support for sending vendor-specific commands. (201bbea)
+
+### Bug fixes
+ - Fix emit inconsitencies and add tests. (001032a)
+ - Fix NL80211_ATTR_SSID to be binary, not NUL-terminated. (3a8ff67)
+ - Fix incorrect usage on DefaultNla. (fb2eb8c)
+ - Fix Nl80211ElementRsn parsing. (56021be)
+ - IEs: Do not parse information element by default. (9965c04)
+ - Fix Nl80211RateAndSelector. (56c0b45)
+ - Fix panic on malformed wifi6 IE on Nl80211HeMcsNssSupp. (88776ab)
+
 ## [0.4.0] - 2025-11-11
 ### Breaking changes
  - station: Use bitflag for Nl80211StationFlags. (2913d4d)
