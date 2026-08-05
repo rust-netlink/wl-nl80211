@@ -172,7 +172,7 @@ impl Nl80211AttrsBuilder<Nl80211ControlPortFrame> {
     /// EtherType of the control port frames, e.g.
     /// [`EthernetProtocol::Pae`] (`ETH_P_PAE`, 0x888E) for EAPOL.
     pub fn control_port_ethertype(self, ethertype: EthernetProtocol) -> Self {
-        self.replace(Nl80211Attr::ControlPortEthertype(u16::from(ethertype)))
+        self.replace(Nl80211Attr::ControlPortEthertype(ethertype))
     }
 
     /// Whether the frames should be transmitted unencrypted

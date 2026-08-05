@@ -31,8 +31,8 @@
 
 use netlink_packet_core::{
     parse_string, parse_u16, parse_u32, parse_u64, parse_u8, DecodeError,
-    DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer, NlasIterator,
-    Parseable, ParseableParametrized,
+    DefaultNla, Emitable, ErrorContext, EthernetProtocol, Nla, NlaBuffer,
+    NlasIterator, Parseable, ParseableParametrized,
 };
 
 use crate::{
@@ -570,8 +570,8 @@ pub enum Nl80211Attr {
     MaxNumPmkids(u8),
     /// EtherType of the control-port (802.1X/EAPOL) frames, used with
     /// `NL80211_CMD_CONTROL_PORT_FRAME` and on connect/associate. Typically
-    /// `0x888E` (ETH_P_PAE).
-    ControlPortEthertype(u16),
+    /// [`EthernetProtocol::Pae`] (`ETH_P_PAE`, `0x888E`).
+    ControlPortEthertype(EthernetProtocol),
     /// Flag attribute requesting that the control-port (802.1X/EAPOL) frames
     /// be transmitted unencrypted (`NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT`).
     ControlPortNoEncrypt,
@@ -1048,7 +1048,7 @@ impl Nla for Nl80211Attr {
                 buffer[..s.len()].copy_from_slice(s.as_bytes());
             }
             Self::Use4Addr(d) => buffer[0] = *d as u8,
-            Self::ControlPortEthertype(d) => write_u16(buffer, *d),
+            Self::ControlPortEthertype(d) => write_u16(buffer, d.value()),
             Self::SupportIbssRsn
             | Self::SupportMeshAuth
             | Self::SupportApUapsd
@@ -1459,7 +1459,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 let err_msg = format!(
                     "Invalid NL80211_ATTR_CONTROL_PORT_ETHERTYPE {payload:?}"
                 );
-                Self::ControlPortEthertype(parse_u16(payload).context(err_msg)?)
+                Self::ControlPortEthertype(EthernetProtocol::from(
+                    parse_u16(payload).context(err_msg)?,
+                ))
             }
             NL80211_ATTR_WIPHY_ANTENNA_AVAIL_TX => {
                 let err_msg = format!(
