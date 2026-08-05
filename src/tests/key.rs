@@ -8,7 +8,9 @@
 // parsing and emitting against exactly what wpa_supplicant and the kernel
 // exchange.
 
-use netlink_packet_core::{Emitable, NlaBuffer, NlasIterator, Parseable};
+use netlink_packet_core::{
+    Emitable, EthernetProtocol, NlaBuffer, NlasIterator, Parseable,
+};
 
 use crate::{
     Nl80211Attr, Nl80211CipherSuite, Nl80211Command, Nl80211Key,
@@ -62,7 +64,10 @@ fn test_captured_auth_data_confirm() {
 #[test]
 fn test_captured_control_port_ethertype() {
     let raw = vec![0x06, 0x00, 0x66, 0x00, 0x8e, 0x88, 0x00, 0x00];
-    assert_roundtrip(Nl80211Attr::ControlPortEthertype(0x888E), raw);
+    assert_roundtrip(
+        Nl80211Attr::ControlPortEthertype(EthernetProtocol::from(0x888E)),
+        raw,
+    );
 }
 
 // Nested NL80211_ATTR_KEY from CMD_NEW_KEY installing the pairwise (CCMP-128)

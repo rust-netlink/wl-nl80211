@@ -100,7 +100,7 @@ impl Nl80211AttrsBuilder<Nl80211Associate> {
     /// Ethernet protocol of the control port frames (normally
     /// [`EthernetProtocol::Pae`], `ETH_P_PAE` = 0x888E).
     pub fn control_port_ethertype(self, ethertype: EthernetProtocol) -> Self {
-        self.replace(Nl80211Attr::ControlPortEthertype(u16::from(ethertype)))
+        self.replace(Nl80211Attr::ControlPortEthertype(ethertype))
     }
 }
 
