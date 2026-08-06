@@ -2,7 +2,7 @@
 
 use crate::*;
 use netlink_packet_core::{
-    Emitable, NetlinkDeserializable, NetlinkHeader, Parseable,
+    Emitable, NetlinkDeserializable, NetlinkHeader, NlaBuffer, Parseable,
 };
 use netlink_packet_generic::{GenlHeader, GenlMessage};
 
@@ -240,6 +240,68 @@ fn test_parse_ies() {
     ]);
 
     assert_eq!(expected, Nl80211Elements::parse(&raw).unwrap());
+
+    let mut buf = vec![0; expected.buffer_len()];
+
+    expected.emit(&mut buf);
+
+    assert_eq!(buf, raw);
+}
+
+// The kernel parses `NL80211_ATTR_SCHED_SCAN_MATCH` as a list of match sets,
+// each match set being a nested attribute holding a group of match
+// attributes. Regression test for the previous flat emission which made the
+// kernel log "netlink: N bytes leftover after parsing attributes".
+#[test]
+fn test_sched_scan_match_nested_attrs() {
+    let raw = vec![
+        // outer: kind=NL80211_ATTR_SCHED_SCAN_MATCH, len = 4 + 24 = 28
+        28, 0, 132, 0,
+        // matchset: kind=NLA_F_NESTED, len = 4 + 20 = 24
+        24, 0, 0x00, 0x80,
+        // ssid: kind=1, len=18, value (padded to 20 bytes)
+        18, 0, 1, 0, 0x48, 0x55, 0x41, 0x5a, 0x48, 0x55, 0x2d, 0x48, 0x61, 0x6e,
+        0x74, 0x69, 0x6e, 0x67, 0, 0,
+    ];
+
+    let expected =
+        Nl80211Attr::SchedScanMatch(vec![Nl80211SchedScanMatch(vec![
+            Nl80211SchedScanMatchAttr::Ssid("HUAZHU-Hanting".to_string()),
+        ])]);
+
+    assert_eq!(
+        expected,
+        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+    );
+
+    let mut buf = vec![0; expected.buffer_len()];
+
+    expected.emit(&mut buf);
+
+    assert_eq!(buf, raw);
+}
+
+// Same as test_sched_scan_match_nested_attrs for NL80211_ATTR_SCHED_SCAN_PLANS:
+// the kernel parses it as a list of scan plans, each being a nested attribute
+// holding a group of plan attributes.
+#[test]
+fn test_sched_scan_plans_nested_attrs() {
+    let raw = vec![
+        // outer: kind=NL80211_ATTR_SCHED_SCAN_PLANS, len = 4 + 12 = 16
+        16, 0, 225, 0, // plan: kind=NLA_F_NESTED, len = 4 + 8 = 12
+        12, 0, 0x00, 0x80, // interval: kind=1, len=8, value
+        8, 0, 1, 0, 10, 0, 0, 0,
+    ];
+
+    let expected =
+        Nl80211Attr::SchedScanPlans(vec![Nl80211SchedScanPlan(vec![
+            Nl80211SchedScanPlanAttr::Interval(10),
+        ])]);
+
+    assert_eq!(
+        expected,
+        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+    );
 
     let mut buf = vec![0; expected.buffer_len()];
 

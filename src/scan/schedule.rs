@@ -3,7 +3,8 @@
 use futures::TryStream;
 use netlink_packet_core::{
     parse_i32, parse_string, parse_u32, DecodeError, DefaultNla, Emitable,
-    ErrorContext, Nla, NlaBuffer, Parseable, NLM_F_ACK, NLM_F_REQUEST,
+    ErrorContext, Nla, NlaBuffer, NlasIterator, Parseable, NLA_F_NESTED,
+    NLM_F_ACK, NLM_F_REQUEST,
 };
 use netlink_packet_generic::GenlMessage;
 
@@ -90,10 +91,44 @@ const NL80211_SCHED_SCAN_MATCH_ATTR_BSSID: u16 = 5;
 // Linux kernel has this one marked as obsolete
 // const NL80211_SCHED_SCAN_MATCH_PER_BAND_RSSI: u16 = 6;
 
+// The kernel parses `NL80211_ATTR_SCHED_SCAN_MATCH` as a list of match sets,
+// each match set being a nested attribute holding a group of match
+// attributes (`Nl80211SchedScanMatchAttr`).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Nl80211SchedScanMatch {
+pub struct Nl80211SchedScanMatch(pub Vec<Nl80211SchedScanMatchAttr>);
+
+impl Nla for Nl80211SchedScanMatch {
+    fn value_len(&self) -> usize {
+        self.0.as_slice().buffer_len()
+    }
+
+    fn emit_value(&self, buffer: &mut [u8]) {
+        self.0.as_slice().emit(buffer);
+    }
+
+    fn kind(&self) -> u16 {
+        NLA_F_NESTED
+    }
+}
+
+impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
+    for Nl80211SchedScanMatch
+{
+    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+        let err = "Invalid NLA for NL80211_SCHED_SCAN_MATCH";
+        let mut attrs = Vec::new();
+        for nla in NlasIterator::new(buf.value()) {
+            let nla = &nla.context(err)?;
+            attrs.push(Nl80211SchedScanMatchAttr::parse(nla).context(err)?);
+        }
+        Ok(Self(attrs))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Nl80211SchedScanMatchAttr {
     /// SSID to be used for matching. Cannot use with
-    /// [Nl80211SchedScanMatch::Bssid].
+    /// [Nl80211SchedScanMatchAttr::Bssid].
     Ssid(String),
     /// RSSI threshold (in dBm) for reporting a BSS in scan results. Filtering
     /// is turned off if not specified. Note that if this attribute is in a
@@ -105,12 +140,12 @@ pub enum Nl80211SchedScanMatch {
     /// there's only a single matchset with the RSSI attribute.
     Rssi(i32),
     /// BSSID to be used for matching. Cannot use with
-    /// [Nl80211SchedScanMatch::Ssid].
+    /// [Nl80211SchedScanMatchAttr::Ssid].
     Bssid([u8; ETH_ALEN]),
     Other(DefaultNla),
 }
 
-impl Nla for Nl80211SchedScanMatch {
+impl Nla for Nl80211SchedScanMatchAttr {
     fn value_len(&self) -> usize {
         match self {
             Self::Ssid(v) => v.len(),
@@ -140,7 +175,7 @@ impl Nla for Nl80211SchedScanMatch {
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211SchedScanMatch
+    for Nl80211SchedScanMatchAttr
 {
     fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
         let payload = buf.value();
@@ -179,8 +214,42 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
 const NL80211_SCHED_SCAN_PLAN_INTERVAL: u16 = 1;
 const NL80211_SCHED_SCAN_PLAN_ITERATIONS: u16 = 2;
 
+// The kernel parses `NL80211_ATTR_SCHED_SCAN_PLANS` as a list of scan plans,
+// each scan plan being a nested attribute holding a group of plan attributes
+// (`Nl80211SchedScanPlanAttr`).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Nl80211SchedScanPlan {
+pub struct Nl80211SchedScanPlan(pub Vec<Nl80211SchedScanPlanAttr>);
+
+impl Nla for Nl80211SchedScanPlan {
+    fn value_len(&self) -> usize {
+        self.0.as_slice().buffer_len()
+    }
+
+    fn emit_value(&self, buffer: &mut [u8]) {
+        self.0.as_slice().emit(buffer);
+    }
+
+    fn kind(&self) -> u16 {
+        NLA_F_NESTED
+    }
+}
+
+impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
+    for Nl80211SchedScanPlan
+{
+    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+        let err = "Invalid NLA for NL80211_SCHED_SCAN_PLANS";
+        let mut attrs = Vec::new();
+        for nla in NlasIterator::new(buf.value()) {
+            let nla = &nla.context(err)?;
+            attrs.push(Nl80211SchedScanPlanAttr::parse(nla).context(err)?);
+        }
+        Ok(Self(attrs))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Nl80211SchedScanPlanAttr {
     /// Interval between scan iterations in seconds.
     Interval(u32),
     /// Number of scan iterations in this scan plan. The last scan plan
@@ -190,7 +259,7 @@ pub enum Nl80211SchedScanPlan {
     Other(DefaultNla),
 }
 
-impl Nla for Nl80211SchedScanPlan {
+impl Nla for Nl80211SchedScanPlanAttr {
     fn value_len(&self) -> usize {
         match self {
             Self::Interval(_) => 4,
@@ -216,7 +285,7 @@ impl Nla for Nl80211SchedScanPlan {
 }
 
 impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211SchedScanPlan
+    for Nl80211SchedScanPlanAttr
 {
     fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
         let payload = buf.value();
