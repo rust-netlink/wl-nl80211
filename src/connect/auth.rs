@@ -45,9 +45,19 @@ impl Nl80211AttrsBuilder<Nl80211Authenticate> {
     }
 
     /// Authentication data, e.g. the SAE commit or confirm body
-    /// (`transaction || status || body`).
+    /// (`transaction || status || body`). Only valid for the SAE, FILS,
+    /// EPPKE and IEEE 802.1X auth types.
     pub fn auth_data(self, auth_data: Vec<u8>) -> Self {
         self.replace(Nl80211Attr::AuthData(auth_data))
+    }
+
+    /// Information elements for the authentication frame body, used with
+    /// [`Nl80211AuthType::Ft`] (Fast BSS Transition over the air): the
+    /// kernel transmits them after the fixed authentication fields
+    /// (algorithm / transaction / status). `NL80211_ATTR_AUTH_DATA` is
+    /// rejected by the kernel for FT authentication.
+    pub fn ie(self, ie: Vec<u8>) -> Self {
+        self.replace(Nl80211Attr::Ie(ie))
     }
 }
 

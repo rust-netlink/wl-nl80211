@@ -6,6 +6,7 @@ mod disconnect;
 mod external_auth;
 mod frame;
 mod handle;
+mod pmksa;
 mod request;
 mod types;
 
@@ -20,6 +21,10 @@ pub use self::frame::{
     Nl80211FrameRequest, Nl80211RegisterFrame, Nl80211RegisterFrameRequest,
 };
 pub use self::handle::Nl80211ConnectionHandle;
+pub use self::pmksa::{
+    Nl80211DelPmkRequest, Nl80211DelPmksaRequest, Nl80211FlushPmksaRequest,
+    Nl80211Pmk, Nl80211Pmksa, Nl80211SetPmkRequest, Nl80211SetPmksaRequest,
+};
 pub use self::request::{Nl80211Connect, Nl80211ConnectRequest};
 pub use self::types::{
     Nl80211AuthType, Nl80211ExternalAuthAction, Nl80211UseMfp,

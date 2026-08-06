@@ -3,9 +3,10 @@
 use crate::{
     Nl80211AssociateRequest, Nl80211Attr, Nl80211AuthenticateRequest,
     Nl80211ConnectRequest, Nl80211ControlPortFrameRequest,
-    Nl80211DisconnectRequest, Nl80211ExternalAuthRequest, Nl80211FrameRequest,
+    Nl80211DelPmkRequest, Nl80211DelPmksaRequest, Nl80211DisconnectRequest,
+    Nl80211ExternalAuthRequest, Nl80211FlushPmksaRequest, Nl80211FrameRequest,
     Nl80211Handle, Nl80211KeyRequest, Nl80211RegisterFrameRequest,
-    Nl80211RekeyOffloadRequest,
+    Nl80211RekeyOffloadRequest, Nl80211SetPmkRequest, Nl80211SetPmksaRequest,
 };
 
 /// A handle to send connection management commands (`NL80211_CMD_CONNECT` and
@@ -144,5 +145,58 @@ impl Nl80211ConnectionHandle {
         attributes: Vec<Nl80211Attr>,
     ) -> Nl80211RekeyOffloadRequest {
         Nl80211RekeyOffloadRequest::new(self.0.clone(), attributes)
+    }
+
+    /// Add a PMKSA cache entry to the driver/firmware
+    /// (`NL80211_CMD_SET_PMKSA`), so the driver can skip full
+    /// authentication on reconnects / roaming.
+    ///
+    /// The `attributes` are normally produced by [`crate::Nl80211Pmksa`].
+    /// Fails with `-EOPNOTSUPP` on drivers without a `set_pmksa` op.
+    pub fn set_pmksa(
+        &mut self,
+        attributes: Vec<Nl80211Attr>,
+    ) -> Nl80211SetPmksaRequest {
+        Nl80211SetPmksaRequest::new(self.0.clone(), attributes)
+    }
+
+    /// Delete a driver/firmware PMKSA cache entry
+    /// (`NL80211_CMD_DEL_PMKSA`).
+    ///
+    /// The `attributes` are normally produced by [`crate::Nl80211Pmksa`].
+    pub fn del_pmksa(
+        &mut self,
+        attributes: Vec<Nl80211Attr>,
+    ) -> Nl80211DelPmksaRequest {
+        Nl80211DelPmksaRequest::new(self.0.clone(), attributes)
+    }
+
+    /// Delete every driver/firmware PMKSA cache entry of the interface
+    /// (`NL80211_CMD_FLUSH_PMKSA`).
+    pub fn flush_pmksa(
+        &mut self,
+        attributes: Vec<Nl80211Attr>,
+    ) -> Nl80211FlushPmksaRequest {
+        Nl80211FlushPmksaRequest::new(self.0.clone(), attributes)
+    }
+
+    /// Hand the PMK (or PMK-R0) to the driver for offloaded key
+    /// management (`NL80211_CMD_SET_PMK`).
+    ///
+    /// The `attributes` are normally produced by [`crate::Nl80211Pmk`].
+    pub fn set_pmk(
+        &mut self,
+        attributes: Vec<Nl80211Attr>,
+    ) -> Nl80211SetPmkRequest {
+        Nl80211SetPmkRequest::new(self.0.clone(), attributes)
+    }
+
+    /// Clear the PMK previously handed to the driver via
+    /// [`Self::set_pmk`] (`NL80211_CMD_DEL_PMK`).
+    pub fn del_pmk(
+        &mut self,
+        attributes: Vec<Nl80211Attr>,
+    ) -> Nl80211DelPmkRequest {
+        Nl80211DelPmkRequest::new(self.0.clone(), attributes)
     }
 }
