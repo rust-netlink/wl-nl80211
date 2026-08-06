@@ -7,4 +7,5 @@ mod disconnect;
 mod event;
 mod key;
 mod register_frame;
+mod roaming;
 mod scan;

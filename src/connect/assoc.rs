@@ -31,6 +31,14 @@ impl Nl80211AttrsBuilder<Nl80211Associate> {
         self.replace(Nl80211Attr::Mac(mac))
     }
 
+    /// BSSID of the AP the station is currently associated with. Setting
+    /// this turns the request into a reassociation (802.11-2020 §11.3.3),
+    /// e.g. for roaming (including Fast BSS Transition) to a new BSSID
+    /// within the same ESS.
+    pub fn prev_bssid(self, mac: [u8; 6]) -> Self {
+        self.replace(Nl80211Attr::PrevBssid(mac))
+    }
+
     /// Channel frequency hint in MHz.
     pub fn frequency(self, freq_mhz: u32) -> Self {
         self.replace(Nl80211Attr::WiphyFreq(freq_mhz))

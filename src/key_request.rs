@@ -31,6 +31,7 @@ impl Nl80211Key {
             cipher: Nl80211CipherSuite::Ccmp128,
             seq: None,
             key_type: None,
+            default_mgmt: false,
             default_types: Vec::new(),
         }
     }
@@ -62,6 +63,44 @@ impl Nl80211Key {
             .key_type(Nl80211KeyType::Group)
             .default_types(vec![Nl80211KeyDefaultType::Multicast])
     }
+
+    /// Convenience for installing an Integrity GTK (IEEE 802.11w / PMF):
+    /// BIP-CMAC-128 at `key_index` (4-5, as assigned by the AP), with `seq`
+    /// holding the 6-octet IPN (receive sequence counter) from the IGTK KDE,
+    /// marked as the default management-frame key
+    /// (`NL80211_KEY_DEFAULT_MGMT`).
+    pub fn new_igtk(
+        if_index: u32,
+        key_data: Vec<u8>,
+        key_index: u8,
+        seq: Vec<u8>,
+    ) -> Nl80211KeyRequestBuilder {
+        Self::new(if_index)
+            .key_data(key_data)
+            .key_index(key_index)
+            .cipher(Nl80211CipherSuite::BipCmac128)
+            .seq(seq)
+            .key_type(Nl80211KeyType::Group)
+            .default_mgmt(true)
+    }
+
+    /// Convenience for installing a Beacon Integrity GTK (IEEE 802.11w-2024
+    /// beacon protection): BIP-CMAC-128 at `key_index` (6-7), with `seq`
+    /// holding the 6-octet IPN from the BIGTK KDE. The BIGTK is RX-only
+    /// (beacon protection) and never the default TX management key.
+    pub fn new_bigtk(
+        if_index: u32,
+        key_data: Vec<u8>,
+        key_index: u8,
+        seq: Vec<u8>,
+    ) -> Nl80211KeyRequestBuilder {
+        Self::new(if_index)
+            .key_data(key_data)
+            .key_index(key_index)
+            .cipher(Nl80211CipherSuite::BipCmac128)
+            .seq(seq)
+            .key_type(Nl80211KeyType::Group)
+    }
 }
 
 /// Builder for the attributes of a `NL80211_CMD_NEW_KEY` request.
@@ -74,6 +113,7 @@ pub struct Nl80211KeyRequestBuilder {
     cipher: Nl80211CipherSuite,
     seq: Option<Vec<u8>>,
     key_type: Option<Nl80211KeyType>,
+    default_mgmt: bool,
     default_types: Vec<Nl80211KeyDefaultType>,
 }
 
@@ -114,6 +154,13 @@ impl Nl80211KeyRequestBuilder {
         self
     }
 
+    /// Mark the key as the default management-frame (BIP) key
+    /// (`NL80211_KEY_DEFAULT_MGMT`), used when installing the IGTK.
+    pub fn default_mgmt(mut self, enable: bool) -> Self {
+        self.default_mgmt = enable;
+        self
+    }
+
     /// Traffic types this key is the default for.
     pub fn default_types(
         mut self,
@@ -140,6 +187,9 @@ impl Nl80211KeyRequestBuilder {
         key.push(Nl80211KeyAttr::Idx(self.key_index));
         if let Some(key_type) = self.key_type {
             key.push(Nl80211KeyAttr::Type(key_type));
+        }
+        if self.default_mgmt {
+            key.push(Nl80211KeyAttr::DefaultMgmt);
         }
         if !self.default_types.is_empty() {
             key.push(Nl80211KeyAttr::DefaultTypes(self.default_types));

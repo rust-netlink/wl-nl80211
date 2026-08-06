@@ -274,3 +274,48 @@ fn test_new_key_conveniences() {
         parse_message_attributes(&gtk)
     );
 }
+
+// The IGTK convenience installs BIP-CMAC-128 (00-0f-ac:6) at the AP-assigned
+// index (4-5) with the IPN as KEY_SEQ and the NL80211_KEY_DEFAULT_MGMT flag.
+#[test]
+fn test_new_key_igtk_convenience() {
+    let igtk = emit_new_key_attributes(
+        Nl80211Key::new_igtk(464, vec![0xcc; 16], 4, vec![0x01; 6]).build(),
+    );
+    assert_eq!(
+        vec![
+            Nl80211Attr::IfIndex(464),
+            Nl80211Attr::Key(vec![
+                Nl80211KeyAttr::Data(vec![0xcc; 16]),
+                Nl80211KeyAttr::Cipher(0x000F_AC06),
+                Nl80211KeyAttr::Seq(vec![0x01; 6]),
+                Nl80211KeyAttr::Idx(4),
+                Nl80211KeyAttr::Type(Nl80211KeyType::Group),
+                Nl80211KeyAttr::DefaultMgmt,
+            ]),
+        ],
+        parse_message_attributes(&igtk)
+    );
+}
+
+// The BIGTK convenience installs BIP-CMAC-128 at index 6-7 without the
+// default-management flag (beacon protection is RX-only).
+#[test]
+fn test_new_key_bigtk_convenience() {
+    let bigtk = emit_new_key_attributes(
+        Nl80211Key::new_bigtk(464, vec![0xdd; 16], 6, vec![0x02; 6]).build(),
+    );
+    assert_eq!(
+        vec![
+            Nl80211Attr::IfIndex(464),
+            Nl80211Attr::Key(vec![
+                Nl80211KeyAttr::Data(vec![0xdd; 16]),
+                Nl80211KeyAttr::Cipher(0x000F_AC06),
+                Nl80211KeyAttr::Seq(vec![0x02; 6]),
+                Nl80211KeyAttr::Idx(6),
+                Nl80211KeyAttr::Type(Nl80211KeyType::Group),
+            ]),
+        ],
+        parse_message_attributes(&bigtk)
+    );
+}

@@ -262,13 +262,13 @@ const NL80211_ATTR_WPA_VERSIONS: u16 = 75;
 const NL80211_ATTR_AKM_SUITES: u16 = 76;
 // const NL80211_ATTR_REQ_IE:u16 = 77;
 // const NL80211_ATTR_RESP_IE:u16 = 78;
-// const NL80211_ATTR_PREV_BSSID:u16 = 79;
+const NL80211_ATTR_PREV_BSSID: u16 = 79;
 const NL80211_ATTR_KEY: u16 = 80;
 // const NL80211_ATTR_KEYS:u16 = 81;
 // const NL80211_ATTR_PID:u16 = 82;
 const NL80211_ATTR_4ADDR: u16 = 83;
 const NL80211_ATTR_SURVEY_INFO: u16 = 84;
-// const NL80211_ATTR_PMKID:u16 = 85;
+const NL80211_ATTR_PMKID: u16 = 85;
 const NL80211_ATTR_MAX_NUM_PMKIDS: u16 = 86;
 // const NL80211_ATTR_DURATION:u16 = 87;
 const NL80211_ATTR_COOKIE: u16 = 88;
@@ -439,7 +439,7 @@ const NL80211_ATTR_BSSID: u16 = 245;
 // const NL80211_ATTR_FILS_ERP_NEXT_SEQ_NUM:u16 = 251;
 // const NL80211_ATTR_FILS_ERP_RRK:u16 = 252;
 // const NL80211_ATTR_FILS_CACHE_ID:u16 = 253;
-// const NL80211_ATTR_PMK:u16 = 254;
+const NL80211_ATTR_PMK: u16 = 254;
 // const NL80211_ATTR_SCHED_SCAN_MULTI:u16 = 255;
 const NL80211_ATTR_SCHED_SCAN_MAX_REQS: u16 = 256;
 // const NL80211_ATTR_WANT_1X_4WAY_HS:u16 = 257;
@@ -472,8 +472,8 @@ const NL80211_ATTR_TXQ_QUANTUM: u16 = 268;
 // const NL80211_ATTR_IFTYPE_AKM_SUITES:u16 = 284;
 // const NL80211_ATTR_TID_CONFIG:u16 = 285;
 // const NL80211_ATTR_CONTROL_PORT_NO_PREAUTH:u16 = 286;
-// const NL80211_ATTR_PMK_LIFETIME:u16 = 287;
-// const NL80211_ATTR_PMK_REAUTH_THRESHOLD:u16 = 288;
+const NL80211_ATTR_PMK_LIFETIME: u16 = 287;
+const NL80211_ATTR_PMK_REAUTH_THRESHOLD: u16 = 288;
 // const NL80211_ATTR_RECEIVE_MULTICAST:u16 = 289;
 const NL80211_ATTR_WIPHY_FREQ_OFFSET: u16 = 290;
 // const NL80211_ATTR_CENTER_FREQ1_OFFSET:u16 = 291;
@@ -708,6 +708,10 @@ pub enum Nl80211Attr {
     /// BSSID, used with `NL80211_CMD_EXTERNAL_AUTH` (distinct from the generic
     /// `NL80211_ATTR_MAC`).
     Bssid([u8; ETH_ALEN]),
+    /// BSSID of the BSS the station is currently associated with, used with
+    /// `NL80211_CMD_ASSOCIATE` to indicate a reassociation (roam) to a new
+    /// BSSID within the same ESS instead of a fresh association.
+    PrevBssid([u8; ETH_ALEN]),
     /// External authentication action (start/abort), used with
     /// `NL80211_CMD_EXTERNAL_AUTH`.
     ExternalAuthAction(Nl80211ExternalAuthAction),
@@ -722,6 +726,20 @@ pub enum Nl80211Attr {
     /// owns the created object (e.g. the connection), so it is destroyed when
     /// the socket is closed.
     SocketOwner,
+    /// PMK identifier (16 octets), used with `NL80211_CMD_SET_PMKSA` and
+    /// `NL80211_CMD_DEL_PMKSA` to address a driver PMKSA cache entry.
+    Pmkid(Vec<u8>),
+    /// Pairwise Master Key material, used with `NL80211_CMD_SET_PMKSA`
+    /// (together with [`Nl80211Attr::Pmkid`]) and `NL80211_CMD_SET_PMK` to
+    /// hand key material to the driver for offloaded key management.
+    Pmk(Vec<u8>),
+    /// Maximum lifetime of a driver PMKSA cache entry in seconds (u32), used
+    /// with `NL80211_CMD_SET_PMKSA`.
+    PmkLifetime(u32),
+    /// Reauthentication threshold in percent of [`Nl80211Attr::PmkLifetime`]
+    /// (u8): the driver should trigger reauthentication when this percentage
+    /// of the PMK lifetime has elapsed. Used with `NL80211_CMD_SET_PMKSA`.
+    PmkReauthThreshold(u8),
     Other(DefaultNla),
     /// 24-bit OUI, or an as yet unused Linux-specific ID.
     ///
@@ -763,6 +781,7 @@ impl Nla for Nl80211Attr {
             | Self::TransmitQueueQuantum(_)
             | Self::SchedScanInterval(_)
             | Self::SchedScanDelay(_)
+            | Self::PmkLifetime(_)
             | Self::VendorId(_)
             | Self::VendorSubcmd(_) => 4,
             Self::Wdev(_) => 8,
@@ -782,7 +801,8 @@ impl Nla for Nl80211Attr {
             | Self::MaxNumScanSsids(_)
             | Self::MaxNumSchedScanSsids(_)
             | Self::MaxMatchSets(_)
-            | Self::MaxNumPmkids(_) => 1,
+            | Self::MaxNumPmkids(_)
+            | Self::PmkReauthThreshold(_) => 1,
             Self::TransmitQueueStats(nlas) => nlas.as_slice().buffer_len(),
             Self::StationInfo(nlas) => nlas.as_slice().buffer_len(),
             Self::SurveyInfo(nlas) => nlas.as_slice().buffer_len(),
@@ -857,8 +877,12 @@ impl Nla for Nl80211Attr {
             Self::CiphersPairwise(s) => 4 * s.len(),
             Self::CipherGroup(_) => 4,
             Self::AkmSuites(s) => 4 * s.len(),
-            Self::Bssid(_) => ETH_ALEN,
-            Self::Ie(v) | Self::Frame(v) | Self::FrameMatch(v) => v.len(),
+            Self::Bssid(_) | Self::PrevBssid(_) => ETH_ALEN,
+            Self::Ie(v)
+            | Self::Frame(v)
+            | Self::FrameMatch(v)
+            | Self::Pmkid(v)
+            | Self::Pmk(v) => v.len(),
             Self::AuthData(v) => v.len(),
             Self::Key(nlas) => nlas.as_slice().buffer_len(),
             Self::RekeyData(nlas) => nlas.as_slice().buffer_len(),
@@ -999,6 +1023,7 @@ impl Nla for Nl80211Attr {
             Self::Cookie(_) => NL80211_ATTR_COOKIE,
             Self::Ack => NL80211_ATTR_ACK,
             Self::Bssid(_) => NL80211_ATTR_BSSID,
+            Self::PrevBssid(_) => NL80211_ATTR_PREV_BSSID,
             Self::ExternalAuthAction(_) => NL80211_ATTR_EXTERNAL_AUTH_ACTION,
             Self::ExternalAuthSupport => NL80211_ATTR_EXTERNAL_AUTH_SUPPORT,
             Self::ControlPortOverNl80211 => {
@@ -1006,6 +1031,10 @@ impl Nla for Nl80211Attr {
             }
             Self::ControlPortNoEncrypt => NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT,
             Self::SocketOwner => NL80211_ATTR_SOCKET_OWNER,
+            Self::Pmkid(_) => NL80211_ATTR_PMKID,
+            Self::Pmk(_) => NL80211_ATTR_PMK,
+            Self::PmkLifetime(_) => NL80211_ATTR_PMK_LIFETIME,
+            Self::PmkReauthThreshold(_) => NL80211_ATTR_PMK_REAUTH_THRESHOLD,
             Self::Other(attr) => attr.kind(),
         }
     }
@@ -1036,6 +1065,7 @@ impl Nla for Nl80211Attr {
             | Self::TransmitQueueQuantum(d)
             | Self::SchedScanInterval(d)
             | Self::SchedScanDelay(d)
+            | Self::PmkLifetime(d)
             | Self::VendorId(d)
             | Self::VendorSubcmd(d) => write_u32(buffer, *d),
             Self::MaxScanIeLen(d) | Self::MaxSchedScanIeLen(d) => {
@@ -1078,7 +1108,8 @@ impl Nla for Nl80211Attr {
             | Self::MaxNumScanSsids(d)
             | Self::MaxNumSchedScanSsids(d)
             | Self::MaxMatchSets(d)
-            | Self::MaxNumPmkids(d) => buffer[0] = *d,
+            | Self::MaxNumPmkids(d)
+            | Self::PmkReauthThreshold(d) => buffer[0] = *d,
             Self::CipherSuites(suits) => {
                 let nums: Vec<u32> =
                     suits.as_slice().iter().map(|s| u32::from(*s)).collect();
@@ -1171,10 +1202,14 @@ impl Nla for Nl80211Attr {
                     );
                 }
             }
-            Self::Bssid(d) => buffer[..ETH_ALEN].copy_from_slice(d),
-            Self::Ie(v) | Self::Frame(v) | Self::FrameMatch(v) => {
-                buffer[..v.len()].copy_from_slice(v)
+            Self::Bssid(d) | Self::PrevBssid(d) => {
+                buffer[..ETH_ALEN].copy_from_slice(d)
             }
+            Self::Ie(v)
+            | Self::Frame(v)
+            | Self::FrameMatch(v)
+            | Self::Pmkid(v)
+            | Self::Pmk(v) => buffer[..v.len()].copy_from_slice(v),
             Self::AuthData(v) => buffer[..v.len()].copy_from_slice(v),
             Self::Key(nlas) => nlas.as_slice().emit(buffer),
             Self::RekeyData(nlas) => nlas.as_slice().emit(buffer),
@@ -1848,6 +1883,40 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                         expected length {ETH_ALEN} got {payload:?}"
                     )
                 })?)
+            }
+            NL80211_ATTR_PREV_BSSID => {
+                Self::PrevBssid(payload.try_into().map_err(|_| {
+                    format!(
+                        "Invalid length of NL80211_ATTR_PREV_BSSID, \
+                        expected length {ETH_ALEN} got {payload:?}"
+                    )
+                })?)
+            }
+            NL80211_ATTR_PMKID => {
+                // WLAN_PMKID_LEN is 16 octets (802.11-2020 §9.4.2.25.3).
+                const PMKID_LEN: usize = 16;
+                if payload.len() != PMKID_LEN {
+                    return Err(format!(
+                        "Invalid length of NL80211_ATTR_PMKID, \
+                        expected length {PMKID_LEN} got {payload:?}"
+                    )
+                    .into());
+                }
+                Self::Pmkid(payload.to_vec())
+            }
+            NL80211_ATTR_PMK => Self::Pmk(payload.to_vec()),
+            NL80211_ATTR_PMK_LIFETIME => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_PMK_LIFETIME value {payload:?}"
+                );
+                Self::PmkLifetime(parse_u32(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_PMK_REAUTH_THRESHOLD => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_PMK_REAUTH_THRESHOLD value \
+                    {payload:?}"
+                );
+                Self::PmkReauthThreshold(parse_u8(payload).context(err_msg)?)
             }
             NL80211_ATTR_EXTERNAL_AUTH_ACTION => {
                 let err_msg = format!(
