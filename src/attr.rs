@@ -572,6 +572,13 @@ pub enum Nl80211Attr {
     /// `NL80211_CMD_CONTROL_PORT_FRAME` and on connect/associate. Typically
     /// [`EthernetProtocol::Pae`] (`ETH_P_PAE`, `0x888E`).
     ControlPortEthertype(EthernetProtocol),
+    /// `NL80211_ATTR_CONTROL_PORT_ETHERTYPE` sent as a **zero-length flag** in
+    /// wiphy information, where the kernel uses the same attribute id to mean
+    /// "protocols other than PAE are supported" rather than to carry a value.
+    ///
+    /// Per `nl80211.h`: "This attribute is also used as a flag in the wiphy
+    /// information to indicate that protocols other than PAE are supported."
+    ControlPortEthertypeSupported,
     /// Flag attribute requesting that the control-port (802.1X/EAPOL) frames
     /// be transmitted unencrypted (`NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT`).
     ControlPortNoEncrypt,
@@ -814,6 +821,7 @@ impl Nla for Nl80211Attr {
             Self::MloLinks(links) => links.as_slice().buffer_len(),
             Self::MaxScanIeLen(_) | Self::MaxSchedScanIeLen(_) => 2,
             Self::ControlPortEthertype(_) => 2,
+            Self::ControlPortEthertypeSupported => 0,
             Self::SupportIbssRsn
             | Self::SupportMeshAuth
             | Self::SupportApUapsd
@@ -946,7 +954,8 @@ impl Nla for Nl80211Attr {
             Self::TdlsExternalSetup => NL80211_ATTR_TDLS_EXTERNAL_SETUP,
             Self::CipherSuites(_) => NL80211_ATTR_CIPHER_SUITES,
             Self::MaxNumPmkids(_) => NL80211_ATTR_MAX_NUM_PMKIDS,
-            Self::ControlPortEthertype(_) => {
+            Self::ControlPortEthertype(_)
+            | Self::ControlPortEthertypeSupported => {
                 NL80211_ATTR_CONTROL_PORT_ETHERTYPE
             }
             Self::WiphyAntennaAvailTx(_) => NL80211_ATTR_WIPHY_ANTENNA_AVAIL_TX,
@@ -1102,7 +1111,8 @@ impl Nla for Nl80211Attr {
             | Self::TdlsExternalSetup
             | Self::OffchannelTxOk
             | Self::SurveyRadioStats
-            | Self::WiphySelfManagedReg => (),
+            | Self::WiphySelfManagedReg
+            | Self::ControlPortEthertypeSupported => (),
             Self::WiphyChannelType(d) => write_u32(buffer, (*d).into()),
             Self::ChannelWidth(d) => write_u32(buffer, (*d).into()),
             Self::StationInfo(nlas) => nlas.as_slice().emit(buffer),
@@ -1511,12 +1521,22 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 Self::MaxNumPmkids(parse_u8(payload).context(err_msg)?)
             }
             NL80211_ATTR_CONTROL_PORT_ETHERTYPE => {
-                let err_msg = format!(
-                    "Invalid NL80211_ATTR_CONTROL_PORT_ETHERTYPE {payload:?}"
-                );
-                Self::ControlPortEthertype(EthernetProtocol::from(
-                    parse_u16(payload).context(err_msg)?,
-                ))
+                // Dual-purpose attribute: a u16 ethertype on connect/associate,
+                // but a zero-length FLAG in wiphy information, where it means
+                // "protocols other than PAE are supported" (nl80211.h).
+                // Treating the flag form as a malformed u16 makes every
+                // NL80211_CMD_GET_WIPHY dump unparseable on hardware that
+                // advertises it.
+                if payload.is_empty() {
+                    Self::ControlPortEthertypeSupported
+                } else {
+                    let err_msg = format!(
+                        "Invalid NL80211_ATTR_CONTROL_PORT_ETHERTYPE {payload:?}"
+                    );
+                    Self::ControlPortEthertype(EthernetProtocol::from(
+                        parse_u16(payload).context(err_msg)?,
+                    ))
+                }
             }
             NL80211_ATTR_WIPHY_ANTENNA_AVAIL_TX => {
                 let err_msg = format!(

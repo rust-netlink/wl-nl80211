@@ -67,3 +67,49 @@ fn test_captured_control_port_frame_request() {
     built.sort_by_key(|attr| attr.kind());
     assert_eq!(captured, built);
 }
+
+// Regression: `NL80211_ATTR_CONTROL_PORT_ETHERTYPE` (102 / 0x66) is
+// dual-purpose. On connect/associate it carries a u16 ethertype, but in wiphy
+// information the kernel emits it ZERO-LENGTH as a flag meaning "protocols
+// other than PAE are supported" (nl80211.h). Parsing the flag form as a u16
+// fails, and because attribute parsing is fail-fast a single flag makes an
+// entire NL80211_CMD_GET_WIPHY dump unreadable.
+//
+// Attribute region from a real GET_WIPHY dump: Intel AX211 (iwlwifi) on
+// Linux 7.0.0-22-generic. `04 00 66 00` is nla_len=4 (header only, no payload),
+// nla_type=102.
+#[test]
+fn test_control_port_ethertype_zero_length_flag_in_wiphy() {
+    let raw = vec![
+        0x08, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, // Wiphy(1)
+        0x04, 0x00, 0x66,
+        0x00, // CONTROL_PORT_ETHERTYPE, zero-length flag
+        0x08, 0x00, 0x71, 0x00, 0x03, 0x00, 0x00,
+        0x00, // WiphyAntennaAvailTx(3)
+    ];
+    let attrs = parse_message_attributes(&raw);
+    assert_eq!(
+        vec![
+            Nl80211Attr::Wiphy(1),
+            Nl80211Attr::ControlPortEthertypeSupported,
+            Nl80211Attr::WiphyAntennaAvailTx(3),
+        ],
+        attrs
+    );
+}
+
+// The u16 form still parses, and both forms carry the same attribute id with
+// the lengths the kernel expects.
+#[test]
+fn test_control_port_ethertype_both_forms() {
+    let value = Nl80211Attr::ControlPortEthertype(EthernetProtocol::Pae);
+    let flag = Nl80211Attr::ControlPortEthertypeSupported;
+
+    assert_eq!(value.kind(), flag.kind());
+    assert_eq!(2, value.value_len());
+    assert_eq!(0, flag.value_len());
+
+    // The u16 form round-trips through a 2-byte payload.
+    let raw = vec![0x06, 0x00, 0x66, 0x00, 0x8e, 0x88, 0x00, 0x00];
+    assert_eq!(vec![value], parse_message_attributes(&raw));
+}
