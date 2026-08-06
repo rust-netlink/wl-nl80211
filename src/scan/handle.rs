@@ -46,9 +46,20 @@ impl Nl80211ScanHandle {
         Nl80211ScanScheduleRequest::new(self.0.clone(), attributes)
     }
 
-    /// Stop all scan schedule (equivalent to `iw dev DEVICE scan sched_stop`)
-    pub fn schedule_stop_all(&mut self) -> Nl80211ScanScheduleStopRequest {
-        Nl80211ScanScheduleStopRequest::new(self.0.clone(), Vec::new())
+    /// Stop all scan schedules on the given interface
+    /// (equivalent to `iw dev DEVICE scan sched_stop`).
+    ///
+    /// The kernel resolves the wireless device from `NL80211_ATTR_IFINDEX`
+    /// (see `__cfg80211_wdev_from_attrs()` in `net/wireless/nl80211.c`),
+    /// so the ifindex attribute is mandatory.
+    pub fn schedule_stop_all(
+        &mut self,
+        if_index: u32,
+    ) -> Nl80211ScanScheduleStopRequest {
+        Nl80211ScanScheduleStopRequest::new(
+            self.0.clone(),
+            vec![Nl80211Attr::IfIndex(if_index)],
+        )
     }
 }
 
