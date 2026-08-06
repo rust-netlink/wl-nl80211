@@ -99,7 +99,8 @@ pub use self::scan::{
     Nl80211BssCapabilities, Nl80211BssInfo, Nl80211BssUseFor, Nl80211Scan,
     Nl80211ScanFlags, Nl80211ScanGetRequest, Nl80211ScanHandle,
     Nl80211ScanScheduleRequest, Nl80211ScanScheduleStopRequest,
-    Nl80211ScanTriggerRequest, Nl80211SchedScanMatch, Nl80211SchedScanPlan,
+    Nl80211ScanTriggerRequest, Nl80211SchedScanMatch,
+    Nl80211SchedScanMatchAttr, Nl80211SchedScanPlan, Nl80211SchedScanPlanAttr,
 };
 pub use self::station::{
     Nl80211EhtGi, Nl80211EhtRuAllocation, Nl80211HeGi, Nl80211HeRuAllocation,
