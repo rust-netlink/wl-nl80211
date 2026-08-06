@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+use std::ops::Deref;
+
 use futures::TryStream;
 use netlink_packet_core::{
     parse_i32, parse_string, parse_u32, DecodeError, DefaultNla, Emitable,
@@ -97,17 +99,60 @@ const NL80211_SCHED_SCAN_MATCH_ATTR_BSSID: u16 = 5;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Nl80211SchedScanMatch(pub Vec<Nl80211SchedScanMatchAttr>);
 
-impl Nla for Nl80211SchedScanMatch {
+impl Deref for Nl80211SchedScanMatch {
+    type Target = Vec<Nl80211SchedScanMatchAttr>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+// A two-layer nested NLA: a list of attributes wrapped in a nested attribute
+// whose type is the element index. The kernel parses every child of
+// `NL80211_ATTR_SCHED_SCAN_MATCH`/`NL80211_ATTR_SCHED_SCAN_PLANS` as such a
+// nested attribute (match set / scan plan) and ignores the type of it;
+// both wpa_supplicant and iw emit them with type `index + 1`.
+pub(crate) struct NestedIndexedNla<T> {
+    index: u16,
+    attrs: Vec<T>,
+}
+
+impl<T: Nla> Nla for NestedIndexedNla<T> {
     fn value_len(&self) -> usize {
-        self.0.as_slice().buffer_len()
+        self.attrs.as_slice().buffer_len()
     }
 
     fn emit_value(&self, buffer: &mut [u8]) {
-        self.0.as_slice().emit(buffer);
+        self.attrs.as_slice().emit(buffer);
     }
 
     fn kind(&self) -> u16 {
-        NLA_F_NESTED
+        NLA_F_NESTED | self.index
+    }
+}
+
+pub(crate) struct NestedIndexedNlaList<T>(Vec<NestedIndexedNla<T>>);
+
+impl<T> Deref for NestedIndexedNlaList<T> {
+    type Target = Vec<NestedIndexedNla<T>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: Nla + Clone, S: Deref<Target = Vec<T>>> From<&Vec<S>>
+    for NestedIndexedNlaList<T>
+{
+    fn from(attrs: &Vec<S>) -> Self {
+        let mut nlas = Vec::new();
+        for (i, attr) in attrs.iter().enumerate() {
+            nlas.push(NestedIndexedNla {
+                index: i as u16 + 1,
+                attrs: attr.deref().clone(),
+            });
+        }
+        NestedIndexedNlaList(nlas)
     }
 }
 
@@ -220,17 +265,11 @@ const NL80211_SCHED_SCAN_PLAN_ITERATIONS: u16 = 2;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Nl80211SchedScanPlan(pub Vec<Nl80211SchedScanPlanAttr>);
 
-impl Nla for Nl80211SchedScanPlan {
-    fn value_len(&self) -> usize {
-        self.0.as_slice().buffer_len()
-    }
+impl Deref for Nl80211SchedScanPlan {
+    type Target = Vec<Nl80211SchedScanPlanAttr>;
 
-    fn emit_value(&self, buffer: &mut [u8]) {
-        self.0.as_slice().emit(buffer);
-    }
-
-    fn kind(&self) -> u16 {
-        NLA_F_NESTED
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

@@ -21,3 +21,4 @@ pub use self::schedule::{
 pub use self::trigger::Nl80211ScanTriggerRequest;
 
 pub(crate) use self::attr::{Nla80211ScanFreqNlas, Nla80211ScanSsidNlas};
+pub(crate) use self::schedule::NestedIndexedNlaList;
