@@ -32,12 +32,12 @@
 use netlink_packet_core::{
     parse_string, parse_u16, parse_u32, parse_u64, parse_u8, DecodeError,
     DefaultNla, Emitable, ErrorContext, EthernetProtocol, Nla, NlaBuffer,
-    NlasIterator, Parseable, ParseableParametrized,
+    NlasIterator, Parseable, ParseableParametrized, NLA_F_NESTED,
 };
 
 use crate::{
     bytes::{write_u16, write_u32, write_u64},
-    scan::{Nla80211ScanFreqNlas, Nla80211ScanSsidNlas},
+    scan::{NestedIndexedNlaList, Nla80211ScanFreqNlas, Nla80211ScanSsidNlas},
     wiphy::Nl80211Commands,
     Nl80211AkmSuite, Nl80211AuthType, Nl80211Band, Nl80211BandTypes,
     Nl80211BssInfo, Nl80211ChannelWidth, Nl80211CipherSuit, Nl80211CipherSuite,
@@ -838,8 +838,12 @@ impl Nla for Nl80211Attr {
             Self::ScanFrequencies(v) => {
                 Nla80211ScanFreqNlas::from(v).as_slice().buffer_len()
             }
-            Self::SchedScanMatch(v) => v.as_slice().buffer_len(),
-            Self::SchedScanPlans(v) => v.as_slice().buffer_len(),
+            Self::SchedScanMatch(v) => {
+                NestedIndexedNlaList::from(v).as_slice().buffer_len()
+            }
+            Self::SchedScanPlans(v) => {
+                NestedIndexedNlaList::from(v).as_slice().buffer_len()
+            }
             Self::AuthType(_) | Self::UseMfp(_) | Self::WpaVersions(_) => 4,
             Self::ExternalAuthAction(_) => 4,
             Self::ReasonCode(_) | Self::StatusCode(_) | Self::FrameType(_) => 2,
@@ -967,8 +971,12 @@ impl Nla for Nl80211Attr {
             Self::SchedScanInterval(_) => NL80211_ATTR_SCHED_SCAN_INTERVAL,
             Self::SchedScanDelay(_) => NL80211_ATTR_SCHED_SCAN_DELAY,
             Self::ScanFrequencies(_) => NL80211_ATTR_SCAN_FREQUENCIES,
-            Self::SchedScanMatch(_) => NL80211_ATTR_SCHED_SCAN_MATCH,
-            Self::SchedScanPlans(_) => NL80211_ATTR_SCHED_SCAN_PLANS,
+            Self::SchedScanMatch(_) => {
+                NL80211_ATTR_SCHED_SCAN_MATCH | NLA_F_NESTED
+            }
+            Self::SchedScanPlans(_) => {
+                NL80211_ATTR_SCHED_SCAN_PLANS | NLA_F_NESTED
+            }
             Self::VendorId(_) => NL80211_ATTR_VENDOR_ID,
             Self::VendorSubcmd(_) => NL80211_ATTR_VENDOR_SUBCMD,
             Self::VendorData(_) => NL80211_ATTR_VENDOR_DATA,
@@ -1120,8 +1128,12 @@ impl Nla for Nl80211Attr {
             Self::ScanFrequencies(v) => {
                 Nla80211ScanFreqNlas::from(v).as_slice().emit(buffer)
             }
-            Self::SchedScanMatch(v) => v.as_slice().emit(buffer),
-            Self::SchedScanPlans(v) => v.as_slice().emit(buffer),
+            Self::SchedScanMatch(v) => {
+                NestedIndexedNlaList::from(v).as_slice().emit(buffer)
+            }
+            Self::SchedScanPlans(v) => {
+                NestedIndexedNlaList::from(v).as_slice().emit(buffer)
+            }
             Self::VendorData(v) => buffer.copy_from_slice(v),
             Self::AuthType(d) => write_u32(buffer, u32::from(*d)),
             Self::UseMfp(d) => write_u32(buffer, u32::from(*d)),

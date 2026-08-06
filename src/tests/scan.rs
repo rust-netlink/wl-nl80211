@@ -2,13 +2,14 @@
 
 use crate::*;
 use netlink_packet_core::{
-    Emitable, NetlinkDeserializable, NetlinkHeader, NlaBuffer, Parseable,
+    Emitable, NetlinkDeserializable, NetlinkHeader, Parseable,
 };
 use netlink_packet_generic::{GenlHeader, GenlMessage};
 
 const NL80211_CMD_TRIGGER_SCAN: u8 = 33;
 const NL80211_CMD_GET_SCAN: u8 = 32;
 const NL80211_CMD_NEW_SCAN_RESULTS: u8 = 34;
+const NL80211_CMD_START_SCHED_SCAN: u8 = 75;
 
 // nlmon capture of `iw wlan0 scan`
 // The raw data is copied since the generic netlink command property.
@@ -248,30 +249,61 @@ fn test_parse_ies() {
     assert_eq!(buf, raw);
 }
 
-// The kernel parses `NL80211_ATTR_SCHED_SCAN_MATCH` as a list of match sets,
-// each match set being a nested attribute holding a group of match
-// attributes. Regression test for the previous flat emission which made the
-// kernel log "netlink: N bytes leftover after parsing attributes".
+// NL80211_ATTR_SCHED_SCAN_MATCH of the NL80211_CMD_START_SCHED_SCAN message
+// sent by wpa_supplicant, captured via nlmon (MT7925E laptop, kernel
+// 6.18.42-1-lts) while the configured AP was absent:
+// ```sh
+// sudo ip link add nlmon0 type nlmon
+// sudo ip link set nlmon0 up
+// sudo tcpdump -i nlmon0 -w sched_scan.pcap &
+// sudo wpa_supplicant -D nl80211 -i wlan0 -c wpa_supplicant.conf
+// ```
+// The kernel parses every child of NL80211_ATTR_SCHED_SCAN_MATCH as a nested
+// match set with nl80211_match_policy. Regression test for the previous flat
+// emission which made the kernel log "netlink: N bytes leftover after parsing
+// attributes".
 #[test]
-fn test_sched_scan_match_nested_attrs() {
+fn test_sched_scan_match() {
     let raw = vec![
-        // outer: kind=NL80211_ATTR_SCHED_SCAN_MATCH, len = 4 + 24 = 28
-        28, 0, 132, 0,
-        // matchset: kind=NLA_F_NESTED, len = 4 + 20 = 24
-        24, 0, 0x00, 0x80,
-        // ssid: kind=1, len=18, value (padded to 20 bytes)
-        18, 0, 1, 0, 0x48, 0x55, 0x41, 0x5a, 0x48, 0x55, 0x2d, 0x48, 0x61, 0x6e,
-        0x74, 0x69, 0x6e, 0x67, 0, 0,
+        // genl header: cmd=NL80211_CMD_START_SCHED_SCAN, version 0
+        0x4b, 0x00, 0x00, 0x00, // NL80211_ATTR_IFINDEX 4
+        0x08, 0x00, 0x03, 0x00, 0x04, 0x00, 0x00, 0x00,
+        // NL80211_ATTR_SCHED_SCAN_MATCH (nested), length 24
+        0x18, 0x00, 0x84, 0x80,
+        // match set 1 (nested, type 1), length 20
+        0x14, 0x00, 0x01, 0x80,
+        // NL80211_SCHED_SCAN_MATCH_ATTR_SSID, length 15, 'WifiRefTest'
+        0x0f, 0x00, 0x01, 0x00, 0x57, 0x69, 0x66, 0x69, 0x52, 0x65, 0x66, 0x54,
+        0x65, 0x73, 0x74, 0x00,
     ];
 
-    let expected =
-        Nl80211Attr::SchedScanMatch(vec![Nl80211SchedScanMatch(vec![
-            Nl80211SchedScanMatchAttr::Ssid("HUAZHU-Hanting".to_string()),
-        ])]);
+    let family_id = 0x2a;
+
+    let expected = GenlMessage::new(
+        GenlHeader {
+            cmd: NL80211_CMD_START_SCHED_SCAN,
+            version: 0,
+        },
+        Nl80211Message {
+            cmd: Nl80211Command::StartSchedScan,
+            attributes: vec![
+                Nl80211Attr::IfIndex(4),
+                Nl80211Attr::SchedScanMatch(vec![Nl80211SchedScanMatch(vec![
+                    Nl80211SchedScanMatchAttr::Ssid("WifiRefTest".to_string()),
+                ])]),
+            ],
+        },
+        family_id,
+    );
+
+    let mut netlink_header = NetlinkHeader::default();
+
+    netlink_header.message_type = family_id;
 
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        GenlMessage::<Nl80211Message>::deserialize(&netlink_header, &raw,)
+            .unwrap()
     );
 
     let mut buf = vec![0; expected.buffer_len()];
@@ -281,26 +313,50 @@ fn test_sched_scan_match_nested_attrs() {
     assert_eq!(buf, raw);
 }
 
-// Same as test_sched_scan_match_nested_attrs for NL80211_ATTR_SCHED_SCAN_PLANS:
-// the kernel parses it as a list of scan plans, each being a nested attribute
-// holding a group of plan attributes.
+// Same as test_sched_scan_match for NL80211_ATTR_SCHED_SCAN_PLANS: the kernel
+// parses every child of NL80211_ATTR_SCHED_SCAN_PLANS as a nested scan plan
+// with nl80211_plan_policy.
 #[test]
-fn test_sched_scan_plans_nested_attrs() {
+fn test_sched_scan_plans() {
     let raw = vec![
-        // outer: kind=NL80211_ATTR_SCHED_SCAN_PLANS, len = 4 + 12 = 16
-        16, 0, 225, 0, // plan: kind=NLA_F_NESTED, len = 4 + 8 = 12
-        12, 0, 0x00, 0x80, // interval: kind=1, len=8, value
-        8, 0, 1, 0, 10, 0, 0, 0,
+        // genl header: cmd=NL80211_CMD_START_SCHED_SCAN, version 0
+        0x4b, 0x00, 0x00, 0x00, // NL80211_ATTR_IFINDEX 4
+        0x08, 0x00, 0x03, 0x00, 0x04, 0x00, 0x00, 0x00,
+        // NL80211_ATTR_SCHED_SCAN_PLANS (nested), length 16
+        0x10, 0x00, 0xe1, 0x80,
+        // scan plan 1 (nested, type 1), length 12
+        0x0c, 0x00, 0x01, 0x80,
+        // NL80211_SCHED_SCAN_PLAN_INTERVAL, length 8, 10 s
+        0x08, 0x00, 0x01, 0x00, 0x0a, 0x00, 0x00, 0x00,
     ];
 
-    let expected =
-        Nl80211Attr::SchedScanPlans(vec![Nl80211SchedScanPlan(vec![
-            Nl80211SchedScanPlanAttr::Interval(10),
-        ])]);
+    let family_id = 0x2a;
+
+    let expected = GenlMessage::new(
+        GenlHeader {
+            cmd: NL80211_CMD_START_SCHED_SCAN,
+            version: 0,
+        },
+        Nl80211Message {
+            cmd: Nl80211Command::StartSchedScan,
+            attributes: vec![
+                Nl80211Attr::IfIndex(4),
+                Nl80211Attr::SchedScanPlans(vec![Nl80211SchedScanPlan(vec![
+                    Nl80211SchedScanPlanAttr::Interval(10),
+                ])]),
+            ],
+        },
+        family_id,
+    );
+
+    let mut netlink_header = NetlinkHeader::default();
+
+    netlink_header.message_type = family_id;
 
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        GenlMessage::<Nl80211Message>::deserialize(&netlink_header, &raw,)
+            .unwrap()
     );
 
     let mut buf = vec![0; expected.buffer_len()];
