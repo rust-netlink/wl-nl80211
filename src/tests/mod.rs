@@ -9,3 +9,4 @@ mod key;
 mod register_frame;
 mod roaming;
 mod scan;
+mod wowlan;
