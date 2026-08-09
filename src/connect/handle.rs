@@ -7,6 +7,7 @@ use crate::{
     Nl80211ExternalAuthRequest, Nl80211FlushPmksaRequest, Nl80211FrameRequest,
     Nl80211Handle, Nl80211KeyRequest, Nl80211RegisterFrameRequest,
     Nl80211RekeyOffloadRequest, Nl80211SetPmkRequest, Nl80211SetPmksaRequest,
+    Nl80211WowlanRequest,
 };
 
 /// A handle to send connection management commands (`NL80211_CMD_CONNECT` and
@@ -145,6 +146,19 @@ impl Nl80211ConnectionHandle {
         attributes: Vec<Nl80211Attr>,
     ) -> Nl80211RekeyOffloadRequest {
         Nl80211RekeyOffloadRequest::new(self.0.clone(), attributes)
+    }
+
+    /// Arm WoWLAN triggers (`NL80211_CMD_SET_WOWLAN`), so the device can
+    /// wake the host while it is suspended (e.g. on a GTK rekey failure).
+    ///
+    /// The `attributes` are normally produced by
+    /// [`crate::Nl80211Wowlan`]. Fails with `-EOPNOTSUPP` on drivers
+    /// without WoWLAN support (e.g. mac80211_hwsim).
+    pub fn set_wowlan(
+        &mut self,
+        attributes: Vec<Nl80211Attr>,
+    ) -> Nl80211WowlanRequest {
+        Nl80211WowlanRequest::new(self.0.clone(), attributes)
     }
 
     /// Add a PMKSA cache entry to the driver/firmware

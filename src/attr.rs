@@ -302,7 +302,7 @@ const NL80211_ATTR_WIPHY_ANTENNA_AVAIL_TX: u16 = 113;
 const NL80211_ATTR_WIPHY_ANTENNA_AVAIL_RX: u16 = 114;
 const NL80211_ATTR_SUPPORT_MESH_AUTH: u16 = 115;
 // const NL80211_ATTR_STA_PLINK_STATE:u16 = 116;
-// const NL80211_ATTR_WOWLAN_TRIGGERS:u16 = 117;
+const NL80211_ATTR_WOWLAN_TRIGGERS: u16 = 117;
 const NL80211_ATTR_WOWLAN_TRIGGERS_SUPPORTED: u16 = 118;
 const NL80211_ATTR_SCHED_SCAN_INTERVAL: u16 = 119;
 const NL80211_ATTR_INTERFACE_COMBINATIONS: u16 = 120;
@@ -592,6 +592,11 @@ pub enum Nl80211Attr {
     OffchannelTxOk,
     SurveyRadioStats,
     WowlanTriggersSupport(Vec<Nl80211WowlanTriggersSupport>),
+    /// Triggers to arm with `NL80211_CMD_SET_WOWLAN`
+    /// (`NL80211_ATTR_WOWLAN_TRIGGERS`); the kernel also carries the
+    /// triggers that fired after a WoWLAN wakeup in this attribute of
+    /// the `NL80211_CMD_SET_WOWLAN` wake notification.
+    WowlanTriggers(Vec<Nl80211WowlanTriggersSupport>),
     SoftwareIftypes(Vec<Nl80211InterfaceType>),
     Features(Nl80211Features),
     ExtFeatures(Vec<Nl80211ExtFeature>),
@@ -886,6 +891,7 @@ impl Nla for Nl80211Attr {
             Self::AuthData(v) => v.len(),
             Self::Key(nlas) => nlas.as_slice().buffer_len(),
             Self::RekeyData(nlas) => nlas.as_slice().buffer_len(),
+            Self::WowlanTriggers(nlas) => nlas.as_slice().buffer_len(),
             Self::Other(attr) => attr.value_len(),
             Self::VendorData(d) => d.len(),
         }
@@ -1019,6 +1025,7 @@ impl Nla for Nl80211Attr {
             Self::AuthData(_) => NL80211_ATTR_AUTH_DATA,
             Self::Key(_) => NL80211_ATTR_KEY,
             Self::RekeyData(_) => NL80211_ATTR_REKEY_DATA,
+            Self::WowlanTriggers(_) => NL80211_ATTR_WOWLAN_TRIGGERS,
             Self::FrameType(_) => NL80211_ATTR_FRAME_TYPE,
             Self::Cookie(_) => NL80211_ATTR_COOKIE,
             Self::Ack => NL80211_ATTR_ACK,
@@ -1213,6 +1220,7 @@ impl Nla for Nl80211Attr {
             Self::AuthData(v) => buffer[..v.len()].copy_from_slice(v),
             Self::Key(nlas) => nlas.as_slice().emit(buffer),
             Self::RekeyData(nlas) => nlas.as_slice().emit(buffer),
+            Self::WowlanTriggers(nlas) => nlas.as_slice().emit(buffer),
             Self::Other(attr) => attr.emit_value(buffer),
         }
     }
@@ -1588,6 +1596,35 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                     nlas.push(Nl80211WowlanTriggersSupport::parse(nla)?);
                 }
                 Self::WowlanTriggersSupport(nlas)
+            }
+            NL80211_ATTR_WOWLAN_TRIGGERS => {
+                let mut nlas = Vec::new();
+                for nla in NlasIterator::new(payload) {
+                    let err_msg = format!(
+                        "Invalid NL80211_ATTR_WOWLAN_TRIGGERS value {nla:?}"
+                    );
+                    let nla = &nla.context(err_msg.clone())?;
+                    // `NL80211_ATTR_WOWLAN_TRIGGERS` carries different
+                    // payload shapes for the same kinds depending on the
+                    // context: the 16-byte pattern support struct (wiphy
+                    // capability dump), nested pattern attrs (set
+                    // request) or a u32 pattern index (wake
+                    // notification). A kind we cannot model as
+                    // `Nl80211WowlanTriggersSupport` must not fail the
+                    // whole message decode, so fall back to `Other`.
+                    nlas.push(
+                        Nl80211WowlanTriggersSupport::parse(nla)
+                            .unwrap_or_else(|_| {
+                                Nl80211WowlanTriggersSupport::Other(
+                                    DefaultNla::new(
+                                        nla.kind(),
+                                        nla.value().to_vec(),
+                                    ),
+                                )
+                            }),
+                    );
+                }
+                Self::WowlanTriggers(nlas)
             }
             NL80211_ATTR_OFFCHANNEL_TX_OK => Self::OffchannelTxOk,
             NL80211_ATTR_SOFTWARE_IFTYPES => Self::SoftwareIftypes(

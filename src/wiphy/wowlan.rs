@@ -57,6 +57,105 @@ const NL80211_WOWLAN_TRIG_NET_DETECT: u16 = 18;
 // const NL80211_WOWLAN_TRIG_NET_DETECT_RESULTS: u16 = 19;
 // const NL80211_WOWLAN_TRIG_UNPROTECTED_DEAUTH_DISASSOC: u16 = 20;
 
+/// Wake reason reported by the driver after a WoWLAN wakeup. The kernel
+/// sends a `NL80211_CMD_SET_WOWLAN` multicast event whose
+/// `NL80211_ATTR_WOWLAN_TRIGGERS` attribute carries the triggers that
+/// fired as flag sub-attributes (`cfg80211_report_wowlan_wakeup()`).
+///
+/// The kinds therefore use the *trigger* numbering
+/// (`enum nl80211_wowlan_trigger_type`), not a separate wakeup numbering.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Nl80211WowlanWakeup {
+    /// Wake for an unknown / combined reason.
+    Any,
+    /// Disconnect.
+    Disconnect,
+    /// Magic packet received.
+    MagicPkt,
+    /// A registered packet pattern matched; carries the pattern index.
+    PktPattern(u32),
+    /// GTK rekey failed while the host was suspended - the connection
+    /// is no longer trusted and must be rebuilt.
+    GtkRekeyFailure,
+    /// EAP Identity Request received.
+    EapIdentRequest,
+    /// 4-way handshake attempted.
+    FourWayHandshake,
+    /// rfkill was released.
+    RfkillRelease,
+    /// Unknown / kernel-version-specific wake reason.
+    Other(DefaultNla),
+}
+
+impl Nla for Nl80211WowlanWakeup {
+    fn value_len(&self) -> usize {
+        match self {
+            Self::Any
+            | Self::Disconnect
+            | Self::MagicPkt
+            | Self::GtkRekeyFailure
+            | Self::EapIdentRequest
+            | Self::FourWayHandshake
+            | Self::RfkillRelease => 0,
+            Self::PktPattern(_) => 4,
+            Self::Other(attr) => attr.value_len(),
+        }
+    }
+
+    fn kind(&self) -> u16 {
+        match self {
+            Self::Any => NL80211_WOWLAN_TRIG_ANY,
+            Self::Disconnect => NL80211_WOWLAN_TRIG_DISCONNECT,
+            Self::MagicPkt => NL80211_WOWLAN_TRIG_MAGIC_PKT,
+            Self::PktPattern(_) => NL80211_WOWLAN_TRIG_PKT_PATTERN,
+            Self::GtkRekeyFailure => NL80211_WOWLAN_TRIG_GTK_REKEY_FAILURE,
+            Self::EapIdentRequest => NL80211_WOWLAN_TRIG_EAP_IDENT_REQUEST,
+            Self::FourWayHandshake => NL80211_WOWLAN_TRIG_4WAY_HANDSHAKE,
+            Self::RfkillRelease => NL80211_WOWLAN_TRIG_RFKILL_RELEASE,
+            Self::Other(attr) => attr.kind(),
+        }
+    }
+
+    fn emit_value(&self, buffer: &mut [u8]) {
+        match self {
+            Self::Any
+            | Self::Disconnect
+            | Self::MagicPkt
+            | Self::GtkRekeyFailure
+            | Self::EapIdentRequest
+            | Self::FourWayHandshake
+            | Self::RfkillRelease => (),
+            Self::PktPattern(idx) => write_u32(buffer, *idx),
+            Self::Other(attr) => attr.emit_value(buffer),
+        }
+    }
+}
+
+impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
+    for Nl80211WowlanWakeup
+{
+    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+        let payload = buf.value();
+        Ok(match buf.kind() {
+            NL80211_WOWLAN_TRIG_ANY => Self::Any,
+            NL80211_WOWLAN_TRIG_DISCONNECT => Self::Disconnect,
+            NL80211_WOWLAN_TRIG_MAGIC_PKT => Self::MagicPkt,
+            NL80211_WOWLAN_TRIG_PKT_PATTERN => {
+                Self::PktPattern(parse_u32(payload).context(
+                    "invalid NL80211_WOWLAN_TRIG_PKT_PATTERN (wakeup)",
+                )?)
+            }
+            NL80211_WOWLAN_TRIG_GTK_REKEY_FAILURE => Self::GtkRekeyFailure,
+            NL80211_WOWLAN_TRIG_EAP_IDENT_REQUEST => Self::EapIdentRequest,
+            NL80211_WOWLAN_TRIG_4WAY_HANDSHAKE => Self::FourWayHandshake,
+            NL80211_WOWLAN_TRIG_RFKILL_RELEASE => Self::RfkillRelease,
+            _ => Self::Other(
+                DefaultNla::parse(buf).context("invalid NLA (unknown kind)")?,
+            ),
+        })
+    }
+}
+
 /// Supported WoWLAN trigger
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Nl80211WowlanTriggersSupport {
@@ -145,7 +244,7 @@ impl Nla for Nl80211WowlanTriggersSupport {
             Self::PktPattern(s) => s.emit(buffer),
             Self::NetDetect(d) => write_u32(buffer, *d),
             Self::TcpConnection(s) => s.as_slice().emit(buffer),
-            Self::Other(attr) => attr.emit(buffer),
+            Self::Other(attr) => attr.emit_value(buffer),
         }
     }
 }
@@ -315,7 +414,7 @@ impl Nla for Nl80211WowlanTcpTriggerSupport {
             Self::DataPayload(d)
             | Self::DataInterval(d)
             | Self::WakePayload(d) => write_u32(buffer, *d),
-            Self::Other(v) => v.emit(buffer),
+            Self::Other(v) => v.emit_value(buffer),
         }
     }
 }

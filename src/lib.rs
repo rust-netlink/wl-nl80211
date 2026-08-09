@@ -32,6 +32,7 @@ mod wifi5;
 mod wifi6;
 mod wifi7;
 mod wiphy;
+mod wowlan_request;
 
 #[cfg(test)]
 mod tests;
@@ -142,8 +143,9 @@ pub use self::wiphy::{
     Nl80211CipherSuit, Nl80211Frequency, Nl80211FrequencyInfo, Nl80211IfMode,
     Nl80211Rate, Nl80211WiphyGetRequest, Nl80211WiphyHandle,
     Nl80211WowlanTcpTriggerSupport, Nl80211WowlanTriggerPatternSupport,
-    Nl80211WowlanTriggersSupport,
+    Nl80211WowlanTriggersSupport, Nl80211WowlanWakeup,
 };
+pub use self::wowlan_request::{Nl80211Wowlan, Nl80211WowlanRequest};
 
 pub(crate) use self::feature::Nl80211ExtFeatures;
 pub(crate) use self::handle::nl80211_execute;
