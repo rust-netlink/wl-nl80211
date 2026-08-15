@@ -2,7 +2,7 @@
 
 use crate::{
     Nl80211AssociateRequest, Nl80211Attr, Nl80211AuthenticateRequest,
-    Nl80211ConnectRequest, Nl80211ControlPortFrameRequest,
+    Nl80211ConnectRequest, Nl80211ControlPortFrameRequest, Nl80211CqmRequest,
     Nl80211DelPmkRequest, Nl80211DelPmksaRequest, Nl80211DisconnectRequest,
     Nl80211ExternalAuthRequest, Nl80211FlushPmksaRequest, Nl80211FrameRequest,
     Nl80211Handle, Nl80211KeyRequest, Nl80211RegisterFrameRequest,
@@ -212,5 +212,21 @@ impl Nl80211ConnectionHandle {
         attributes: Vec<Nl80211Attr>,
     ) -> Nl80211DelPmkRequest {
         Nl80211DelPmkRequest::new(self.0.clone(), attributes)
+    }
+
+    /// Configure the kernel's connection quality monitor
+    /// (`NL80211_CMD_SET_CQM`): the kernel reports a
+    /// `NL80211_CMD_NOTIFY_CQM` event when the connected AP's RSSI
+    /// crosses the configured threshold.
+    ///
+    /// The `attributes` are normally produced by [`crate::Nl80211Cqm`],
+    /// e.g. `Nl80211Cqm::new(if_index).rssi_thold(-70).rssi_hyst(5)
+    /// .build()`. Fails with `-EOPNOTSUPP` on drivers without CQM
+    /// support.
+    pub fn set_cqm(
+        &mut self,
+        attributes: Vec<Nl80211Attr>,
+    ) -> Nl80211CqmRequest {
+        Nl80211CqmRequest::new(self.0.clone(), attributes)
     }
 }

@@ -6,7 +6,8 @@ use netlink_packet_core::{NetlinkMessage, NetlinkPayload};
 use crate::event_status::{Ieee80211ReasonCode, Ieee80211StatusCode};
 use crate::{
     Ieee80211AssocRespFrame, Ieee80211AuthFrame, Nl80211Attr, Nl80211Command,
-    Nl80211Message, Nl80211WowlanTriggersSupport, Nl80211WowlanWakeup,
+    Nl80211CqmRssiEvent, Nl80211Message, Nl80211WowlanTriggersSupport,
+    Nl80211WowlanWakeup,
 };
 
 /// A multicast nl80211 event received from the kernel, e.g. on the `mlme`,
@@ -61,6 +62,12 @@ pub enum Nl80211Event {
     /// was suspended; `reasons` carries the `NL80211_ATTR_WOWLAN_TRIGGERS`
     /// sub-attributes reported by `cfg80211_report_wowlan_wakeup()`.
     WowlanWakeup { reasons: Vec<Nl80211WowlanWakeup> },
+    /// `NL80211_CMD_NOTIFY_CQM` event: the connection quality monitor
+    /// reported an RSSI threshold crossing of the connected AP. `wiphy` /
+    /// `if_index` identify the reporting interface, `mac` the peer (when
+    /// the kernel included it) and `events` the `NL80211_ATTR_CQM`
+    /// sub-attributes (threshold crossing direction, RSSI level, ...).
+    CqmRssi(Nl80211CqmRssiEvent),
     /// Any other command: carries the unmodelled [`Nl80211Command`].
     Unknown { cmd: Nl80211Command },
 }
@@ -133,6 +140,9 @@ impl Nl80211Event {
                                 attr_frame(&nl_msg).map(|frame| {
                                     Nl80211Event::ControlPortFrame { frame }
                                 })
+                            }
+                            Nl80211Command::NotifyCqm => {
+                                Some(parse_cqm(&nl_msg))
                             }
                             // The kernel also uses SET_WOWLAN as a wakeup
                             // notification; without the wakeup attribute
@@ -263,6 +273,28 @@ fn attr_ie(msg: &Nl80211Message) -> Option<Vec<u8>> {
     msg.attributes.iter().find_map(|attr| match attr {
         Nl80211Attr::Ie(ie) => Some(ie.clone()),
         _ => None,
+    })
+}
+
+fn parse_cqm(msg: &Nl80211Message) -> Nl80211Event {
+    let mut wiphy = 0;
+    let mut if_index = 0;
+    let mut mac = None;
+    let mut events = Vec::new();
+    for attr in &msg.attributes {
+        match attr {
+            Nl80211Attr::Wiphy(w) => wiphy = *w,
+            Nl80211Attr::IfIndex(i) => if_index = *i,
+            Nl80211Attr::Mac(m) => mac = Some(*m),
+            Nl80211Attr::Cqm(cqm) => events.extend(cqm.iter().cloned()),
+            _ => {}
+        }
+    }
+    Nl80211Event::CqmRssi(Nl80211CqmRssiEvent {
+        wiphy,
+        if_index,
+        mac,
+        events,
     })
 }
 

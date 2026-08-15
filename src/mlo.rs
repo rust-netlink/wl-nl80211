@@ -6,8 +6,8 @@ use netlink_packet_core::{
 };
 
 use crate::attr::NL80211_ATTR_MAC;
+use crate::mac::ETH_ALEN;
 
-const ETH_ALEN: usize = 6;
 const NL80211_ATTR_MLO_LINK_ID: u16 = 313;
 
 #[derive(Debug, PartialEq, Eq, Clone)]

@@ -35,6 +35,7 @@ use netlink_packet_core::{
     NlasIterator, Parseable, ParseableParametrized, NLA_F_NESTED,
 };
 
+use crate::mac::ETH_ALEN;
 use crate::{
     bytes::{write_u16, write_u32, write_u64},
     scan::{NestedIndexedNlaList, Nla80211ScanFreqNlas, Nla80211ScanSsidNlas},
@@ -42,7 +43,7 @@ use crate::{
     Ieee80211AkmSuite, Ieee80211CipherSuite, Ieee80211ExtendedCapability,
     Ieee80211HtCapabilityMask, Ieee80211VhtCapability, Nl80211AuthType,
     Nl80211Band, Nl80211BandTypes, Nl80211BssInfo, Nl80211ChannelWidth,
-    Nl80211Command, Nl80211ExtFeature, Nl80211ExtFeatures,
+    Nl80211Command, Nl80211CqmAttr, Nl80211ExtFeature, Nl80211ExtFeatures,
     Nl80211ExternalAuthAction, Nl80211Features, Nl80211HtWiphyChannelType,
     Nl80211IfMode, Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas,
     Nl80211IfaceComb, Nl80211IfaceFrameType, Nl80211InterfaceType,
@@ -51,8 +52,6 @@ use crate::{
     Nl80211StationInfo, Nl80211SurveyInfo, Nl80211TransmitQueueStat,
     Nl80211UseMfp, Nl80211WowlanTriggersSupport, Nl80211WpaVersions,
 };
-
-const ETH_ALEN: usize = 6;
 
 fn parse_cipher_suites(
     payload: &[u8],
@@ -277,7 +276,7 @@ const NL80211_ATTR_WIPHY_COVERAGE_CLASS: u16 = 89;
 const NL80211_ATTR_FRAME_MATCH: u16 = 91;
 const NL80211_ATTR_ACK: u16 = 92;
 // const NL80211_ATTR_PS_STATE:u16 = 93;
-// const NL80211_ATTR_CQM:u16 = 94;
+const NL80211_ATTR_CQM: u16 = 94;
 // const NL80211_ATTR_LOCAL_STATE_CHANGE:u16 = 95;
 // const NL80211_ATTR_AP_ISOLATE:u16 = 96;
 // const NL80211_ATTR_WIPHY_TX_POWER_SETTING:u16 = 97;
@@ -752,6 +751,11 @@ pub enum Nl80211Attr {
     /// (u8): the driver should trigger reauthentication when this percentage
     /// of the PMK lifetime has elapsed. Used with `NL80211_CMD_SET_PMKSA`.
     PmkReauthThreshold(u8),
+    /// Connection quality monitor configuration, carried as the nested
+    /// `NL80211_ATTR_CQM` attribute (a list of [`Nl80211CqmAttr`]
+    /// sub-attributes). Used with `NL80211_CMD_SET_CQM` and present in
+    /// `NL80211_CMD_NOTIFY_CQM` events.
+    Cqm(Vec<Nl80211CqmAttr>),
     Other(DefaultNla),
     /// 24-bit OUI, or an as yet unused Linux-specific ID.
     ///
@@ -900,6 +904,7 @@ impl Nla for Nl80211Attr {
             Self::Key(nlas) => nlas.as_slice().buffer_len(),
             Self::RekeyData(nlas) => nlas.as_slice().buffer_len(),
             Self::WowlanTriggers(nlas) => nlas.as_slice().buffer_len(),
+            Self::Cqm(nlas) => nlas.as_slice().buffer_len(),
             Self::Other(attr) => attr.value_len(),
             Self::VendorData(d) => d.len(),
         }
@@ -1035,6 +1040,7 @@ impl Nla for Nl80211Attr {
             Self::Key(_) => NL80211_ATTR_KEY,
             Self::RekeyData(_) => NL80211_ATTR_REKEY_DATA,
             Self::WowlanTriggers(_) => NL80211_ATTR_WOWLAN_TRIGGERS,
+            Self::Cqm(_) => NL80211_ATTR_CQM | NLA_F_NESTED,
             Self::FrameType(_) => NL80211_ATTR_FRAME_TYPE,
             Self::Cookie(_) => NL80211_ATTR_COOKIE,
             Self::Ack => NL80211_ATTR_ACK,
@@ -1236,6 +1242,7 @@ impl Nla for Nl80211Attr {
             Self::Key(nlas) => nlas.as_slice().emit(buffer),
             Self::RekeyData(nlas) => nlas.as_slice().emit(buffer),
             Self::WowlanTriggers(nlas) => nlas.as_slice().emit(buffer),
+            Self::Cqm(nlas) => nlas.as_slice().emit(buffer),
             Self::Other(attr) => attr.emit_value(buffer),
         }
     }
@@ -1984,6 +1991,11 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             }
             NL80211_ATTR_SOCKET_OWNER => Self::SocketOwner,
             NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT => Self::ControlPortNoEncrypt,
+            NL80211_ATTR_CQM => {
+                let cqm = Nl80211CqmAttr::parse_list(payload)
+                    .context("Invalid NL80211_ATTR_CQM")?;
+                Self::Cqm(cqm)
+            }
             _ => Self::Other(
                 DefaultNla::parse(buf).context("invalid NLA (unknown kind)")?,
             ),
