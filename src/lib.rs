@@ -74,12 +74,15 @@ pub use self::element::{
 };
 pub use self::error::Nl80211Error;
 pub use self::event::Nl80211Event;
-pub use self::event_status::{Nl80211EventCode, Nl80211EventReason};
+pub use self::event_status::{Ieee80211ReasonCode, Ieee80211StatusCode};
 pub use self::ext_cap::{
     Nl80211ExtendedCapability, Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas,
 };
 pub use self::feature::{Nl80211ExtFeature, Nl80211Features};
-pub use self::frame::{Nl80211AuthAlgorithm, Nl80211AuthFrame};
+pub use self::frame::{
+    Ieee80211AssocRespFrame, Ieee80211AuthAlgorithm, Ieee80211AuthFrame,
+    Ieee80211CapabilityInfo,
+};
 pub use self::frame_type::{Nl80211FrameType, Nl80211IfaceFrameType};
 pub use self::handle::Nl80211Handle;
 pub use self::iface::{

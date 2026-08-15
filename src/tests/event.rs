@@ -17,24 +17,27 @@ use genetlink::message::RawGenlMessage;
 use netlink_packet_core::NetlinkMessage;
 
 use crate::{
-    Nl80211Command, Nl80211Event, Nl80211EventCode, Nl80211EventReason,
+    Ieee80211ReasonCode, Ieee80211StatusCode, Nl80211Command, Nl80211Event,
     Nl80211WowlanWakeup,
 };
 
-// Nl80211EventCode: known IEEE 802.11 status codes map to named variants,
+// Ieee80211StatusCode: known IEEE 802.11 status codes map to named variants,
 // anything else keeps the raw code in `Other`.
 #[test]
 fn test_event_status_conversion() {
-    assert_eq!(Nl80211EventCode::Success, Nl80211EventCode::from(0));
+    assert_eq!(Ieee80211StatusCode::Success, Ieee80211StatusCode::from(0));
     assert_eq!(
-        Nl80211EventCode::ApUnableToHandleNewSta,
-        Nl80211EventCode::from(17)
+        Ieee80211StatusCode::ApUnableToHandleNewSta,
+        Ieee80211StatusCode::from(17)
     );
     assert_eq!(
-        Nl80211EventCode::SaeHashToElement,
-        Nl80211EventCode::from(126)
+        Ieee80211StatusCode::SaeHashToElement,
+        Ieee80211StatusCode::from(126)
     );
-    assert_eq!(Nl80211EventCode::Other(1234), Nl80211EventCode::from(1234));
+    assert_eq!(
+        Ieee80211StatusCode::Other(1234),
+        Ieee80211StatusCode::from(1234)
+    );
 }
 
 // Display / FromStr: lowercase snake_case names round-trip; unknown strings
@@ -42,26 +45,29 @@ fn test_event_status_conversion() {
 #[test]
 fn test_event_status_display_fromstr() {
     for (status, name) in [
-        (Nl80211EventCode::Success, "success"),
+        (Ieee80211StatusCode::Success, "success"),
         (
-            Nl80211EventCode::ApUnableToHandleNewSta,
+            Ieee80211StatusCode::ApUnableToHandleNewSta,
             "ap_unable_to_handle_new_sta",
         ),
-        (Nl80211EventCode::RejectUPidSetting, "reject_u_pid_setting"),
-        (Nl80211EventCode::Other(1234), "1234"),
+        (
+            Ieee80211StatusCode::RejectUPidSetting,
+            "reject_u_pid_setting",
+        ),
+        (Ieee80211StatusCode::Other(1234), "1234"),
     ] {
         assert_eq!(name, status.to_string());
         assert_eq!(status, name.parse().unwrap());
     }
     // Numeric strings map through `From<u16>`.
     assert_eq!(
-        Nl80211EventCode::ApUnableToHandleNewSta,
+        Ieee80211StatusCode::ApUnableToHandleNewSta,
         "17".parse().unwrap()
     );
-    assert!("bogus".parse::<Nl80211EventCode>().is_err());
+    assert!("bogus".parse::<Ieee80211StatusCode>().is_err());
 }
 
-// Nl80211AuthFrame::parse: SAE Authentication frame (transaction 1) from
+// Ieee80211AuthFrame::parse: SAE Authentication frame (transaction 1) from
 // the same capture as test_captured_authenticate_event.
 #[test]
 fn test_parse_auth_frame_sae() {
@@ -79,20 +85,16 @@ fn test_parse_auth_frame_sae() {
         0x2f, 0xc2, 0xcb, 0x59, 0x1f, 0xa7, 0xdd, 0xe0,
     ];
     let frame =
-        crate::Nl80211AuthFrame::parse(&raw).expect("parse SAE auth frame");
-    assert_eq!([0x02, 0x00, 0x00, 0x00, 0x00, 0x00], frame.da);
-    assert_eq!([0x02, 0x00, 0x00, 0x00, 0x01, 0x00], frame.sa);
-    assert_eq!([0x02, 0x00, 0x00, 0x00, 0x01, 0x00], frame.bssid);
-    assert_eq!(14, frame.sequence);
-    assert_eq!(crate::Nl80211AuthAlgorithm::Sae, frame.algorithm);
+        crate::Ieee80211AuthFrame::parse(&raw).expect("parse SAE auth frame");
+    assert_eq!(crate::Ieee80211AuthAlgorithm::Sae, frame.algorithm);
     assert_eq!(1, frame.transaction);
-    assert_eq!(Nl80211EventCode::Success, frame.status);
+    assert_eq!(Ieee80211StatusCode::Success, frame.status_code);
     // SAE commit body: group(2)=19, then scalar + element.
-    assert_eq!(98, frame.body.len());
-    assert_eq!(&[0x13, 0x00], &frame.body[0..2]);
+    assert_eq!(98, frame.remains.len());
+    assert_eq!(&[0x13, 0x00], &frame.remains[0..2]);
 }
 
-// Nl80211AuthFrame::parse: Open System Authentication frame (transaction 2,
+// Ieee80211AuthFrame::parse: Open System Authentication frame (transaction 2,
 // empty body) captured from the WPA2-PSK connection.
 #[test]
 fn test_parse_auth_frame_open() {
@@ -102,50 +104,50 @@ fn test_parse_auth_frame_open() {
         0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
     ];
     let frame =
-        crate::Nl80211AuthFrame::parse(&raw).expect("parse open auth frame");
-    assert_eq!(crate::Nl80211AuthAlgorithm::OpenSystem, frame.algorithm);
+        crate::Ieee80211AuthFrame::parse(&raw).expect("parse open auth frame");
+    assert_eq!(crate::Ieee80211AuthAlgorithm::OpenSystem, frame.algorithm);
     assert_eq!(2, frame.transaction);
-    assert_eq!(Nl80211EventCode::Success, frame.status);
-    assert!(frame.body.is_empty());
+    assert_eq!(Ieee80211StatusCode::Success, frame.status_code);
+    assert!(frame.remains.is_empty());
 }
 
-// Nl80211EventReason: conversion, Display / FromStr round-trip.
+// Ieee80211ReasonCode: conversion, Display / FromStr round-trip.
 #[test]
 fn test_event_reason_conversion() {
     assert_eq!(
-        Nl80211EventReason::DeauthLeaving,
-        Nl80211EventReason::from(3)
+        Ieee80211ReasonCode::DeauthLeaving,
+        Ieee80211ReasonCode::from(3)
     );
     assert_eq!(
-        Nl80211EventReason::FourWayHandshakeTimeout,
-        Nl80211EventReason::from(15)
+        Ieee80211ReasonCode::FourWayHandshakeTimeout,
+        Ieee80211ReasonCode::from(15)
     );
-    assert_eq!(Nl80211EventReason::MeshChan, Nl80211EventReason::from(66));
+    assert_eq!(Ieee80211ReasonCode::MeshChan, Ieee80211ReasonCode::from(66));
     assert_eq!(
-        Nl80211EventReason::Other(999),
-        Nl80211EventReason::from(999)
+        Ieee80211ReasonCode::Other(999),
+        Ieee80211ReasonCode::from(999)
     );
 
     for (reason, name) in [
-        (Nl80211EventReason::DeauthLeaving, "deauth_leaving"),
+        (Ieee80211ReasonCode::DeauthLeaving, "deauth_leaving"),
         (
-            Nl80211EventReason::FourWayHandshakeTimeout,
+            Ieee80211ReasonCode::FourWayHandshakeTimeout,
             "four_way_handshake_timeout",
         ),
-        (Nl80211EventReason::Ieee8021xFailed, "ieee8021x_failed"),
-        (Nl80211EventReason::Other(42), "42"),
+        (Ieee80211ReasonCode::Ieee8021xFailed, "ieee8021x_failed"),
+        (Ieee80211ReasonCode::Other(42), "42"),
     ] {
         assert_eq!(name, reason.to_string());
         assert_eq!(reason, name.parse().unwrap());
     }
-    assert_eq!(Nl80211EventReason::DeauthLeaving, "3".parse().unwrap());
-    assert!("bogus".parse::<Nl80211EventReason>().is_err());
+    assert_eq!(Ieee80211ReasonCode::DeauthLeaving, "3".parse().unwrap());
+    assert!("bogus".parse::<Ieee80211ReasonCode>().is_err());
 }
 
 // Too-short frames are rejected.
 #[test]
 fn test_parse_auth_frame_too_short() {
-    assert!(crate::Nl80211AuthFrame::parse(&[0u8; 10]).is_err());
+    assert!(crate::Ieee80211AuthFrame::parse(&[0u8; 10]).is_err());
 }
 
 fn parse_event(raw: &[u8]) -> Option<Nl80211Event> {
@@ -176,7 +178,7 @@ fn test_captured_authenticate_event() {
     ];
     match parse_event(&raw).expect("parse event") {
         Nl80211Event::Authenticated { status, frame } => {
-            assert_eq!(Nl80211EventCode::Success, status);
+            assert_eq!(Ieee80211StatusCode::Success, status);
             let frame = frame.expect("auth frame");
             assert_eq!(128, frame.len());
             // 802.11 auth frame: management subtype auth, SAE alg (3),
@@ -190,9 +192,12 @@ fn test_captured_authenticate_event() {
 
 // NL80211_CMD_ASSOCIATE event: the association response. The IEs are not in
 // an NL80211_ATTR_IE but inside the frame, after offset 30.
-#[test]
-fn test_captured_associate_event() {
-    let raw = vec![
+//
+// The captured event has no NL80211_ATTR_STATUS_CODE; the IEEE status code
+// lives at frame offset 26 (24-byte 802.11 header + capability(2)). Build the
+// same event with an arbitrary status code for the success/rejection tests.
+fn captured_associate_event_raw(status: u16) -> Vec<u8> {
+    let mut raw = vec![
         0xcc, 0x00, 0x00, 0x00, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x26, 0x01, 0x00, 0x00, 0x08, 0x00, 0x01, 0x00,
         0x12, 0x00, 0x00, 0x00, 0x08, 0x00, 0x03, 0x00, 0xd3, 0x01, 0x00, 0x00,
@@ -211,11 +216,67 @@ fn test_captured_associate_event() {
         0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f, 0x80, 0x81, 0x00, 0x82, 0x80,
         0x0c, 0x00, 0x81, 0x00, 0x05, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
+    // Frame starts at byte 40 (after the netlink/genl headers and the
+    // NL80211_ATTR_FRAME attribute header); the IEEE status code is at frame
+    // offset 26.
+    raw[40 + 26] = status as u8;
+    raw[40 + 27] = (status >> 8) as u8;
+    raw
+}
+
+/// The 802.11 (Re)Association Response frame from
+/// [`captured_associate_event_raw`], with the netlink/genl and
+/// `NL80211_ATTR_FRAME` attribute headers stripped (frame payload is 56
+/// bytes: 28 fixed + AID(2) + 26 IEs).
+fn captured_assoc_resp_frame(status: u16) -> Vec<u8> {
+    let raw = captured_associate_event_raw(status);
+    raw[40..40 + 56].to_vec()
+}
+
+#[test]
+fn test_captured_associate_event() {
+    let raw = captured_associate_event_raw(0);
     match parse_event(&raw).expect("parse event") {
         Nl80211Event::Associated { status, ies } => {
-            assert_eq!(Nl80211EventCode::Success, status);
+            assert_eq!(Ieee80211StatusCode::Success, status);
             // Supported rates IE starts the response IEs.
             let ies = ies.expect("assoc IEs");
+            assert_eq!(26, ies.len());
+            assert_eq!(&ies[0..3], &[0x01, 0x08, 0x82]);
+        }
+        other => panic!("unexpected event: {other:?}"),
+    }
+}
+
+// Ieee80211AssocRespFrame::parse: the fixed (Re)Association Response fields
+// are read from the standard frame layout instead of relying on
+// NL80211_ATTR_STATUS_CODE.
+#[test]
+fn test_parse_assoc_resp_frame() {
+    let frame =
+        crate::Ieee80211AssocRespFrame::parse(&captured_assoc_resp_frame(1))
+            .expect("parse assoc resp frame");
+    assert_eq!(
+        crate::Ieee80211CapabilityInfo::Ess
+            | crate::Ieee80211CapabilityInfo::Privacy
+            | crate::Ieee80211CapabilityInfo::ShortSlotTime,
+        frame.capability
+    );
+    assert_eq!(Ieee80211StatusCode::UnspecifiedFailure, frame.status_code);
+    // remains = AID(2) followed by the response IEs.
+    assert_eq!(28, frame.remains.len());
+    assert_eq!(&frame.remains[2..5], &[0x01, 0x08, 0x82]);
+}
+
+// NL80211_CMD_ASSOCIATE event carrying a rejected (Re)Association Response:
+// status code 1 must be surfaced instead of defaulting to Success.
+#[test]
+fn test_captured_rejected_associate_event() {
+    let raw = captured_associate_event_raw(1);
+    match parse_event(&raw).expect("parse event") {
+        Nl80211Event::Associated { status, ies } => {
+            assert_eq!(Ieee80211StatusCode::UnspecifiedFailure, status);
+            let ies = ies.expect("rejected assoc response IEs");
             assert_eq!(26, ies.len());
             assert_eq!(&ies[0..3], &[0x01, 0x08, 0x82]);
         }
@@ -246,7 +307,7 @@ fn test_captured_connect_result_event() {
     ];
     assert_eq!(
         Nl80211Event::ConnectResult {
-            status: Nl80211EventCode::Success,
+            status: Ieee80211StatusCode::Success,
         },
         parse_event(&raw).expect("parse event")
     );
@@ -263,7 +324,7 @@ fn test_captured_disconnect_event() {
     ];
     assert_eq!(
         Nl80211Event::Disconnect {
-            reason: Nl80211EventReason::DeauthLeaving,
+            reason: Ieee80211ReasonCode::DeauthLeaving,
         },
         parse_event(&raw).expect("parse event")
     );
@@ -286,7 +347,7 @@ fn test_captured_deauthenticated_event() {
     ];
     assert_eq!(
         Nl80211Event::Deauthenticated {
-            reason: Nl80211EventReason::PrevAuthNotValid,
+            reason: Ieee80211ReasonCode::PrevAuthNotValid,
         },
         parse_event(&raw).expect("parse event")
     );
@@ -307,7 +368,7 @@ fn test_captured_disassociated_event() {
     ];
     assert_eq!(
         Nl80211Event::Disassociated {
-            reason: Nl80211EventReason::PrevAuthNotValid,
+            reason: Ieee80211ReasonCode::PrevAuthNotValid,
         },
         parse_event(&raw).expect("parse event")
     );
