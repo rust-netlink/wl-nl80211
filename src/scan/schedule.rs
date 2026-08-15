@@ -10,6 +10,7 @@ use netlink_packet_core::{
 };
 use netlink_packet_generic::GenlMessage;
 
+use crate::mac::ETH_ALEN;
 use crate::{
     bytes::{write_i32, write_u32},
     nl80211_execute, Nl80211Attr, Nl80211Command, Nl80211Error, Nl80211Handle,
@@ -81,8 +82,6 @@ impl Nl80211ScanScheduleStopRequest {
         nl80211_execute(&mut handle, nl80211_msg, flags).await
     }
 }
-
-const ETH_ALEN: usize = 6;
 
 const NL80211_SCHED_SCAN_MATCH_ATTR_SSID: u16 = 1;
 const NL80211_SCHED_SCAN_MATCH_ATTR_RSSI: u16 = 2;

@@ -38,6 +38,7 @@ use netlink_packet_core::{
 };
 
 use crate::bytes::{write_i32, write_u16, write_u32, write_u64};
+use crate::mac::ETH_ALEN;
 use crate::Ieee80211CapabilityInfo;
 
 bitflags::bitflags! {
@@ -72,8 +73,6 @@ impl Emitable for Nl80211BssUseFor {
         buffer.copy_from_slice(&self.bits().to_ne_bytes())
     }
 }
-
-const ETH_ALEN: usize = 6;
 
 const NL80211_BSS_BSSID: u16 = 1;
 const NL80211_BSS_FREQUENCY: u16 = 2;

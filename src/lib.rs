@@ -6,6 +6,7 @@ mod channel;
 mod command;
 mod connect;
 mod connection;
+mod cqm;
 mod element;
 mod error;
 mod event;
@@ -18,6 +19,7 @@ mod handle;
 mod iface;
 mod key;
 mod key_request;
+mod mac;
 mod macros;
 mod message;
 mod mlo;
@@ -66,6 +68,10 @@ pub use self::connection::new_connection_with_socket;
 pub use self::connection::new_multicast_connection;
 pub use self::connection::new_multicast_connection_with_socket;
 pub use self::connection::Nl80211MulticastGroup;
+pub use self::cqm::{
+    Nl80211Cqm, Nl80211CqmAttr, Nl80211CqmRequest, Nl80211CqmRssiEvent,
+    Nl80211CqmRssiThresholdEvent,
+};
 pub use self::element::{
     Ieee80211AkmSuite, Ieee80211CipherSuite, Ieee80211Element,
     Ieee80211ElementCountryEnvironment, Ieee80211ElementCountryTriplet,

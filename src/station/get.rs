@@ -4,12 +4,11 @@ use futures::TryStream;
 use netlink_packet_core::{NLM_F_DUMP, NLM_F_REQUEST};
 use netlink_packet_generic::GenlMessage;
 
+use crate::mac::ETH_ALEN;
 use crate::{
     nl80211_execute, Nl80211Attr, Nl80211Command, Nl80211Error, Nl80211Handle,
     Nl80211Message,
 };
-
-const ETH_ALEN: usize = 6;
 
 pub struct Nl80211StationGetRequest {
     handle: Nl80211Handle,
