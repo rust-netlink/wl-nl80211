@@ -11,7 +11,7 @@ use netlink_packet_core::DecodeError;
 /// by the IEEE standard.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
-pub enum Nl80211EventCode {
+pub enum Ieee80211StatusCode {
     /// IEEE 802.11 status code 0.
     Success,
     /// IEEE 802.11 status code 1.
@@ -379,7 +379,7 @@ const IEEE_OCI_MISMATCH: u16 = 138;
 const IEEE_GAS_QUERY_REQUEST_TOO_LARGE: u16 = 143;
 const IEEE_8021X_AUTH_SUCCESS: u16 = 153;
 
-impl From<u16> for Nl80211EventCode {
+impl From<u16> for Ieee80211StatusCode {
     fn from(v: u16) -> Self {
         match v {
             IEEE_SUCCESS => Self::Success,
@@ -575,7 +575,7 @@ impl From<u16> for Nl80211EventCode {
     }
 }
 
-impl std::fmt::Display for Nl80211EventCode {
+impl std::fmt::Display for Ieee80211StatusCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Success => f.write_str("success"),
@@ -837,7 +837,7 @@ impl std::fmt::Display for Nl80211EventCode {
     }
 }
 
-impl std::str::FromStr for Nl80211EventCode {
+impl std::str::FromStr for Ieee80211StatusCode {
     type Err = DecodeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -1048,7 +1048,7 @@ impl std::str::FromStr for Nl80211EventCode {
 /// by the IEEE standard.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
-pub enum Nl80211EventReason {
+pub enum Ieee80211ReasonCode {
     /// IEEE 802.11 reason code 1.
     Unspecified,
     /// IEEE 802.11 reason code 2.
@@ -1251,7 +1251,7 @@ const IEEE_ALTERNATIVE_CHANNEL_OCCUPIED: u16 = 68;
 const IEEE_TIME_SYNC_LOST: u16 = 69;
 const IEEE_POOR_RSSI_CONDITIONS: u16 = 71;
 
-impl From<u16> for Nl80211EventReason {
+impl From<u16> for Ieee80211ReasonCode {
     fn from(v: u16) -> Self {
         match v {
             IEEE_UNSPECIFIED_REASON => Self::Unspecified,
@@ -1338,7 +1338,7 @@ impl From<u16> for Nl80211EventReason {
     }
 }
 
-impl std::fmt::Display for Nl80211EventReason {
+impl std::fmt::Display for Ieee80211ReasonCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unspecified => f.write_str("unspecified"),
@@ -1453,7 +1453,7 @@ impl std::fmt::Display for Nl80211EventReason {
     }
 }
 
-impl std::str::FromStr for Nl80211EventReason {
+impl std::str::FromStr for Ieee80211ReasonCode {
     type Err = DecodeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {

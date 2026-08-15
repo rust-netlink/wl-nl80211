@@ -3,10 +3,10 @@
 use genetlink::message::RawGenlMessage;
 use netlink_packet_core::{NetlinkMessage, NetlinkPayload};
 
-use crate::event_status::{Nl80211EventCode, Nl80211EventReason};
+use crate::event_status::{Ieee80211ReasonCode, Ieee80211StatusCode};
 use crate::{
-    Nl80211Attr, Nl80211AuthFrame, Nl80211Command, Nl80211Message,
-    Nl80211WowlanTriggersSupport, Nl80211WowlanWakeup,
+    Ieee80211AssocRespFrame, Ieee80211AuthFrame, Nl80211Attr, Nl80211Command,
+    Nl80211Message, Nl80211WowlanTriggersSupport, Nl80211WowlanWakeup,
 };
 
 /// A multicast nl80211 event received from the kernel, e.g. on the `mlme`,
@@ -15,31 +15,31 @@ use crate::{
 #[non_exhaustive]
 pub enum Nl80211Event {
     /// `NL80211_CMD_AUTHENTICATE` event: the authentication result. `status`
-    /// is [`Nl80211EventCode`]; `frame` is the full 802.11 authentication
+    /// is [`Ieee80211StatusCode`]; `frame` is the full 802.11 authentication
     /// frame when the kernel delivered one (SAE exchanges).
     Authenticated {
-        status: Nl80211EventCode,
+        status: Ieee80211StatusCode,
         frame: Option<Vec<u8>>,
     },
     /// `NL80211_CMD_ASSOCIATE` event: the association result. `ies` are the
     /// information elements from the Association Response frame (they carry
     /// e.g. the AP's OWE DH Parameter Element for OWE networks).
     Associated {
-        status: Nl80211EventCode,
+        status: Ieee80211StatusCode,
         ies: Option<Vec<u8>>,
     },
     /// `NL80211_CMD_CONNECT` event: the connection result.
-    ConnectResult { status: Nl80211EventCode },
+    ConnectResult { status: Ieee80211StatusCode },
     /// `NL80211_CMD_DISCONNECT` event: the IEEE 802.11 reason code.
-    Disconnect { reason: Nl80211EventReason },
+    Disconnect { reason: Ieee80211ReasonCode },
     /// `NL80211_CMD_DEAUTHENTICATE` event: the AP deauthenticated the STA;
     /// `reason` is the IEEE 802.11 reason code (e.g. 2
     /// `PrevAuthNotValid` / 23 `Ieee8021xFailed` indicate a fatal
     /// credential problem, anything else is transient).
-    Deauthenticated { reason: Nl80211EventReason },
+    Deauthenticated { reason: Ieee80211ReasonCode },
     /// `NL80211_CMD_DISASSOCIATE` event: the AP disassociated the STA;
     /// `reason` is the IEEE 802.11 reason code.
-    Disassociated { reason: Nl80211EventReason },
+    Disassociated { reason: Ieee80211ReasonCode },
     /// `NL80211_CMD_FRAME` event: a received management frame the socket
     /// registered for.
     Frame { frame: Vec<u8> },
@@ -190,10 +190,10 @@ fn attr_reason(msg: &Nl80211Message) -> u16 {
 /// `NL80211_ATTR_FRAME` and no `NL80211_ATTR_REASON_CODE`; the reason
 /// code sits at offset 24-25 of the frame (after the 24-byte 802.11
 /// header).
-fn attr_frame_reason(msg: &Nl80211Message) -> Option<Nl80211EventReason> {
+fn attr_frame_reason(msg: &Nl80211Message) -> Option<Ieee80211ReasonCode> {
     msg.attributes.iter().find_map(|attr| match attr {
         Nl80211Attr::Frame(frame) if frame.len() >= 26 => {
-            Some(Nl80211EventReason::from(u16::from_le_bytes([
+            Some(Ieee80211ReasonCode::from(u16::from_le_bytes([
                 frame[24], frame[25],
             ])))
         }
@@ -267,16 +267,16 @@ fn attr_ie(msg: &Nl80211Message) -> Option<Vec<u8>> {
 }
 
 fn parse_authenticate(msg: &Nl80211Message) -> Nl80211Event {
-    let mut status = Nl80211EventCode::from(attr_status(msg));
+    let mut status = Ieee80211StatusCode::from(attr_status(msg));
     let frame = attr_frame(msg);
 
     // The kernel may deliver the authentication result without a
     // NL80211_ATTR_STATUS_CODE, relying on the status code inside the
     // 802.11 authentication frame.
-    if status == Nl80211EventCode::Success {
+    if status == Ieee80211StatusCode::Success {
         if let Some(ref frame) = frame {
-            if let Ok(auth_frame) = Nl80211AuthFrame::parse(frame) {
-                status = auth_frame.status;
+            if let Ok(auth_frame) = Ieee80211AuthFrame::parse(frame) {
+                status = auth_frame.status_code;
             }
         }
     }
@@ -285,22 +285,30 @@ fn parse_authenticate(msg: &Nl80211Message) -> Nl80211Event {
 }
 
 fn parse_associate(msg: &Nl80211Message) -> Nl80211Event {
-    let status = attr_status(msg);
-    let mut ies = attr_ie(msg);
+    // mac80211/cfg80211 deliver the (Re)Association Response as a full
+    // management frame in NL80211_ATTR_FRAME, without
+    // NL80211_ATTR_STATUS_CODE. Parse the standard frame layout for the
+    // status code and the response IEs.
+    let assoc_frame = attr_frame(msg)
+        .and_then(|frame| Ieee80211AssocRespFrame::parse(&frame).ok());
 
-    // When the kernel omits NL80211_ATTR_IE, the IEs are inside the full
-    // association response frame, starting after the 24-byte 802.11 header +
-    // capability(2) + status(2) + AID(2) = offset 30.
-    if ies.is_none() {
-        if let Some(frame) = attr_frame(msg) {
-            if frame.len() > 30 {
-                ies = Some(frame[30..].to_vec());
-            }
-        }
-    }
+    let status = assoc_frame
+        .as_ref()
+        .map(|frame| frame.status_code)
+        .or_else(|| {
+            msg.attributes.iter().find_map(|attr| match attr {
+                Nl80211Attr::StatusCode(code) => Some((*code).into()),
+                _ => None,
+            })
+        })
+        .unwrap_or(Ieee80211StatusCode::Success);
+    // The parsed frame body keeps AID(2) + IEs as `remains`; the event's
+    // IEs start after the AID.
+    let ies = attr_ie(msg).or_else(|| {
+        assoc_frame
+            .as_ref()
+            .map(|frame| frame.remains.get(2..).unwrap_or_default().to_vec())
+    });
 
-    Nl80211Event::Associated {
-        status: status.into(),
-        ies,
-    }
+    Nl80211Event::Associated { status, ies }
 }
