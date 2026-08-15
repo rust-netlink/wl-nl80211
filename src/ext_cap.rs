@@ -8,18 +8,18 @@ use netlink_packet_core::{
 use crate::Nl80211Attr;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Nl80211ExtendedCapability(pub Vec<u8>);
+pub struct Ieee80211ExtendedCapability(pub Vec<u8>);
 
 //TODO: 802.11-2020 section `9.4.2.26 Extended Capabilities element` has
 //      definition on every bit, we can expose getter and setter function
 //      when required.
-impl Nl80211ExtendedCapability {
+impl Ieee80211ExtendedCapability {
     pub fn new(payload: &[u8]) -> Self {
         Self(payload.to_vec())
     }
 }
 
-impl Emitable for Nl80211ExtendedCapability {
+impl Emitable for Ieee80211ExtendedCapability {
     fn buffer_len(&self) -> usize {
         self.0.len()
     }
@@ -36,7 +36,7 @@ impl Emitable for Nl80211ExtendedCapability {
     }
 }
 
-impl std::ops::Deref for Nl80211ExtendedCapability {
+impl std::ops::Deref for Ieee80211ExtendedCapability {
     type Target = Vec<u8>;
 
     fn deref(&self) -> &Self::Target {

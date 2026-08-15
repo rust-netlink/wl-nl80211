@@ -67,23 +67,24 @@ pub use self::connection::new_multicast_connection;
 pub use self::connection::new_multicast_connection_with_socket;
 pub use self::connection::Nl80211MulticastGroup;
 pub use self::element::{
-    Nl80211AkmSuite, Nl80211CipherSuite, Nl80211Element,
-    Nl80211ElementCountryEnvironment, Nl80211ElementCountryTriplet,
-    Nl80211ElementRsn, Nl80211ElementRsnExt, Nl80211Elements, Nl80211Pmkid,
-    Nl80211RateAndSelector, Nl80211RsnCapbilities, Nl80211RsnExtCapbilities,
+    Ieee80211AkmSuite, Ieee80211CipherSuite, Ieee80211Element,
+    Ieee80211ElementCountryEnvironment, Ieee80211ElementCountryTriplet,
+    Ieee80211ElementRsn, Ieee80211ElementRsnExt, Ieee80211Elements,
+    Ieee80211Pmkid, Ieee80211RateAndSelector, Ieee80211RsnCapbilities,
+    Ieee80211RsnExtCapbilities,
 };
 pub use self::error::Nl80211Error;
 pub use self::event::Nl80211Event;
 pub use self::event_status::{Ieee80211ReasonCode, Ieee80211StatusCode};
 pub use self::ext_cap::{
-    Nl80211ExtendedCapability, Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas,
+    Ieee80211ExtendedCapability, Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas,
 };
 pub use self::feature::{Nl80211ExtFeature, Nl80211Features};
 pub use self::frame::{
     Ieee80211AssocRespFrame, Ieee80211AuthAlgorithm, Ieee80211AuthFrame,
     Ieee80211CapabilityInfo,
 };
-pub use self::frame_type::{Nl80211FrameType, Nl80211IfaceFrameType};
+pub use self::frame_type::{Ieee80211FrameType, Nl80211IfaceFrameType};
 pub use self::handle::Nl80211Handle;
 pub use self::iface::{
     Nl80211IfaceComb, Nl80211IfaceCombAttribute, Nl80211IfaceCombLimit,
@@ -102,11 +103,11 @@ pub use self::rekey_request::{
     Nl80211RekeyOffload, Nl80211RekeyOffloadRequest,
 };
 pub use self::scan::{
-    Nl80211BssCapabilities, Nl80211BssInfo, Nl80211BssUseFor, Nl80211Scan,
-    Nl80211ScanFlags, Nl80211ScanGetRequest, Nl80211ScanHandle,
-    Nl80211ScanScheduleRequest, Nl80211ScanScheduleStopRequest,
-    Nl80211ScanTriggerRequest, Nl80211SchedScanMatch,
-    Nl80211SchedScanMatchAttr, Nl80211SchedScanPlan, Nl80211SchedScanPlanAttr,
+    Nl80211BssInfo, Nl80211BssUseFor, Nl80211Scan, Nl80211ScanFlags,
+    Nl80211ScanGetRequest, Nl80211ScanHandle, Nl80211ScanScheduleRequest,
+    Nl80211ScanScheduleStopRequest, Nl80211ScanTriggerRequest,
+    Nl80211SchedScanMatch, Nl80211SchedScanMatchAttr, Nl80211SchedScanPlan,
+    Nl80211SchedScanPlanAttr,
 };
 pub use self::station::{
     Nl80211EhtGi, Nl80211EhtRuAllocation, Nl80211HeGi, Nl80211HeRuAllocation,
@@ -122,31 +123,31 @@ pub use self::survey::{
     Nl80211SurveyInfo,
 };
 pub use self::wifi4::{
-    Nl80211ElementHtCap, Nl80211HtAMpduPara, Nl80211HtAselCaps,
-    Nl80211HtCapabilityMask, Nl80211HtCaps, Nl80211HtExtendedCap,
-    Nl80211HtMcsInfo, Nl80211HtTransmitBeamformingCaps, Nl80211HtTxParameter,
-    Nl80211HtWiphyChannelType,
+    Ieee80211ElementHtCap, Ieee80211HtAMpduPara, Ieee80211HtAselCaps,
+    Ieee80211HtCapabilityMask, Ieee80211HtCaps, Ieee80211HtExtendedCap,
+    Ieee80211HtMcsInfo, Ieee80211HtTransmitBeamformingCaps,
+    Ieee80211HtTxParameter, Nl80211HtWiphyChannelType,
 };
 pub use self::wifi5::{
-    Nl80211ElementVhtCap, Nl80211VhtCapInfo, Nl80211VhtCapability,
-    Nl80211VhtMcsInfo,
+    Ieee80211ElementVhtCap, Ieee80211VhtCapInfo, Ieee80211VhtCapability,
+    Ieee80211VhtMcsInfo,
 };
 pub use self::wifi6::{
-    Nl80211ElementHeCap, Nl80211He6GhzCapa, Nl80211HeMacCapInfo,
-    Nl80211HeMcsNssSupp, Nl80211HePhyCapInfo, Nl80211HePpeThreshold,
+    Ieee80211ElementHeCap, Ieee80211He6GhzCapa, Ieee80211HeMacCapInfo,
+    Ieee80211HeMcsNssSupp, Ieee80211HePhyCapInfo, Ieee80211HePpeThreshold,
 };
 pub use self::wifi7::{
-    Nl80211EhtMacCapInfo, Nl80211EhtMcsNssSupp,
-    Nl80211EhtMcsNssSuppMoreThan20Mhz, Nl80211EhtMcsNssSuppOnly20Mhz,
-    Nl80211EhtPhyCapInfo, Nl80211EhtPpeThres,
+    Ieee80211EhtMacCapInfo, Ieee80211EhtMcsNssSupp,
+    Ieee80211EhtMcsNssSuppMoreThan20Mhz, Ieee80211EhtMcsNssSuppOnly20Mhz,
+    Ieee80211EhtPhyCapInfo, Ieee80211EhtPpeThres,
 };
 pub use self::wiphy::{
     Nl80211Band, Nl80211BandIftypeData, Nl80211BandInfo, Nl80211BandType,
     Nl80211BandTypes, Nl80211Channel, Nl80211ChannelSwitchRequest,
-    Nl80211CipherSuit, Nl80211Frequency, Nl80211FrequencyInfo, Nl80211IfMode,
-    Nl80211Rate, Nl80211WiphyGetRequest, Nl80211WiphyHandle,
-    Nl80211WowlanTcpTriggerSupport, Nl80211WowlanTriggerPatternSupport,
-    Nl80211WowlanTriggersSupport, Nl80211WowlanWakeup,
+    Nl80211Frequency, Nl80211FrequencyInfo, Nl80211IfMode, Nl80211Rate,
+    Nl80211WiphyGetRequest, Nl80211WiphyHandle, Nl80211WowlanTcpTriggerSupport,
+    Nl80211WowlanTriggerPatternSupport, Nl80211WowlanTriggersSupport,
+    Nl80211WowlanWakeup,
 };
 pub use self::wowlan_request::{Nl80211Wowlan, Nl80211WowlanRequest};
 

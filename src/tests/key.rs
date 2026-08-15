@@ -13,7 +13,7 @@ use netlink_packet_core::{
 };
 
 use crate::{
-    Nl80211Attr, Nl80211CipherSuite, Nl80211Command, Nl80211Key,
+    Ieee80211CipherSuite, Nl80211Attr, Nl80211Command, Nl80211Key,
     Nl80211KeyAttr, Nl80211KeyDefaultType, Nl80211KeyType, Nl80211Message,
 };
 
@@ -195,7 +195,7 @@ fn test_captured_new_key_message_pairwise() {
             0xa9, 0x56, 0xa7, 0xe6, 0x51,
         ])
         .key_index(0)
-        .cipher(Nl80211CipherSuite::Ccmp128)
+        .cipher(Ieee80211CipherSuite::Ccmp128)
         .seq(vec![0u8; 6])
         .build();
     assert_eq!(&raw[20..], emit_new_key_attributes(attributes));
@@ -221,7 +221,7 @@ fn test_captured_new_key_message_group() {
             0x31, 0x1e, 0x68, 0x2d, 0xf8,
         ])
         .key_index(1)
-        .cipher(Nl80211CipherSuite::Ccmp128)
+        .cipher(Ieee80211CipherSuite::Ccmp128)
         .seq(vec![0u8; 6])
         .build();
     assert_eq!(&raw[20..], emit_new_key_attributes(attributes));

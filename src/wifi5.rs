@@ -2,9 +2,7 @@
 
 // Hold WIFI 5(802.11ac) specific data types
 
-use netlink_packet_core::{
-    parse_u32, DecodeError, Emitable, ErrorContext, Parseable,
-};
+use netlink_packet_core::{DecodeError, Emitable, Parseable};
 
 use crate::bytes::write_u16_le;
 
@@ -14,20 +12,20 @@ const NL80211_BAND_VHT_MCS_INFO_LEN: usize = 8;
 // The `buffer!` does not support little endian yet.
 /// IEEE 802-11 2020: 9.4.2.157.3 Supported VHT-MCS and NSS Set field
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Nl80211VhtMcsInfo {
+pub struct Ieee80211VhtMcsInfo {
     pub rx_mcs_map: u16,
     pub rx_highest: u16,
     pub tx_mcs_map: u16,
     pub tx_highest: u16,
 }
 
-impl Nl80211VhtMcsInfo {
+impl Ieee80211VhtMcsInfo {
     // `struct ieee80211_vht_mcs_info`
-    // Kernel document confirmed this is 32 bytes
+    // Kernel document confirmed this is 8 bytes
     pub const LENGTH: usize = NL80211_BAND_VHT_MCS_INFO_LEN;
 }
 
-impl Emitable for Nl80211VhtMcsInfo {
+impl Emitable for Ieee80211VhtMcsInfo {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
@@ -47,7 +45,7 @@ impl Emitable for Nl80211VhtMcsInfo {
     }
 }
 
-impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211VhtMcsInfo {
+impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211VhtMcsInfo {
     fn parse(buf: &T) -> Result<Self, DecodeError> {
         let buf: &[u8] = buf.as_ref();
         if buf.len() < NL80211_BAND_VHT_MCS_INFO_LEN {
@@ -109,7 +107,7 @@ bitflags::bitflags! {
     /// IEEE 802-11 2020: 9.4.2.157.2 VHT Capabilities Information field
     #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
     #[non_exhaustive]
-    pub struct Nl80211VhtCapInfo: u32 {
+    pub struct Ieee80211VhtCapInfo: u32 {
         const MaxMpduLength3895 = IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_3895;
         const MaxMpduLength7991 = IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_7991;
         const MaxMpduLength11454 = IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454;
@@ -148,42 +146,47 @@ bitflags::bitflags! {
     }
 }
 
-impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211VhtCapInfo {
+impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211VhtCapInfo {
     fn parse(buf: &T) -> Result<Self, DecodeError> {
         let buf: &[u8] = buf.as_ref();
-        Ok(Self::from_bits_retain(parse_u32(buf).context(format!(
-            "Invalid Nl80211VhtCapInfo payload {buf:?}"
-        ))?))
+        if buf.len() < Self::LENGTH {
+            return Err(
+                format!("Invalid Ieee80211VhtCapInfo payload {buf:?}").into()
+            );
+        }
+        Ok(Self::from_bits_retain(u32::from_le_bytes([
+            buf[0], buf[1], buf[2], buf[3],
+        ])))
     }
 }
 
-impl Nl80211VhtCapInfo {
+impl Ieee80211VhtCapInfo {
     pub const LENGTH: usize = 4;
 }
 
-impl Emitable for Nl80211VhtCapInfo {
+impl Emitable for Ieee80211VhtCapInfo {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
 
     fn emit(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&self.bits().to_ne_bytes())
+        buffer.copy_from_slice(&self.bits().to_le_bytes())
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Nl80211VhtCapability {
-    pub cap_info: Nl80211VhtCapInfo,
-    pub mcs_info: Nl80211VhtMcsInfo,
+pub struct Ieee80211VhtCapability {
+    pub cap_info: Ieee80211VhtCapInfo,
+    pub mcs_info: Ieee80211VhtMcsInfo,
 }
 
 // TODO: Please add getter and setter function according to
 //       802.11ac-2013 section '8.4.2.160 VHT Capabilities element'
-impl Nl80211VhtCapability {
+impl Ieee80211VhtCapability {
     pub const LENGTH: usize = 12;
 }
 
-impl Emitable for Nl80211VhtCapability {
+impl Emitable for Ieee80211VhtCapability {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
@@ -197,17 +200,19 @@ impl Emitable for Nl80211VhtCapability {
             );
             return;
         }
-        self.cap_info.emit(&mut buffer[..Nl80211VhtCapInfo::LENGTH]);
-        self.mcs_info.emit(&mut buffer[Nl80211VhtCapInfo::LENGTH..]);
+        self.cap_info
+            .emit(&mut buffer[..Ieee80211VhtCapInfo::LENGTH]);
+        self.mcs_info
+            .emit(&mut buffer[Ieee80211VhtCapInfo::LENGTH..]);
     }
 }
 
-impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211VhtCapability {
+impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211VhtCapability {
     fn parse(buf: &T) -> Result<Self, DecodeError> {
         let buf: &[u8] = buf.as_ref();
         if buf.len() < Self::LENGTH {
             Err(format!(
-                "Invalid length of payload for Nl80211VhtCapability, \
+                "Invalid length of payload for Ieee80211VhtCapability, \
                 expecting {}, but got {}",
                 Self::LENGTH,
                 buf.len()
@@ -215,11 +220,11 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211VhtCapability {
             .into())
         } else {
             Ok(Self {
-                cap_info: Nl80211VhtCapInfo::parse(
-                    &buf[..Nl80211VhtCapInfo::LENGTH],
+                cap_info: Ieee80211VhtCapInfo::parse(
+                    &buf[..Ieee80211VhtCapInfo::LENGTH],
                 )?,
-                mcs_info: Nl80211VhtMcsInfo::parse(
-                    &buf[Nl80211VhtCapInfo::LENGTH..],
+                mcs_info: Ieee80211VhtMcsInfo::parse(
+                    &buf[Ieee80211VhtCapInfo::LENGTH..],
                 )?,
             })
         }
@@ -228,38 +233,38 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211VhtCapability {
 
 /// IEEE 802-11 2020: 9.4.2.157 VHT Capabilities element
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Nl80211ElementVhtCap {
+pub struct Ieee80211ElementVhtCap {
     /// Vht Capabilities Info
-    pub caps: Nl80211VhtCapInfo,
+    pub caps: Ieee80211VhtCapInfo,
     /// Supported VHT-MCS and NSS Set
-    pub mcs_nss_set: Nl80211VhtMcsInfo,
+    pub mcs_nss_set: Ieee80211VhtMcsInfo,
 }
 
-impl Nl80211ElementVhtCap {
+impl Ieee80211ElementVhtCap {
     // Hard coded by IEEE 802.11-2020: 9.4.2.157
     pub const LENGTH: usize = 12;
 
     pub fn parse(buf: &[u8]) -> Result<Self, DecodeError> {
         if buf.len() < Self::LENGTH {
             return Err(format!(
-                "Nl80211ElementVhtCap buffer size is smaller than \
+                "Ieee80211ElementVhtCap buffer size is smaller than \
                 required size {}: {buf:?}",
                 Self::LENGTH
             )
             .into());
         }
         let mut offset = 0;
-        let caps = Nl80211VhtCapInfo::parse(
-            &buf[offset..offset + Nl80211VhtCapInfo::LENGTH],
+        let caps = Ieee80211VhtCapInfo::parse(
+            &buf[offset..offset + Ieee80211VhtCapInfo::LENGTH],
         )?;
-        offset += Nl80211VhtCapInfo::LENGTH;
+        offset += Ieee80211VhtCapInfo::LENGTH;
 
-        let mcs_nss_set = Nl80211VhtMcsInfo::parse(&buf[offset..])?;
+        let mcs_nss_set = Ieee80211VhtMcsInfo::parse(&buf[offset..])?;
         Ok(Self { caps, mcs_nss_set })
     }
 }
 
-impl Emitable for Nl80211ElementVhtCap {
+impl Emitable for Ieee80211ElementVhtCap {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
@@ -267,7 +272,7 @@ impl Emitable for Nl80211ElementVhtCap {
     fn emit(&self, buffer: &mut [u8]) {
         if buffer.len() < Self::LENGTH {
             log::error!(
-                "Nl80211ElementVhtCap buffer size is smaller than \
+                "Ieee80211ElementVhtCap buffer size is smaller than \
                 required size {}: {buffer:?}",
                 Self::LENGTH
             );
@@ -275,7 +280,7 @@ impl Emitable for Nl80211ElementVhtCap {
         }
         let mut offset = 0;
         self.caps.emit(&mut buffer[offset..]);
-        offset += Nl80211VhtCapInfo::LENGTH;
+        offset += Ieee80211VhtCapInfo::LENGTH;
         self.mcs_nss_set.emit(&mut buffer[offset..]);
     }
 }

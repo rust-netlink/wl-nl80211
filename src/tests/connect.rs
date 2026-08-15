@@ -10,9 +10,9 @@
 use netlink_packet_core::{Emitable, NlaBuffer, Parseable};
 
 use crate::{
-    Nl80211AkmSuite, Nl80211Attr, Nl80211AuthType, Nl80211CipherSuite,
-    Nl80211Element, Nl80211ElementRsn, Nl80211Elements, Nl80211RsnCapbilities,
-    Nl80211UseMfp, Nl80211WpaVersions,
+    Ieee80211AkmSuite, Ieee80211CipherSuite, Ieee80211Element,
+    Ieee80211ElementRsn, Ieee80211Elements, Ieee80211RsnCapbilities,
+    Nl80211Attr, Nl80211AuthType, Nl80211UseMfp, Nl80211WpaVersions,
 };
 
 // NL80211_ATTR_AUTH_TYPE = NL80211_AUTHTYPE_SAE (from CMD_AUTHENTICATE).
@@ -48,7 +48,7 @@ fn test_captured_wpa_versions() {
 fn test_captured_ciphers_pairwise() {
     let raw = vec![0x08, 0x00, 0x49, 0x00, 0x04, 0xac, 0x0f, 0x00];
     let expected =
-        Nl80211Attr::CiphersPairwise(vec![Nl80211CipherSuite::Ccmp128]);
+        Nl80211Attr::CiphersPairwise(vec![Ieee80211CipherSuite::Ccmp128]);
     assert_eq!(
         expected,
         Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
@@ -62,7 +62,7 @@ fn test_captured_ciphers_pairwise() {
 #[test]
 fn test_captured_cipher_group() {
     let raw = vec![0x08, 0x00, 0x4a, 0x00, 0x04, 0xac, 0x0f, 0x00];
-    let expected = Nl80211Attr::CipherGroup(Nl80211CipherSuite::Ccmp128);
+    let expected = Nl80211Attr::CipherGroup(Ieee80211CipherSuite::Ccmp128);
     assert_eq!(
         expected,
         Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
@@ -76,7 +76,7 @@ fn test_captured_cipher_group() {
 #[test]
 fn test_captured_akm_suites() {
     let raw = vec![0x08, 0x00, 0x4c, 0x00, 0x08, 0xac, 0x0f, 0x00];
-    let expected = Nl80211Attr::AkmSuites(vec![Nl80211AkmSuite::Sae]);
+    let expected = Nl80211Attr::AkmSuites(vec![Ieee80211AkmSuite::Sae]);
     assert_eq!(
         expected,
         Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
@@ -144,7 +144,7 @@ fn test_captured_status_code() {
 
 // NL80211_ATTR_IE value from the association request: the RSN information
 // element (plus extended capabilities and supported operating classes) that
-// wpa_supplicant inserts. Parsed with `Nl80211Elements::parse()`.
+// wpa_supplicant inserts. Parsed with `Ieee80211Elements::parse()`.
 #[test]
 fn test_captured_ie_rsn() {
     let raw = vec![
@@ -155,20 +155,20 @@ fn test_captured_ie_rsn() {
         0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f,
         0x80, 0x81, 0x00, 0x82, 0x80,
     ];
-    let expected = Nl80211Elements(vec![
-        Nl80211Element::Rsn(Nl80211ElementRsn {
+    let expected = Ieee80211Elements(vec![
+        Ieee80211Element::Rsn(Ieee80211ElementRsn {
             version: 1,
-            group_cipher: Some(Nl80211CipherSuite::Ccmp128),
-            pairwise_ciphers: vec![Nl80211CipherSuite::Ccmp128],
-            akm_suits: vec![Nl80211AkmSuite::Sae],
+            group_cipher: Some(Ieee80211CipherSuite::Ccmp128),
+            pairwise_ciphers: vec![Ieee80211CipherSuite::Ccmp128],
+            akm_suits: vec![Ieee80211AkmSuite::Sae],
             rsn_capbilities: Some(
-                Nl80211RsnCapbilities::Mfpr | Nl80211RsnCapbilities::Mfpc,
+                Ieee80211RsnCapbilities::Mfpr | Ieee80211RsnCapbilities::Mfpc,
             ),
             pmkids: vec![],
-            group_mgmt_cipher: Some(Nl80211CipherSuite::BipCmac128),
+            group_mgmt_cipher: Some(Ieee80211CipherSuite::BipCmac128),
         }),
-        Nl80211Element::Other(127, vec![4, 0, 74, 2, 1, 64, 0, 64, 0, 1]),
-        Nl80211Element::Other(
+        Ieee80211Element::Other(127, vec![4, 0, 74, 2, 1, 64, 0, 64, 0, 1]),
+        Ieee80211Element::Other(
             59,
             vec![
                 81, 81, 82, 83, 84, 115, 116, 117, 118, 119, 120, 121, 122,
@@ -176,7 +176,7 @@ fn test_captured_ie_rsn() {
             ],
         ),
     ]);
-    assert_eq!(expected, Nl80211Elements::parse(&raw).unwrap());
+    assert_eq!(expected, Ieee80211Elements::parse(&raw).unwrap());
     let mut buf = vec![0; expected.buffer_len()];
     expected.emit(&mut buf);
     assert_eq!(buf, raw);

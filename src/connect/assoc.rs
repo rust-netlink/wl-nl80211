@@ -5,8 +5,8 @@ use netlink_packet_core::{EthernetProtocol, Nla, NLM_F_ACK, NLM_F_REQUEST};
 use netlink_packet_generic::GenlMessage;
 
 use crate::{
-    nl80211_execute, Nl80211AkmSuite, Nl80211Attr, Nl80211AttrsBuilder,
-    Nl80211CipherSuite, Nl80211Command, Nl80211Error, Nl80211Handle,
+    nl80211_execute, Ieee80211AkmSuite, Ieee80211CipherSuite, Nl80211Attr,
+    Nl80211AttrsBuilder, Nl80211Command, Nl80211Error, Nl80211Handle,
     Nl80211Message, Nl80211UseMfp, Nl80211WpaVersions,
 };
 
@@ -56,17 +56,17 @@ impl Nl80211AttrsBuilder<Nl80211Associate> {
     }
 
     /// Unicast (pairwise) cipher suite(s).
-    pub fn ciphers_pairwise(self, ciphers: Vec<Nl80211CipherSuite>) -> Self {
+    pub fn ciphers_pairwise(self, ciphers: Vec<Ieee80211CipherSuite>) -> Self {
         self.replace(Nl80211Attr::CiphersPairwise(ciphers))
     }
 
     /// Group (broadcast/multicast) cipher suite.
-    pub fn cipher_group(self, cipher: Nl80211CipherSuite) -> Self {
+    pub fn cipher_group(self, cipher: Ieee80211CipherSuite) -> Self {
         self.replace(Nl80211Attr::CipherGroup(cipher))
     }
 
     /// Authentication and Key Management (AKM) suite(s).
-    pub fn akm_suites(self, akms: Vec<Nl80211AkmSuite>) -> Self {
+    pub fn akm_suites(self, akms: Vec<Ieee80211AkmSuite>) -> Self {
         self.replace(Nl80211Attr::AkmSuites(akms))
     }
 

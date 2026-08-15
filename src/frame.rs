@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 
+use netlink_packet_core::{
+    parse_u16, DecodeError, Emitable, ErrorContext, Parseable,
+};
+
 use crate::Ieee80211StatusCode;
-use netlink_packet_core::DecodeError;
 
 /// IEEE 802.11 authentication algorithm, from the Authentication Algorithm
 /// field of an Authentication frame. Values follow the Linux kernel
@@ -11,7 +14,8 @@ use netlink_packet_core::DecodeError;
 pub enum Ieee80211AuthAlgorithm {
     /// `WLAN_AUTH_OPEN` (0): Open System authentication.
     OpenSystem,
-    /// `WLAN_AUTH_SHARED_KEY` (1): Shared Key authentication.
+    /// `WLAN_AUTH_SHARED_KEY` (1): Shared Key authentication. This value is
+    /// not defined in IEEE 802.11-2024; kept for legacy compatibility.
     SharedKey,
     /// `WLAN_AUTH_FT` (2): Fast BSS Transition.
     FastBssTransition,
@@ -23,12 +27,16 @@ pub enum Ieee80211AuthAlgorithm {
     FilsSharedKeyPfs,
     /// `WLAN_AUTH_FILS_PK` (6): FILS public key authentication.
     FilsPublicKey,
+    /// Authentication algorithm number 7: PASN authentication.
+    Pasn,
     /// `WLAN_AUTH_IEEE8021X` (8): IEEE 802.1X authentication.
     Ieee8021x,
     /// `WLAN_AUTH_EPPKE` (9): EPPKE authentication.
     Eppke,
     /// `WLAN_AUTH_LEAP` (128): LEAP authentication.
     Leap,
+    /// Authentication algorithm number 65 535: vendor specific use.
+    VendorSpecific,
     /// Any other algorithm; the raw value is kept.
     Other(u16),
 }
@@ -43,9 +51,11 @@ impl From<u16> for Ieee80211AuthAlgorithm {
             WLAN_AUTH_FILS_SK => Self::FilsSharedKey,
             WLAN_AUTH_FILS_SK_PFS => Self::FilsSharedKeyPfs,
             WLAN_AUTH_FILS_PK => Self::FilsPublicKey,
+            WLAN_AUTH_PASN => Self::Pasn,
             WLAN_AUTH_IEEE8021X => Self::Ieee8021x,
             WLAN_AUTH_EPPKE => Self::Eppke,
             WLAN_AUTH_LEAP => Self::Leap,
+            WLAN_AUTH_VENDOR_SPECIFIC => Self::VendorSpecific,
             _ => Self::Other(alg),
         }
     }
@@ -60,9 +70,11 @@ const WLAN_AUTH_SAE: u16 = 3;
 const WLAN_AUTH_FILS_SK: u16 = 4;
 const WLAN_AUTH_FILS_SK_PFS: u16 = 5;
 const WLAN_AUTH_FILS_PK: u16 = 6;
+const WLAN_AUTH_PASN: u16 = 7;
 const WLAN_AUTH_IEEE8021X: u16 = 8;
 const WLAN_AUTH_EPPKE: u16 = 9;
 const WLAN_AUTH_LEAP: u16 = 128;
+const WLAN_AUTH_VENDOR_SPECIFIC: u16 = 65_535;
 
 /// A parsed IEEE 802.11 Authentication frame body, as delivered in the
 /// `NL80211_ATTR_FRAME` of an `NL80211_CMD_AUTHENTICATE` event
@@ -114,27 +126,49 @@ impl Ieee80211AuthFrame {
 }
 
 bitflags::bitflags! {
-    /// IEEE 802.11 Capability Information field (802.11-2020 §9.4.1.4),
-    /// carried by (Re)Association Response frames and Beacon/Probe Response
-    /// frames.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    /// IEEE 802.11-2024 §9.4.1.4, Figure 9-140: Capability Information
+    /// field (non-DMG STA), carried by (Re)Association Response frames and
+    /// Beacon/Probe Response frames.
+    ///
+    /// Only bits B0, B1, B4, B5 and B8-B13 are defined; bits B2, B3, B6,
+    /// B7, B14 and B15 are reserved.
+    #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+    #[non_exhaustive]
     pub struct Ieee80211CapabilityInfo: u16 {
-        const Ess = 0x0001;
-        const Ibss = 0x0002;
-        const CfPollable = 0x0004;
-        const CfPollRequest = 0x0008;
-        const Privacy = 0x0010;
-        const ShortPreamble = 0x0020;
-        const Pbcc = 0x0040;
-        const ChannelAgility = 0x0080;
-        const SpectrumManagement = 0x0100;
-        const Qos = 0x0200;
-        const ShortSlotTime = 0x0400;
-        const Apsd = 0x0800;
-        const RadioMeasurement = 0x1000;
-        const DsssOfdm = 0x2000;
-        const DelayedBlockAck = 0x4000;
-        const ImmediateBlockAck = 0x8000;
+        const Ess = 1 << 0;
+        const Ibss = 1 << 1;
+        const Privacy = 1 << 4;
+        const ShortPreamble = 1 << 5;
+        const SpectrumManagement = 1 << 8;
+        const Qos = 1 << 9;
+        const ShortSlotTime = 1 << 10;
+        const Apsd = 1 << 11;
+        const RadioMeasurement = 1 << 12;
+        const Epd = 1 << 13;
+        const _ = !0;
+    }
+}
+
+impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211CapabilityInfo {
+    fn parse(buf: &T) -> Result<Self, DecodeError> {
+        let buf = buf.as_ref();
+        Ok(Self::from_bits_retain(parse_u16(buf).context(format!(
+            "Invalid Ieee80211CapabilityInfo payload {buf:?}"
+        ))?))
+    }
+}
+
+impl Ieee80211CapabilityInfo {
+    pub const LENGTH: usize = 2;
+}
+
+impl Emitable for Ieee80211CapabilityInfo {
+    fn buffer_len(&self) -> usize {
+        Self::LENGTH
+    }
+
+    fn emit(&self, buffer: &mut [u8]) {
+        buffer.copy_from_slice(&self.bits().to_ne_bytes())
     }
 }
 
@@ -172,7 +206,7 @@ impl Ieee80211AssocRespFrame {
         }
 
         Ok(Ieee80211AssocRespFrame {
-            capability: Ieee80211CapabilityInfo::from_bits_truncate(
+            capability: Ieee80211CapabilityInfo::from_bits_retain(
                 u16::from_le_bytes([data[24], data[25]]),
             ),
             status_code: Ieee80211StatusCode::from(u16::from_le_bytes([

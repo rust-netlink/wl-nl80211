@@ -22,9 +22,9 @@ use std::collections::HashMap;
 use netlink_packet_core::{Nla, NlasIterator, Parseable};
 
 use crate::{
-    Nl80211AkmSuite, Nl80211Associate, Nl80211Attr, Nl80211AuthType,
-    Nl80211Authenticate, Nl80211CipherSuite, Nl80211Element, Nl80211Elements,
-    Nl80211UseMfp, Nl80211WpaVersions,
+    Ieee80211AkmSuite, Ieee80211CipherSuite, Ieee80211Element,
+    Ieee80211Elements, Nl80211Associate, Nl80211Attr, Nl80211AuthType,
+    Nl80211Authenticate, Nl80211UseMfp, Nl80211WpaVersions,
 };
 
 /// BSSID of the hwsim AP (02:00:00:00:01:00) in both captures.
@@ -91,10 +91,10 @@ fn extract_ie(attrs: &[Nl80211Attr]) -> Vec<u8> {
 }
 
 /// The first IE element must be the RSNE carrying the given AKM suite(s).
-fn assert_rsn_akm(ie: &[u8], akms: Vec<Nl80211AkmSuite>) {
-    let elements = Nl80211Elements::parse(ie).expect("parse captured IE");
+fn assert_rsn_akm(ie: &[u8], akms: Vec<Ieee80211AkmSuite>) {
+    let elements = Ieee80211Elements::parse(ie).expect("parse captured IE");
     match &elements.0[0] {
-        Nl80211Element::Rsn(rsn) => assert_eq!(akms, rsn.akm_suits),
+        Ieee80211Element::Rsn(rsn) => assert_eq!(akms, rsn.akm_suits),
         other => panic!("first IE element is not RSN: {other:?}"),
     }
 }
@@ -237,7 +237,7 @@ fn test_captured_associate_wpa2() {
     ];
     let captured = filter_kinds(&parse_attrs(&raw), ASSOC_MODELED_KINDS);
     let ie = extract_ie(&captured);
-    assert_rsn_akm(&ie, vec![Nl80211AkmSuite::Psk]);
+    assert_rsn_akm(&ie, vec![Ieee80211AkmSuite::Psk]);
 
     let built = Nl80211Associate::new(464)
         .mac(AP_BSSID)
@@ -245,9 +245,9 @@ fn test_captured_associate_wpa2() {
         .ssid(TEST_SSID)
         .ie(ie)
         .wpa_versions(Nl80211WpaVersions::WPA2)
-        .ciphers_pairwise(vec![Nl80211CipherSuite::Ccmp128])
-        .cipher_group(Nl80211CipherSuite::Ccmp128)
-        .akm_suites(vec![Nl80211AkmSuite::Psk])
+        .ciphers_pairwise(vec![Ieee80211CipherSuite::Ccmp128])
+        .cipher_group(Ieee80211CipherSuite::Ccmp128)
+        .akm_suites(vec![Ieee80211AkmSuite::Psk])
         .control_port_ethertype(EthernetProtocol::Pae)
         .control_port_over_nl80211(true)
         .socket_owner(true)
@@ -287,7 +287,7 @@ fn test_captured_associate_sae() {
     ];
     let captured = filter_kinds(&parse_attrs(&raw), ASSOC_MODELED_KINDS);
     let ie = extract_ie(&captured);
-    assert_rsn_akm(&ie, vec![Nl80211AkmSuite::Sae]);
+    assert_rsn_akm(&ie, vec![Ieee80211AkmSuite::Sae]);
     assert!(captured.contains(&Nl80211Attr::UseMfp(Nl80211UseMfp::Required)));
 
     let built = Nl80211Associate::new(467)
@@ -296,9 +296,9 @@ fn test_captured_associate_sae() {
         .ssid(TEST_SSID)
         .ie(ie)
         .wpa_versions(Nl80211WpaVersions::WPA3)
-        .ciphers_pairwise(vec![Nl80211CipherSuite::Ccmp128])
-        .cipher_group(Nl80211CipherSuite::Ccmp128)
-        .akm_suites(vec![Nl80211AkmSuite::Sae])
+        .ciphers_pairwise(vec![Ieee80211CipherSuite::Ccmp128])
+        .cipher_group(Ieee80211CipherSuite::Ccmp128)
+        .akm_suites(vec![Ieee80211AkmSuite::Sae])
         .control_port_ethertype(EthernetProtocol::Pae)
         .control_port_over_nl80211(true)
         .use_mfp(Nl80211UseMfp::Required)
