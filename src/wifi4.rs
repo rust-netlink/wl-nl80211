@@ -3,8 +3,7 @@
 // Hold WIFI 4(802.11n) specific data types
 
 use netlink_packet_core::{
-    parse_u16, parse_u32, parse_u8, DecodeError, Emitable, ErrorContext,
-    Parseable,
+    parse_u8, DecodeError, Emitable, ErrorContext, Parseable,
 };
 
 use crate::bytes::{get_bit, get_bits_as_u8, write_u16_le};
@@ -72,8 +71,8 @@ const IEEE80211_HT_CAP_LSIG_TXOP_PROT: u16 = 0x8000;
 bitflags::bitflags! {
     #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
     #[non_exhaustive]
-    pub struct Nl80211HtCaps: u16 {
-        /// ndicates support for receiving LDPC coded packets
+    pub struct Ieee80211HtCaps: u16 {
+        /// Indicates support for receiving LDPC coded packets
         const LdpcCoding = IEEE80211_HT_CAP_LDPC_CODING;
         /// Both 20 MHz and 40 MHz operation are supported
         const SupWidth2040 = IEEE80211_HT_CAP_SUP_WIDTH_20_40;
@@ -110,23 +109,26 @@ bitflags::bitflags! {
     }
 }
 
-impl Nl80211HtCaps {
+impl Ieee80211HtCaps {
     pub const LENGTH: usize = 2;
 
     pub fn parse(buf: &[u8]) -> Result<Self, DecodeError> {
-        Ok(Self::from_bits_retain(
-            parse_u16(buf).context(format!("Invalid Nl80211HtCaps {buf:?}"))?,
-        ))
+        if buf.len() < Self::LENGTH {
+            return Err(
+                format!("Invalid Ieee80211HtCaps payload {buf:?}").into()
+            );
+        }
+        Ok(Self::from_bits_retain(u16::from_le_bytes([buf[0], buf[1]])))
     }
 }
 
-impl Emitable for Nl80211HtCaps {
+impl Emitable for Ieee80211HtCaps {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
 
     fn emit(&self, buffer: &mut [u8]) {
-        buffer[0..self.buffer_len()].copy_from_slice(&self.bits().to_ne_bytes())
+        buffer[0..self.buffer_len()].copy_from_slice(&self.bits().to_le_bytes())
     }
 }
 
@@ -135,15 +137,15 @@ const NL80211_BAND_MCS_INFO_LEN: usize = 16;
 
 // kernel data type: `struct ieee80211_mcs_info`
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Nl80211HtMcsInfo {
+pub struct Ieee80211HtMcsInfo {
     pub rx_mask: [u8; IEEE80211_HT_MCS_MASK_LEN],
     /// The Rx Highest Supported Data Rate in Mb/s. The 0 means STA does not
     /// specific highest data rate it can receive.
     pub rx_highest: u16,
-    pub tx_params: Nl80211HtTxParameter,
+    pub tx_params: Ieee80211HtTxParameter,
 }
 
-impl Emitable for Nl80211HtMcsInfo {
+impl Emitable for Ieee80211HtMcsInfo {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
@@ -167,13 +169,13 @@ impl Emitable for Nl80211HtMcsInfo {
     }
 }
 
-impl Nl80211HtMcsInfo {
+impl Ieee80211HtMcsInfo {
     // `struct ieee80211_mcs_info`.
     // Kernel document confirmed this is 16 bytes
     pub const LENGTH: usize = NL80211_BAND_MCS_INFO_LEN;
 }
 
-impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211HtMcsInfo {
+impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211HtMcsInfo {
     fn parse(buf: &T) -> Result<Self, DecodeError> {
         let buf: &[u8] = buf.as_ref();
         if buf.len() < NL80211_BAND_MCS_INFO_LEN {
@@ -201,9 +203,9 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211HtMcsInfo {
 const NL80211_HT_CAPABILITY_LEN: usize = 26;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Nl80211HtCapabilityMask(pub [u8; NL80211_HT_CAPABILITY_LEN]);
+pub struct Ieee80211HtCapabilityMask(pub [u8; NL80211_HT_CAPABILITY_LEN]);
 
-impl Nl80211HtCapabilityMask {
+impl Ieee80211HtCapabilityMask {
     pub const LENGTH: usize = NL80211_HT_CAPABILITY_LEN;
 
     pub fn new(value: &[u8]) -> Self {
@@ -217,7 +219,7 @@ impl Nl80211HtCapabilityMask {
     }
 }
 
-impl Emitable for Nl80211HtCapabilityMask {
+impl Emitable for Ieee80211HtCapabilityMask {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
@@ -225,7 +227,7 @@ impl Emitable for Nl80211HtCapabilityMask {
     fn emit(&self, buffer: &mut [u8]) {
         if buffer.len() < Self::LENGTH {
             log::error!(
-                "Nl80211HtCapabilityMask buffer size is smaller than \
+                "Ieee80211HtCapabilityMask buffer size is smaller than \
                 required size {}",
                 Self::LENGTH
             );
@@ -236,59 +238,61 @@ impl Emitable for Nl80211HtCapabilityMask {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Nl80211ElementHtCap {
+pub struct Ieee80211ElementHtCap {
     /// HT Capabilities Info
-    pub caps: Nl80211HtCaps,
+    pub caps: Ieee80211HtCaps,
     /// A-MPDU Parameters
-    pub a_mpdu_para: Nl80211HtAMpduPara,
+    pub a_mpdu_para: Ieee80211HtAMpduPara,
     /// Supported MCS Set
-    pub mcs_set: Nl80211HtMcsInfo,
+    pub mcs_set: Ieee80211HtMcsInfo,
     /// HT Extended Capabilities
-    pub ht_ext_cap: Nl80211HtExtendedCap,
+    pub ht_ext_cap: Ieee80211HtExtendedCap,
     /// Transmit Beamforming Capabilities
-    pub transmit_beamforming_cap: Nl80211HtTransmitBeamformingCaps,
+    pub transmit_beamforming_cap: Ieee80211HtTransmitBeamformingCaps,
     /// ASEL Capabilities
-    pub asel_cap: Nl80211HtAselCaps,
+    pub asel_cap: Ieee80211HtAselCaps,
 }
 
-impl Nl80211ElementHtCap {
+impl Ieee80211ElementHtCap {
     // Hard coded to 26 by IEEE 802.11n-2009
     pub const LENGTH: usize = 26;
 
     pub fn parse(buf: &[u8]) -> Result<Self, DecodeError> {
         if buf.len() < Self::LENGTH {
             return Err(format!(
-                "Nl80211ElementHtCap buffer size is smaller than \
+                "Ieee80211ElementHtCap buffer size is smaller than \
                 required size {}: {buf:?}",
                 Self::LENGTH
             )
             .into());
         }
         let mut offset = 0usize;
-        let caps = Nl80211HtCaps::parse(&buf[..Nl80211HtCaps::LENGTH])?;
-        offset += Nl80211HtCaps::LENGTH;
+        let caps = Ieee80211HtCaps::parse(&buf[..Ieee80211HtCaps::LENGTH])?;
+        offset += Ieee80211HtCaps::LENGTH;
 
-        let a_mpdu_para = Nl80211HtAMpduPara::parse(
-            &buf[offset..offset + Nl80211HtAMpduPara::LENGTH],
+        let a_mpdu_para = Ieee80211HtAMpduPara::parse(
+            &buf[offset..offset + Ieee80211HtAMpduPara::LENGTH],
         )?;
-        offset += Nl80211HtAMpduPara::LENGTH;
+        offset += Ieee80211HtAMpduPara::LENGTH;
 
-        let mcs_set = Nl80211HtMcsInfo::parse(
-            &buf[offset..offset + Nl80211HtMcsInfo::LENGTH],
+        let mcs_set = Ieee80211HtMcsInfo::parse(
+            &buf[offset..offset + Ieee80211HtMcsInfo::LENGTH],
         )?;
-        offset += Nl80211HtMcsInfo::LENGTH;
+        offset += Ieee80211HtMcsInfo::LENGTH;
 
-        let ht_ext_cap = Nl80211HtExtendedCap::parse(
-            &buf[offset..offset + Nl80211HtExtendedCap::LENGTH],
+        let ht_ext_cap = Ieee80211HtExtendedCap::parse(
+            &buf[offset..offset + Ieee80211HtExtendedCap::LENGTH],
         )?;
-        offset += Nl80211HtExtendedCap::LENGTH;
+        offset += Ieee80211HtExtendedCap::LENGTH;
 
-        let transmit_beamforming_cap = Nl80211HtTransmitBeamformingCaps::parse(
-            &buf[offset..offset + Nl80211HtTransmitBeamformingCaps::LENGTH],
-        )?;
-        offset += Nl80211HtTransmitBeamformingCaps::LENGTH;
-        let asel_cap = Nl80211HtAselCaps::parse(
-            &buf[offset..offset + Nl80211HtAselCaps::LENGTH],
+        let transmit_beamforming_cap =
+            Ieee80211HtTransmitBeamformingCaps::parse(
+                &buf[offset
+                    ..offset + Ieee80211HtTransmitBeamformingCaps::LENGTH],
+            )?;
+        offset += Ieee80211HtTransmitBeamformingCaps::LENGTH;
+        let asel_cap = Ieee80211HtAselCaps::parse(
+            &buf[offset..offset + Ieee80211HtAselCaps::LENGTH],
         )?;
 
         Ok(Self {
@@ -302,7 +306,7 @@ impl Nl80211ElementHtCap {
     }
 }
 
-impl Emitable for Nl80211ElementHtCap {
+impl Emitable for Ieee80211ElementHtCap {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
@@ -310,7 +314,7 @@ impl Emitable for Nl80211ElementHtCap {
     fn emit(&self, buffer: &mut [u8]) {
         if buffer.len() < Self::LENGTH {
             log::error!(
-                "Nl80211ElementHtCap buffer size is smaller than \
+                "Ieee80211ElementHtCap buffer size is smaller than \
                 required size {}: {buffer:?}",
                 Self::LENGTH
             );
@@ -332,7 +336,7 @@ impl Emitable for Nl80211ElementHtCap {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Nl80211HtAMpduPara {
+pub struct Ieee80211HtAMpduPara {
     /// The maximum length of A-MPDU that the STA can receive.
     /// The length equal to: 2 ** (13 + max_len_exponent) - 1
     pub max_len_exponent: u8,
@@ -349,7 +353,7 @@ pub struct Nl80211HtAMpduPara {
     pub min_space: u8,
 }
 
-impl From<u8> for Nl80211HtAMpduPara {
+impl From<u8> for Ieee80211HtAMpduPara {
     fn from(d: u8) -> Self {
         Self {
             max_len_exponent: d & 0b11,
@@ -358,13 +362,13 @@ impl From<u8> for Nl80211HtAMpduPara {
     }
 }
 
-impl From<Nl80211HtAMpduPara> for u8 {
-    fn from(v: Nl80211HtAMpduPara) -> u8 {
+impl From<Ieee80211HtAMpduPara> for u8 {
+    fn from(v: Ieee80211HtAMpduPara) -> u8 {
         v.max_len_exponent | v.min_space << 2
     }
 }
 
-impl Emitable for Nl80211HtAMpduPara {
+impl Emitable for Ieee80211HtAMpduPara {
     fn buffer_len(&self) -> usize {
         1
     }
@@ -374,13 +378,13 @@ impl Emitable for Nl80211HtAMpduPara {
     }
 }
 
-impl Nl80211HtAMpduPara {
+impl Ieee80211HtAMpduPara {
     pub const LENGTH: usize = 1;
 
     pub fn parse(buf: &[u8]) -> Result<Self, DecodeError> {
         if buf.len() != Self::LENGTH {
             return Err(format!(
-                "Invalid Nl80211HtAMpduPara , expected length {}, \
+                "Invalid Ieee80211HtAMpduPara , expected length {}, \
                 but got {buf:?}",
                 Self::LENGTH
             )
@@ -391,14 +395,14 @@ impl Nl80211HtAMpduPara {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Nl80211HtTxParameter {
+pub struct Ieee80211HtTxParameter {
     pub mcs_set_defined: bool,
     pub tx_rx_mcs_set_not_equal: bool,
     pub max_spatial_streams: u8,
     pub unequal_modulation_supported: bool,
 }
 
-impl From<u8> for Nl80211HtTxParameter {
+impl From<u8> for Ieee80211HtTxParameter {
     fn from(d: u8) -> Self {
         let d: [u8; 1] = [d];
         Self {
@@ -410,8 +414,8 @@ impl From<u8> for Nl80211HtTxParameter {
     }
 }
 
-impl From<Nl80211HtTxParameter> for u8 {
-    fn from(v: Nl80211HtTxParameter) -> u8 {
+impl From<Ieee80211HtTxParameter> for u8 {
+    fn from(v: Ieee80211HtTxParameter) -> u8 {
         v.mcs_set_defined as u8
             | ((v.tx_rx_mcs_set_not_equal as u8) << 1)
             | (v.max_spatial_streams << 2)
@@ -420,7 +424,7 @@ impl From<Nl80211HtTxParameter> for u8 {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Nl80211HtExtendedCap {
+pub struct Ieee80211HtExtendedCap {
     pub pco: bool,
     pub pco_trans_time: u8,
     pub mcs_feedback: u8,
@@ -428,13 +432,13 @@ pub struct Nl80211HtExtendedCap {
     pub rd_responder: bool,
 }
 
-impl Nl80211HtExtendedCap {
+impl Ieee80211HtExtendedCap {
     pub const LENGTH: usize = 2;
 
     pub fn parse(buf: &[u8]) -> Result<Self, DecodeError> {
         if buf.len() != Self::LENGTH {
             return Err(format!(
-                "Invalid Nl80211HtExtendedCap, expected length {}, \
+                "Invalid Ieee80211HtExtendedCap, expected length {}, \
                 but got {buf:?}",
                 Self::LENGTH
             )
@@ -444,7 +448,7 @@ impl Nl80211HtExtendedCap {
     }
 }
 
-impl Emitable for Nl80211HtExtendedCap {
+impl Emitable for Ieee80211HtExtendedCap {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
@@ -456,7 +460,7 @@ impl Emitable for Nl80211HtExtendedCap {
     }
 }
 
-impl From<[u8; 2]> for Nl80211HtExtendedCap {
+impl From<[u8; 2]> for Ieee80211HtExtendedCap {
     fn from(buf: [u8; 2]) -> Self {
         Self {
             pco: get_bit(&buf, 0),
@@ -468,10 +472,10 @@ impl From<[u8; 2]> for Nl80211HtExtendedCap {
     }
 }
 
-impl From<Nl80211HtExtendedCap> for [u8; 2] {
-    fn from(v: Nl80211HtExtendedCap) -> [u8; 2] {
+impl From<Ieee80211HtExtendedCap> for [u8; 2] {
+    fn from(v: Ieee80211HtExtendedCap) -> [u8; 2] {
         [
-            v.pco as u8 | (v.pco_trans_time << 1) | (v.mcs_feedback & 0b1) << 7,
+            v.pco as u8 | (v.pco_trans_time << 1),
             (v.mcs_feedback & 0b11)
                 | ((v.support_ht_control as u8) << 2)
                 | ((v.rd_responder as u8) << 3),
@@ -482,7 +486,7 @@ impl From<Nl80211HtExtendedCap> for [u8; 2] {
 bitflags::bitflags! {
     #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
     #[non_exhaustive]
-    pub struct Nl80211HtTransmitBeamformingCaps: u32 {
+    pub struct Ieee80211HtTransmitBeamformingCaps: u32 {
         /// Indicates this STA can receive Transmit Beamforming steered
         /// frames using implicit feedback
         const ImplicitReceiving= 1 << 0;
@@ -613,30 +617,36 @@ bitflags::bitflags! {
     }
 }
 
-impl Nl80211HtTransmitBeamformingCaps {
+impl Ieee80211HtTransmitBeamformingCaps {
     pub const LENGTH: usize = 4;
 
     pub fn parse(buf: &[u8]) -> Result<Self, DecodeError> {
-        Ok(Self::from_bits_retain(parse_u32(buf).context(format!(
-            "Invalid Nl80211HtTransmitBeamformingCaps {buf:?}"
-        ))?))
+        if buf.len() < Self::LENGTH {
+            return Err(format!(
+                "Invalid Ieee80211HtTransmitBeamformingCaps payload {buf:?}"
+            )
+            .into());
+        }
+        Ok(Self::from_bits_retain(u32::from_le_bytes([
+            buf[0], buf[1], buf[2], buf[3],
+        ])))
     }
 }
 
-impl Emitable for Nl80211HtTransmitBeamformingCaps {
+impl Emitable for Ieee80211HtTransmitBeamformingCaps {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
 
     fn emit(&self, buffer: &mut [u8]) {
-        buffer[0..self.buffer_len()].copy_from_slice(&self.bits().to_ne_bytes())
+        buffer[0..self.buffer_len()].copy_from_slice(&self.bits().to_le_bytes())
     }
 }
 
 bitflags::bitflags! {
     #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
     #[non_exhaustive]
-    pub struct Nl80211HtAselCaps : u8 {
+    pub struct Ieee80211HtAselCaps : u8 {
         /// Indicates this STA supports ASEL
         const AntennaSelection = 1 << 0;
         /// Indicates this STA supports transmit ASEL based on explicit
@@ -660,18 +670,18 @@ bitflags::bitflags! {
     }
 }
 
-impl Nl80211HtAselCaps {
+impl Ieee80211HtAselCaps {
     pub const LENGTH: usize = 1;
 
     pub fn parse(buf: &[u8]) -> Result<Self, DecodeError> {
         Ok(Self::from_bits_retain(
             parse_u8(buf)
-                .context(format!("Invalid Nl80211HtAselCaps {buf:?}"))?,
+                .context(format!("Invalid Ieee80211HtAselCaps {buf:?}"))?,
         ))
     }
 }
 
-impl Emitable for Nl80211HtAselCaps {
+impl Emitable for Ieee80211HtAselCaps {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }

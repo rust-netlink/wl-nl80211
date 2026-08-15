@@ -5,7 +5,7 @@ use netlink_packet_core::{NLM_F_ACK, NLM_F_REQUEST};
 use netlink_packet_generic::GenlMessage;
 
 use crate::{
-    nl80211_execute, Nl80211AkmSuite, Nl80211Attr, Nl80211Command,
+    nl80211_execute, Ieee80211AkmSuite, Nl80211Attr, Nl80211Command,
     Nl80211Error, Nl80211Handle, Nl80211Message, Nl80211RekeyData,
 };
 
@@ -28,7 +28,7 @@ impl Nl80211RekeyOffload {
             kek: Vec::new(),
             kck: Vec::new(),
             replay_ctr: Vec::new(),
-            akm: Nl80211AkmSuite::Sae,
+            akm: Ieee80211AkmSuite::Sae,
         }
     }
 }
@@ -40,7 +40,7 @@ pub struct Nl80211RekeyOffloadRequestBuilder {
     kek: Vec<u8>,
     kck: Vec<u8>,
     replay_ctr: Vec<u8>,
-    akm: Nl80211AkmSuite,
+    akm: Ieee80211AkmSuite,
 }
 
 impl Nl80211RekeyOffloadRequestBuilder {
@@ -62,8 +62,8 @@ impl Nl80211RekeyOffloadRequestBuilder {
         self
     }
 
-    /// AKM suite, e.g. [`Nl80211AkmSuite::Sae`].
-    pub fn akm(mut self, akm: Nl80211AkmSuite) -> Self {
+    /// AKM suite, e.g. [`Ieee80211AkmSuite::Sae`].
+    pub fn akm(mut self, akm: Ieee80211AkmSuite) -> Self {
         self.akm = akm;
         self
     }
@@ -71,7 +71,7 @@ impl Nl80211RekeyOffloadRequestBuilder {
     /// Build the attribute list for a `NL80211_CMD_SET_REKEY_OFFLOAD`
     /// request.
     pub fn build(self) -> Vec<Nl80211Attr> {
-        // `Nl80211AkmSuite` stores the 802.11 element byte-order; the
+        // `Ieee80211AkmSuite` stores the 802.11 element byte-order; the
         // netlink `NL80211_REKEY_DATA_AKM` attribute expects the kernel's
         // u32 (OUI in the high bytes), so swap.
         let akm = u32::from(self.akm).swap_bytes();

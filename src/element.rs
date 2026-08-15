@@ -6,14 +6,14 @@ use netlink_packet_core::{
 
 use crate::{
     bytes::{parse_u16_le, write_u16_le, write_u32_le},
-    Nl80211ElementHeCap, Nl80211ElementHtCap, Nl80211ElementVhtCap,
+    Ieee80211ElementHeCap, Ieee80211ElementHtCap, Ieee80211ElementVhtCap,
 };
 
-/// [Nl80211Elements] Vec
+/// [Ieee80211Elements] Vec
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Nl80211Elements(pub Vec<Nl80211Element>);
+pub struct Ieee80211Elements(pub Vec<Ieee80211Element>);
 
-impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211Elements {
+impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211Elements {
     fn parse(buf: &T) -> Result<Self, DecodeError> {
         let buf = buf.as_ref();
         let mut offset = 0;
@@ -23,7 +23,8 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211Elements {
             if buf.len() < offset + length {
                 break;
             }
-            let element = Nl80211Element::parse(&buf[offset..offset + length])?;
+            let element =
+                Ieee80211Element::parse(&buf[offset..offset + length])?;
             offset += length;
             ret.push(element);
         }
@@ -31,7 +32,7 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211Elements {
     }
 }
 
-impl Emitable for Nl80211Elements {
+impl Emitable for Ieee80211Elements {
     fn buffer_len(&self) -> usize {
         self.0.as_slice().iter().map(|e| e.buffer_len()).sum()
     }
@@ -45,14 +46,14 @@ impl Emitable for Nl80211Elements {
     }
 }
 
-impl From<&Vec<Nl80211Element>> for Nl80211Elements {
-    fn from(d: &Vec<Nl80211Element>) -> Self {
+impl From<&Vec<Ieee80211Element>> for Ieee80211Elements {
+    fn from(d: &Vec<Ieee80211Element>) -> Self {
         Self(d.to_vec())
     }
 }
 
-impl From<Nl80211Elements> for Vec<Nl80211Element> {
-    fn from(v: Nl80211Elements) -> Vec<Nl80211Element> {
+impl From<Ieee80211Elements> for Vec<Ieee80211Element> {
+    fn from(v: Ieee80211Elements) -> Vec<Ieee80211Element> {
         v.0
     }
 }
@@ -73,27 +74,27 @@ const ELEMENT_ID_EXTENSION_HE_CAP: u8 = 35;
 /// IEEE 802.11-2020 `9.4.2 Elements`
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]
-pub enum Nl80211Element {
+pub enum Ieee80211Element {
     Ssid(String),
     /// Supported rates in units of 500 kb/s, if necessary rounded up to the
     /// next 500 kb/
-    SupportedRatesAndSelectors(Vec<Nl80211RateAndSelector>),
+    SupportedRatesAndSelectors(Vec<Ieee80211RateAndSelector>),
     /// Allow channel number identification for STAs.
     Channel(u8),
-    Country(Nl80211ElementCountry),
-    HtCapability(Nl80211ElementHtCap),
-    Rsn(Nl80211ElementRsn),
+    Country(Ieee80211ElementCountry),
+    HtCapability(Ieee80211ElementHtCap),
+    Rsn(Ieee80211ElementRsn),
     /// Extended RSN Capabilities (RSNXE), e.g. the SAE Hash-to-Element
     /// indicator.
-    RsnExt(Nl80211ElementRsnExt),
-    VhtCapability(Nl80211ElementVhtCap),
+    RsnExt(Ieee80211ElementRsnExt),
+    VhtCapability(Ieee80211ElementVhtCap),
     /// Vendor specific data.
     Vendor(Vec<u8>),
-    HeCapability(Nl80211ElementHeCap),
+    HeCapability(Ieee80211ElementHeCap),
     Other(u8, Vec<u8>),
 }
 
-impl Nl80211Element {
+impl Ieee80211Element {
     /// The ID field in IEEE 802.11-2020 `Figure 9-145 Element format`
     pub(crate) fn id(&self) -> u8 {
         match self {
@@ -129,12 +130,12 @@ impl Nl80211Element {
     }
 }
 
-impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211Element {
+impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211Element {
     fn parse(buf: &T) -> Result<Self, DecodeError> {
         let buf = buf.as_ref();
         if buf.len() < 2 {
             return Err(
-                format!("Invalid length of Nl80211Element {buf:?}").into()
+                format!("Invalid length of Ieee80211Element {buf:?}").into()
             );
         }
         let id = buf[0];
@@ -148,29 +149,31 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211Element {
             ELEMENT_ID_SUPPORTED_RATES => Self::SupportedRatesAndSelectors(
                 payload
                     .iter()
-                    .map(|d| Nl80211RateAndSelector::from(*d))
+                    .map(|d| Ieee80211RateAndSelector::from(*d))
                     .collect(),
             ),
             ELEMENT_ID_CHANNEL => Self::Channel(parse_u8(payload).context(
                 format!("Invalid DSSS(channel) element {payload:?}"),
             )?),
             ELEMENT_ID_COUNTRY => {
-                Self::Country(Nl80211ElementCountry::parse(payload)?)
+                Self::Country(Ieee80211ElementCountry::parse(payload)?)
             }
-            ELEMENT_ID_RSN => Self::Rsn(Nl80211ElementRsn::parse(payload)?),
+            ELEMENT_ID_RSN => Self::Rsn(Ieee80211ElementRsn::parse(payload)?),
             ELEMENT_ID_RSN_EXT => {
-                Self::RsnExt(Nl80211ElementRsnExt::parse(payload)?)
+                Self::RsnExt(Ieee80211ElementRsnExt::parse(payload)?)
             }
             ELEMENT_ID_VENDOR => Self::Vendor(payload.to_vec()),
             ELEMENT_ID_HT_CAP => {
-                Self::HtCapability(Nl80211ElementHtCap::parse(payload)?)
+                Self::HtCapability(Ieee80211ElementHtCap::parse(payload)?)
             }
             ELEMENT_ID_VHT_CAP => {
-                Self::VhtCapability(Nl80211ElementVhtCap::parse(payload)?)
+                Self::VhtCapability(Ieee80211ElementVhtCap::parse(payload)?)
             }
             ELEMENT_ID_EXTENSION => {
-                if payload[0] == ELEMENT_ID_EXTENSION_HE_CAP {
-                    Self::HeCapability(Nl80211ElementHeCap::parse(payload)?)
+                if payload.is_empty() {
+                    Self::Other(ELEMENT_ID_EXTENSION, Vec::new())
+                } else if payload[0] == ELEMENT_ID_EXTENSION_HE_CAP {
+                    Self::HeCapability(Ieee80211ElementHeCap::parse(payload)?)
                 } else {
                     Self::Other(ELEMENT_ID_EXTENSION, payload.to_vec())
                 }
@@ -180,7 +183,7 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211Element {
     }
 }
 
-impl Emitable for Nl80211Element {
+impl Emitable for Ieee80211Element {
     fn buffer_len(&self) -> usize {
         self.length() as usize + 2
     }
@@ -220,10 +223,12 @@ const BSS_MEMBERSHIP_SELECTOR_EPD: u8 = 124;
 const BSS_MEMBERSHIP_SELECTOR_GLK: u8 = 125;
 const BSS_MEMBERSHIP_SELECTOR_VHT_PHY: u8 = 126;
 const BSS_MEMBERSHIP_SELECTOR_HT_PHY: u8 = 127;
+const BSS_MEMBERSHIP_SELECTOR_HE_PHY: u8 = 122;
+const BSS_MEMBERSHIP_SELECTOR_EHT_PHY: u8 = 121;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
-pub enum Nl80211RateAndSelector {
+pub enum Ieee80211RateAndSelector {
     /// BSS basic rate in units of 500 kb/s, if necessary rounded up to the
     /// next 500 kbs.
     BssBasicRateSet(u8),
@@ -231,6 +236,9 @@ pub enum Nl80211RateAndSelector {
     Rate(u8),
     SelectorHt,
     SelectorVht,
+    /// Indicates that support for the mandatory features of Clause 27 (HE
+    /// PHY) is required in order to join the BSS.
+    SelectorHe,
     /// Indicates that support for the mandatory features of 11.50 is required
     /// in order to join the BSS that was the source of the Supported Rates and
     /// BSS Membership Selectors element or Extended Supported Rates and BSS
@@ -244,9 +252,12 @@ pub enum Nl80211RateAndSelector {
     /// ndicates that support for the direct hashing to element technique in
     /// SAE is required in order to join the BSS.
     SelectorSaeHash,
+    /// Indicates that support for the mandatory features of Clause 36 (EHT
+    /// PHY) is required in order to join the BSS (802.11be Table 9-131).
+    SelectorEht,
 }
 
-impl From<u8> for Nl80211RateAndSelector {
+impl From<u8> for Ieee80211RateAndSelector {
     fn from(d: u8) -> Self {
         const MSB_MASK: u8 = 0b1000_0000;
         let msb: bool = (d & MSB_MASK) == MSB_MASK;
@@ -258,6 +269,8 @@ impl From<u8> for Nl80211RateAndSelector {
                 BSS_MEMBERSHIP_SELECTOR_GLK => Self::SelectorGlk,
                 BSS_MEMBERSHIP_SELECTOR_VHT_PHY => Self::SelectorVht,
                 BSS_MEMBERSHIP_SELECTOR_HT_PHY => Self::SelectorHt,
+                BSS_MEMBERSHIP_SELECTOR_HE_PHY => Self::SelectorHe,
+                BSS_MEMBERSHIP_SELECTOR_EHT_PHY => Self::SelectorEht,
                 _ => Self::BssBasicRateSet(value),
             }
         } else {
@@ -266,46 +279,53 @@ impl From<u8> for Nl80211RateAndSelector {
     }
 }
 
-impl From<Nl80211RateAndSelector> for u8 {
-    fn from(v: Nl80211RateAndSelector) -> u8 {
+impl From<Ieee80211RateAndSelector> for u8 {
+    fn from(v: Ieee80211RateAndSelector) -> u8 {
         const MSB: u8 = 0b1000_0000;
         match v {
-            Nl80211RateAndSelector::BssBasicRateSet(r) => r & !MSB | MSB,
-            Nl80211RateAndSelector::SelectorHt => {
+            Ieee80211RateAndSelector::BssBasicRateSet(r) => r & !MSB | MSB,
+            Ieee80211RateAndSelector::SelectorHt => {
                 BSS_MEMBERSHIP_SELECTOR_HT_PHY | MSB
             }
-            Nl80211RateAndSelector::SelectorVht => {
+            Ieee80211RateAndSelector::SelectorVht => {
                 BSS_MEMBERSHIP_SELECTOR_VHT_PHY | MSB
             }
-            Nl80211RateAndSelector::SelectorGlk => {
+            Ieee80211RateAndSelector::SelectorHe => {
+                BSS_MEMBERSHIP_SELECTOR_HE_PHY | MSB
+            }
+            Ieee80211RateAndSelector::SelectorEht => {
+                BSS_MEMBERSHIP_SELECTOR_EHT_PHY | MSB
+            }
+            Ieee80211RateAndSelector::SelectorGlk => {
                 BSS_MEMBERSHIP_SELECTOR_GLK | MSB
             }
-            Nl80211RateAndSelector::SelectorEpd => {
+            Ieee80211RateAndSelector::SelectorEpd => {
                 BSS_MEMBERSHIP_SELECTOR_EPD | MSB
             }
-            Nl80211RateAndSelector::SelectorSaeHash => {
+            Ieee80211RateAndSelector::SelectorSaeHash => {
                 BSS_MEMBERSHIP_SELECTOR_SAE_HASH | MSB
             }
-            Nl80211RateAndSelector::Rate(r) => r,
+            Ieee80211RateAndSelector::Rate(r) => r,
         }
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]
-pub struct Nl80211ElementCountry {
+pub struct Ieee80211ElementCountry {
     pub country: String,
-    pub environment: Nl80211ElementCountryEnvironment,
-    pub triplets: Vec<Nl80211ElementCountryTriplet>,
+    pub environment: Ieee80211ElementCountryEnvironment,
+    pub triplets: Vec<Ieee80211ElementCountryTriplet>,
 }
 
-impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211ElementCountry {
+impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211ElementCountry {
     fn parse(buf: &T) -> Result<Self, DecodeError> {
         let buf = buf.as_ref();
-        // IEEE 802.11-2020 said the minimum size of this element is 8 octets.
+        // IEEE 802.11-2024 9.4.2.7: the minimum size is 6 octets
+        // (country string + environment) followed by triplets.
         if buf.len() < 6 {
             return Err(format!(
-                "Buffer for Nl80211ElementCountry is smaller \
+                "Buffer for Ieee80211ElementCountry is smaller \
                 than mandatory 6 byte: {buf:?}"
             )
             .into());
@@ -316,11 +336,11 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211ElementCountry {
                 &buf[0..2]
             ))
         })?;
-        let environment = Nl80211ElementCountryEnvironment::from(buf[2]);
-        let mut triplets: Vec<Nl80211ElementCountryTriplet> = Vec::new();
+        let environment = Ieee80211ElementCountryEnvironment::from(buf[2]);
+        let mut triplets: Vec<Ieee80211ElementCountryTriplet> = Vec::new();
         for i in 0..((buf.len() - 3) / 3) {
             let payload = &buf[(i + 1) * 3..(i + 2) * 3];
-            triplets.push(Nl80211ElementCountryTriplet::parse(payload)?);
+            triplets.push(Ieee80211ElementCountryTriplet::parse(payload)?);
         }
         Ok(Self {
             country,
@@ -330,7 +350,7 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211ElementCountry {
     }
 }
 
-impl Emitable for Nl80211ElementCountry {
+impl Emitable for Ieee80211ElementCountry {
     fn buffer_len(&self) -> usize {
         (self.triplets.len() * 3 + 3).div_ceil(2) * 2
     }
@@ -338,7 +358,7 @@ impl Emitable for Nl80211ElementCountry {
     fn emit(&self, buffer: &mut [u8]) {
         if self.country.len() != 2 {
             log::warn!(
-                "Invalid country string {} for Nl80211ElementCountry, \
+                "Invalid country string {} for Ieee80211ElementCountry, \
                 should be 2 ASCII characters",
                 self.country
             );
@@ -350,12 +370,18 @@ impl Emitable for Nl80211ElementCountry {
         for (i, triplet) in self.triplets.as_slice().iter().enumerate() {
             triplet.emit(&mut buffer[(i + 1) * 3..(i + 2) * 3]);
         }
+        // IEEE 802.11-2024 9.4.2.7: a single zero padding octet is added when
+        // needed so that the element length is evenly divisible by 2.
+        let data_len = 3 + self.triplets.len() * 3;
+        if data_len % 2 == 1 {
+            buffer[data_len] = 0;
+        }
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
-pub enum Nl80211ElementCountryEnvironment {
+pub enum Ieee80211ElementCountryEnvironment {
     Indoor,
     Outdoor,
     IndoorAndOutdoor,
@@ -363,19 +389,19 @@ pub enum Nl80211ElementCountryEnvironment {
     Other(u8),
 }
 
-impl From<Nl80211ElementCountryEnvironment> for u8 {
-    fn from(v: Nl80211ElementCountryEnvironment) -> u8 {
+impl From<Ieee80211ElementCountryEnvironment> for u8 {
+    fn from(v: Ieee80211ElementCountryEnvironment) -> u8 {
         match v {
-            Nl80211ElementCountryEnvironment::IndoorAndOutdoor => b' ',
-            Nl80211ElementCountryEnvironment::Indoor => b'I',
-            Nl80211ElementCountryEnvironment::Outdoor => b'O',
-            Nl80211ElementCountryEnvironment::Noncountry => b'X',
-            Nl80211ElementCountryEnvironment::Other(d) => d,
+            Ieee80211ElementCountryEnvironment::IndoorAndOutdoor => b' ',
+            Ieee80211ElementCountryEnvironment::Indoor => b'I',
+            Ieee80211ElementCountryEnvironment::Outdoor => b'O',
+            Ieee80211ElementCountryEnvironment::Noncountry => b'X',
+            Ieee80211ElementCountryEnvironment::Other(d) => d,
         }
     }
 }
 
-impl From<u8> for Nl80211ElementCountryEnvironment {
+impl From<u8> for Ieee80211ElementCountryEnvironment {
     fn from(d: u8) -> Self {
         match d {
             b' ' => Self::IndoorAndOutdoor,
@@ -391,12 +417,12 @@ const IEEE80211_COUNTRY_EXTENSION_ID: u8 = 201;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]
-pub enum Nl80211ElementCountryTriplet {
-    Subband(Nl80211ElementSubBand),
-    Operating(Nl80211ElementOperating),
+pub enum Ieee80211ElementCountryTriplet {
+    Subband(Ieee80211ElementSubBand),
+    Operating(Ieee80211ElementOperating),
 }
 
-impl Emitable for Nl80211ElementCountryTriplet {
+impl Emitable for Ieee80211ElementCountryTriplet {
     fn buffer_len(&self) -> usize {
         3
     }
@@ -409,21 +435,21 @@ impl Emitable for Nl80211ElementCountryTriplet {
     }
 }
 
-impl Nl80211ElementCountryTriplet {
+impl Ieee80211ElementCountryTriplet {
     pub fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
         if payload.len() != 3 {
             return Err(format!(
-                "Invalid buffer for Nl80211ElementCountryTriplet, \
+                "Invalid buffer for Ieee80211ElementCountryTriplet, \
                 expecting [u8;3], but got {payload:?}"
             )
             .into());
         }
         if payload[0] >= IEEE80211_COUNTRY_EXTENSION_ID {
-            Ok(Self::Operating(Nl80211ElementOperating::from([
+            Ok(Self::Operating(Ieee80211ElementOperating::from([
                 payload[0], payload[1], payload[2],
             ])))
         } else {
-            Ok(Self::Subband(Nl80211ElementSubBand::from([
+            Ok(Self::Subband(Ieee80211ElementSubBand::from([
                 payload[0], payload[1], payload[2],
             ])))
         }
@@ -431,7 +457,7 @@ impl Nl80211ElementCountryTriplet {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Nl80211ElementSubBand {
+pub struct Ieee80211ElementSubBand {
     pub channel_start: u8,
     pub channel_count: u8,
     /// The Maximum Transmit Power Level field indicates the maximum power, in
@@ -439,7 +465,7 @@ pub struct Nl80211ElementSubBand {
     pub max_power_level: i8,
 }
 
-impl Emitable for Nl80211ElementSubBand {
+impl Emitable for Ieee80211ElementSubBand {
     fn buffer_len(&self) -> usize {
         3
     }
@@ -451,7 +477,7 @@ impl Emitable for Nl80211ElementSubBand {
     }
 }
 
-impl From<[u8; 3]> for Nl80211ElementSubBand {
+impl From<[u8; 3]> for Ieee80211ElementSubBand {
     fn from(buf: [u8; 3]) -> Self {
         Self {
             channel_start: buf[0],
@@ -462,7 +488,7 @@ impl From<[u8; 3]> for Nl80211ElementSubBand {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Nl80211ElementOperating {
+pub struct Ieee80211ElementOperating {
     pub extension_id: u8,
     pub operating_class: u8,
     /// The `aAirPropagationTime` is `coverage_class` * 3 in μs for range
@@ -470,7 +496,7 @@ pub struct Nl80211ElementOperating {
     pub coverage_class: u8,
 }
 
-impl Emitable for Nl80211ElementOperating {
+impl Emitable for Ieee80211ElementOperating {
     fn buffer_len(&self) -> usize {
         3
     }
@@ -482,7 +508,7 @@ impl Emitable for Nl80211ElementOperating {
     }
 }
 
-impl From<[u8; 3]> for Nl80211ElementOperating {
+impl From<[u8; 3]> for Ieee80211ElementOperating {
     fn from(buf: [u8; 3]) -> Self {
         Self {
             extension_id: buf[0],
@@ -495,26 +521,40 @@ impl From<[u8; 3]> for Nl80211ElementOperating {
 /// Robust Security Network Element
 ///
 /// IEEE 802.11-2024: 9.4.2.23 RSNE
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct Nl80211ElementRsn {
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Ieee80211ElementRsn {
     pub version: u16,
-    pub group_cipher: Option<Nl80211CipherSuite>,
-    pub pairwise_ciphers: Vec<Nl80211CipherSuite>,
+    pub group_cipher: Option<Ieee80211CipherSuite>,
+    pub pairwise_ciphers: Vec<Ieee80211CipherSuite>,
     /// Authentication Key Management(AKM) suits
-    pub akm_suits: Vec<Nl80211AkmSuite>,
-    pub rsn_capbilities: Option<Nl80211RsnCapbilities>,
-    pub pmkids: Vec<Nl80211Pmkid>,
-    pub group_mgmt_cipher: Option<Nl80211CipherSuite>,
+    pub akm_suits: Vec<Ieee80211AkmSuite>,
+    pub rsn_capbilities: Option<Ieee80211RsnCapbilities>,
+    pub pmkids: Vec<Ieee80211Pmkid>,
+    pub group_mgmt_cipher: Option<Ieee80211CipherSuite>,
 }
 
-impl Nl80211ElementRsn {
+impl Default for Ieee80211ElementRsn {
+    fn default() -> Self {
+        Self {
+            version: 1,
+            group_cipher: None,
+            pairwise_ciphers: Vec::new(),
+            akm_suits: Vec::new(),
+            rsn_capbilities: None,
+            pmkids: Vec::new(),
+            group_mgmt_cipher: None,
+        }
+    }
+}
+
+impl Ieee80211ElementRsn {
     pub fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
-        // Per IEEE 802.11-2020 9.4.2.24.1 the RSNE contains up to and including
-        // the mandatory 2-octet Version field; every field after it is
-        // optional.
+        // Per IEEE 802.11-2024 9.4.2.23.1 the RSNE contains up to and
+        // including the mandatory 2-octet Version field; every field after it
+        // is optional.
         if payload.len() < 2 {
             return Err(format!(
-                "Invalid buffer length of Nl80211ElementRsn, \
+                "Invalid buffer length of Ieee80211ElementRsn, \
                 expecting at least 2, but got {payload:?}"
             )
             .into());
@@ -527,15 +567,15 @@ impl Nl80211ElementRsn {
         let mut offset = 2;
 
         if offset >= payload.len()
-            || offset + Nl80211CipherSuite::LENGTH > payload.len()
+            || offset + Ieee80211CipherSuite::LENGTH > payload.len()
         {
             return Ok(ret);
         }
 
-        ret.group_cipher = Some(Nl80211CipherSuite::parse(
-            &payload[offset..offset + Nl80211CipherSuite::LENGTH],
+        ret.group_cipher = Some(Ieee80211CipherSuite::parse(
+            &payload[offset..offset + Ieee80211CipherSuite::LENGTH],
         )?);
-        offset += Nl80211CipherSuite::LENGTH;
+        offset += Ieee80211CipherSuite::LENGTH;
 
         if offset >= payload.len() || offset + 2 > payload.len() {
             return Ok(ret);
@@ -548,13 +588,13 @@ impl Nl80211ElementRsn {
         }
 
         for _ in 0..pairwise_cipher_count {
-            if offset + Nl80211CipherSuite::LENGTH > payload.len() {
+            if offset + Ieee80211CipherSuite::LENGTH > payload.len() {
                 return Ok(ret);
             }
-            ret.pairwise_ciphers.push(Nl80211CipherSuite::parse(
-                &payload[offset..offset + Nl80211CipherSuite::LENGTH],
+            ret.pairwise_ciphers.push(Ieee80211CipherSuite::parse(
+                &payload[offset..offset + Ieee80211CipherSuite::LENGTH],
             )?);
-            offset += Nl80211CipherSuite::LENGTH;
+            offset += Ieee80211CipherSuite::LENGTH;
         }
         if offset >= payload.len() || offset + 2 > payload.len() {
             return Ok(ret);
@@ -566,20 +606,21 @@ impl Nl80211ElementRsn {
             return Ok(ret);
         }
         for _ in 0..akm_count {
-            if offset + Nl80211AkmSuite::LENGTH > payload.len() {
+            if offset + Ieee80211AkmSuite::LENGTH > payload.len() {
                 return Ok(ret);
             }
-            ret.akm_suits.push(Nl80211AkmSuite::parse(
-                &payload[offset..offset + Nl80211AkmSuite::LENGTH],
+            ret.akm_suits.push(Ieee80211AkmSuite::parse(
+                &payload[offset..offset + Ieee80211AkmSuite::LENGTH],
             )?);
-            offset += Nl80211AkmSuite::LENGTH;
+            offset += Ieee80211AkmSuite::LENGTH;
         }
         if offset >= payload.len() || offset + 2 > payload.len() {
             return Ok(ret);
         }
 
-        ret.rsn_capbilities =
-            Some(Nl80211RsnCapbilities::parse(&payload[offset..offset + 2])?);
+        ret.rsn_capbilities = Some(Ieee80211RsnCapbilities::parse(
+            &payload[offset..offset + 2],
+        )?);
         offset += 2;
 
         if offset >= payload.len() || offset + 2 > payload.len() {
@@ -592,48 +633,49 @@ impl Nl80211ElementRsn {
             return Ok(ret);
         }
         for _ in 0..pmkids_count {
-            if offset + Nl80211Pmkid::LENGTH > payload.len() {
+            if offset + Ieee80211Pmkid::LENGTH > payload.len() {
                 return Ok(ret);
             }
-            ret.pmkids.push(Nl80211Pmkid::parse(
-                &payload[offset..offset + Nl80211Pmkid::LENGTH],
+            ret.pmkids.push(Ieee80211Pmkid::parse(
+                &payload[offset..offset + Ieee80211Pmkid::LENGTH],
             )?);
-            offset += Nl80211Pmkid::LENGTH;
+            offset += Ieee80211Pmkid::LENGTH;
         }
 
         if offset >= payload.len()
-            || offset + Nl80211CipherSuite::LENGTH > payload.len()
+            || offset + Ieee80211CipherSuite::LENGTH > payload.len()
         {
             return Ok(ret);
         }
 
-        ret.group_mgmt_cipher = Some(Nl80211CipherSuite::parse(
-            &payload[offset..offset + Nl80211CipherSuite::LENGTH],
+        ret.group_mgmt_cipher = Some(Ieee80211CipherSuite::parse(
+            &payload[offset..offset + Ieee80211CipherSuite::LENGTH],
         )?);
         Ok(ret)
     }
 }
 
-impl Emitable for Nl80211ElementRsn {
+impl Emitable for Ieee80211ElementRsn {
     fn buffer_len(&self) -> usize {
         // version field
         let mut len = 2usize;
         if self.group_cipher.is_none() {
             return len;
         } else {
-            len += Nl80211CipherSuite::LENGTH;
+            len += Ieee80211CipherSuite::LENGTH;
         }
 
         if self.pairwise_ciphers.is_empty() {
             return len;
         } else {
-            len += 2 + self.pairwise_ciphers.len() * Nl80211CipherSuite::LENGTH;
+            len +=
+                2 + self.pairwise_ciphers.len() * Ieee80211CipherSuite::LENGTH;
         }
 
         if self.akm_suits.is_empty() {
             return len;
         } else {
-            len += 2 + self.akm_suits.len() * Nl80211AkmSuite::LENGTH;
+            len += 2 + self.akm_suits.len() * Ieee80211AkmSuite::LENGTH;
         }
 
         if self.rsn_capbilities.is_none() {
@@ -647,10 +689,10 @@ impl Emitable for Nl80211ElementRsn {
         }
         // PMKID count is always present once a PMKID list and/or a group
         // management cipher follows the RSN capabilities.
-        len += 2 + self.pmkids.len() * Nl80211Pmkid::LENGTH;
+        len += 2 + self.pmkids.len() * Ieee80211Pmkid::LENGTH;
 
         if self.group_mgmt_cipher.is_some() {
-            len += Nl80211CipherSuite::LENGTH;
+            len += Ieee80211CipherSuite::LENGTH;
         }
 
         len
@@ -663,6 +705,20 @@ impl Emitable for Nl80211ElementRsn {
         if let Some(g) = self.group_cipher {
             write_u32_le(&mut buffer[offset..offset + 4], u32::from(g));
             offset += 4;
+            if self.pairwise_ciphers.is_empty() {
+                if !self.akm_suits.is_empty()
+                    || self.rsn_capbilities.is_some()
+                    || !self.pmkids.is_empty()
+                    || self.group_mgmt_cipher.is_some()
+                {
+                    log::warn!(
+                        "Ieee80211ElementRsn: fields after the pairwise \
+                        cipher suite list are dropped because the pairwise \
+                        list is empty"
+                    );
+                }
+                return;
+            }
             write_u16_le(
                 &mut buffer[offset..offset + 2],
                 self.pairwise_ciphers.len() as u16,
@@ -697,7 +753,7 @@ impl Emitable for Nl80211ElementRsn {
             offset += 2;
             for pmkid in self.pmkids.as_slice() {
                 pmkid.emit(&mut buffer[offset..]);
-                offset += Nl80211Pmkid::LENGTH;
+                offset += Ieee80211Pmkid::LENGTH;
             }
             if let Some(c) = self.group_mgmt_cipher {
                 write_u32_le(&mut buffer[offset..offset + 4], u32::from(c));
@@ -713,7 +769,7 @@ const CIPHER_TKIP: u32 = IEEE_80211_OUI | 2 << 24;
 const CIPHER_CCMP_128: u32 = IEEE_80211_OUI | 4 << 24;
 const CIPHER_WEP_104: u32 = IEEE_80211_OUI | 5 << 24;
 const CIPHER_BIP_CMAC_128: u32 = IEEE_80211_OUI | 6 << 24;
-const CIPHER_GROUP_ADDRESSED_TRACFFIC_NOT_ALLOWED: u32 =
+const CIPHER_GROUP_ADDRESSED_TRAFFIC_NOT_ALLOWED: u32 =
     IEEE_80211_OUI | 7 << 24;
 const CIPHER_GCMP_128: u32 = IEEE_80211_OUI | 8 << 24;
 const CIPHER_GCMP_256: u32 = IEEE_80211_OUI | 9 << 24;
@@ -721,11 +777,16 @@ const CIPHER_CCMP_256: u32 = IEEE_80211_OUI | 10 << 24;
 const CIPHER_BIP_GMAC_128: u32 = IEEE_80211_OUI | 11 << 24;
 const CIPHER_BIP_GMAC_256: u32 = IEEE_80211_OUI | 12 << 24;
 const CIPHER_BIP_CMAC_256: u32 = IEEE_80211_OUI | 13 << 24;
+// WAPI SMS4 (OUI 00-14-72, suite type 1). Not part of IEEE 802.11-2024
+// Table 9-188; the Linux kernel defines it as `WLAN_CIPHER_SUITE_SMS4`.
+const CIPHER_SMS4: u32 = 0x01721400;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 #[non_exhaustive]
-pub enum Nl80211CipherSuite {
+pub enum Ieee80211CipherSuite {
     UseGroup,
+    /// Reserved in IEEE 802.11-2024 (Table 9-188); kept for legacy
+    /// WPA/WPA2 compatibility.
     Wep40,
     Tkip,
     // The 802.11-2020 said only non-DMG default to CCMP-128.
@@ -733,6 +794,8 @@ pub enum Nl80211CipherSuite {
     // assume Ccmp128 is default
     #[default]
     Ccmp128,
+    /// Reserved in IEEE 802.11-2024 (Table 9-188); kept for legacy
+    /// WPA/WPA2 compatibility.
     Wep104,
     BipCmac128,
     GroupAddressedTrafficNotAllowed,
@@ -742,10 +805,13 @@ pub enum Nl80211CipherSuite {
     BipGmac128,
     BipGmac256,
     BipCmac256,
+    /// WAPI SMS4 (`00-14-72:1`), defined by the kernel as
+    /// `WLAN_CIPHER_SUITE_SMS4`.
+    Sms4,
     Other(u32),
 }
 
-impl From<u32> for Nl80211CipherSuite {
+impl From<u32> for Ieee80211CipherSuite {
     fn from(d: u32) -> Self {
         match d {
             CIPHER_USE_GROUP => Self::UseGroup,
@@ -754,7 +820,7 @@ impl From<u32> for Nl80211CipherSuite {
             CIPHER_CCMP_128 => Self::Ccmp128,
             CIPHER_WEP_104 => Self::Wep104,
             CIPHER_BIP_CMAC_128 => Self::BipCmac128,
-            CIPHER_GROUP_ADDRESSED_TRACFFIC_NOT_ALLOWED => {
+            CIPHER_GROUP_ADDRESSED_TRAFFIC_NOT_ALLOWED => {
                 Self::GroupAddressedTrafficNotAllowed
             }
             CIPHER_GCMP_128 => Self::Gcmp128,
@@ -763,41 +829,43 @@ impl From<u32> for Nl80211CipherSuite {
             CIPHER_BIP_GMAC_128 => Self::BipGmac128,
             CIPHER_BIP_GMAC_256 => Self::BipGmac256,
             CIPHER_BIP_CMAC_256 => Self::BipCmac256,
+            CIPHER_SMS4 => Self::Sms4,
             _ => Self::Other(d),
         }
     }
 }
 
-impl From<Nl80211CipherSuite> for u32 {
-    fn from(v: Nl80211CipherSuite) -> u32 {
+impl From<Ieee80211CipherSuite> for u32 {
+    fn from(v: Ieee80211CipherSuite) -> u32 {
         match v {
-            Nl80211CipherSuite::UseGroup => CIPHER_USE_GROUP,
-            Nl80211CipherSuite::Wep40 => CIPHER_WEP_40,
-            Nl80211CipherSuite::Tkip => CIPHER_TKIP,
-            Nl80211CipherSuite::Ccmp128 => CIPHER_CCMP_128,
-            Nl80211CipherSuite::Wep104 => CIPHER_WEP_104,
-            Nl80211CipherSuite::BipCmac128 => CIPHER_BIP_CMAC_128,
-            Nl80211CipherSuite::GroupAddressedTrafficNotAllowed => {
-                CIPHER_GROUP_ADDRESSED_TRACFFIC_NOT_ALLOWED
+            Ieee80211CipherSuite::UseGroup => CIPHER_USE_GROUP,
+            Ieee80211CipherSuite::Wep40 => CIPHER_WEP_40,
+            Ieee80211CipherSuite::Tkip => CIPHER_TKIP,
+            Ieee80211CipherSuite::Ccmp128 => CIPHER_CCMP_128,
+            Ieee80211CipherSuite::Wep104 => CIPHER_WEP_104,
+            Ieee80211CipherSuite::BipCmac128 => CIPHER_BIP_CMAC_128,
+            Ieee80211CipherSuite::GroupAddressedTrafficNotAllowed => {
+                CIPHER_GROUP_ADDRESSED_TRAFFIC_NOT_ALLOWED
             }
-            Nl80211CipherSuite::Gcmp128 => CIPHER_GCMP_128,
-            Nl80211CipherSuite::Gcmp256 => CIPHER_GCMP_256,
-            Nl80211CipherSuite::Ccmp256 => CIPHER_CCMP_256,
-            Nl80211CipherSuite::BipGmac128 => CIPHER_BIP_GMAC_128,
-            Nl80211CipherSuite::BipGmac256 => CIPHER_BIP_GMAC_256,
-            Nl80211CipherSuite::BipCmac256 => CIPHER_BIP_CMAC_256,
-            Nl80211CipherSuite::Other(d) => d,
+            Ieee80211CipherSuite::Gcmp128 => CIPHER_GCMP_128,
+            Ieee80211CipherSuite::Gcmp256 => CIPHER_GCMP_256,
+            Ieee80211CipherSuite::Ccmp256 => CIPHER_CCMP_256,
+            Ieee80211CipherSuite::BipGmac128 => CIPHER_BIP_GMAC_128,
+            Ieee80211CipherSuite::BipGmac256 => CIPHER_BIP_GMAC_256,
+            Ieee80211CipherSuite::BipCmac256 => CIPHER_BIP_CMAC_256,
+            Ieee80211CipherSuite::Sms4 => CIPHER_SMS4,
+            Ieee80211CipherSuite::Other(d) => d,
         }
     }
 }
 
-impl Nl80211CipherSuite {
+impl Ieee80211CipherSuite {
     pub const LENGTH: usize = 4;
 
     pub fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
         if payload.len() < 4 {
             Err(format!(
-                "Invalid buffer length for Nl80211CipherSuite, \
+                "Invalid buffer length for Ieee80211CipherSuite, \
                 expecting 4, but got {payload:?}"
             )
             .into())
@@ -821,7 +889,7 @@ const AKM_FT_SAE: u32 = IEEE_80211_OUI | 9 << 24;
 const AKM_AP_PEER_KEY: u32 = IEEE_80211_OUI | 10 << 24;
 const AKM_1X_SUITB: u32 = IEEE_80211_OUI | 11 << 24;
 const AKM_1X_CNSA: u32 = IEEE_80211_OUI | 12 << 24;
-const AKM_FT_1X_SHA384: u32 = IEEE_80211_OUI | 13 << 24;
+const AKM_FT_1X_SHA384_SUITE_B: u32 = IEEE_80211_OUI | 13 << 24;
 const AKM_FILS_SHA256_AES_SIV256_OR_1X: u32 = IEEE_80211_OUI | 14 << 24;
 const AKM_FILS_SHA384_AES_SIV512_OR_1X: u32 = IEEE_80211_OUI | 15 << 24;
 const AKM_FT_FILS_SHA256_AES_SIV256_OR_1X: u32 = IEEE_80211_OUI | 16 << 24;
@@ -829,13 +897,16 @@ const AKM_FT_FILS_SHA384_AES_SIV512_OR_1X: u32 = IEEE_80211_OUI | 17 << 24;
 const AKM_OWE: u32 = IEEE_80211_OUI | 18 << 24;
 const AKM_FT_PSK_SHA384: u32 = IEEE_80211_OUI | 19 << 24;
 const AKM_PSK_SHA384: u32 = IEEE_80211_OUI | 20 << 24;
+const AKM_PASN: u32 = IEEE_80211_OUI | 21 << 24;
+const AKM_FT_1X_SHA384: u32 = IEEE_80211_OUI | 22 << 24;
+const AKM_1X_SHA384: u32 = IEEE_80211_OUI | 23 << 24;
 const AKM_SAE_GROUP_HASH: u32 = IEEE_80211_OUI | 24 << 24;
 const AKM_FT_SAE_GROUP_HASH: u32 = IEEE_80211_OUI | 25 << 24;
 
 /// Authentication Key Management Suite
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
-pub enum Nl80211AkmSuite {
+pub enum Ieee80211AkmSuite {
     Ieee8021x,
     Psk,
     FtIeee8021x,
@@ -848,7 +919,7 @@ pub enum Nl80211AkmSuite {
     ApPeerKey,
     Ieee8021xSuiteB,
     Ieee8021xCnsa,
-    FtIeee8021xSha384,
+    FtIeee8021xSha384SuiteB,
     FilsSha256AesSiv256OrIeee8021x,
     FilsSha384AesSiv512OrIeee8021x,
     FtFilsSha256AesSiv256OrIeee8021x,
@@ -856,6 +927,9 @@ pub enum Nl80211AkmSuite {
     Owe,
     FtPskSha384,
     PskSha384,
+    Pasn,
+    FtIeee8021xSha384,
+    Ieee8021xSha384,
     // Defined in WPA 3 as 00-0F-AC:24
     SaeGroupDependentHash,
     // Defined in WPA 3 as 00-0F-AC:25
@@ -863,7 +937,7 @@ pub enum Nl80211AkmSuite {
     Other(u32),
 }
 
-impl From<u32> for Nl80211AkmSuite {
+impl From<u32> for Ieee80211AkmSuite {
     fn from(d: u32) -> Self {
         match d {
             AKM_1X => Self::Ieee8021x,
@@ -878,7 +952,7 @@ impl From<u32> for Nl80211AkmSuite {
             AKM_AP_PEER_KEY => Self::ApPeerKey,
             AKM_1X_SUITB => Self::Ieee8021xSuiteB,
             AKM_1X_CNSA => Self::Ieee8021xCnsa,
-            AKM_FT_1X_SHA384 => Self::FtIeee8021xSha384,
+            AKM_FT_1X_SHA384_SUITE_B => Self::FtIeee8021xSha384SuiteB,
             AKM_FILS_SHA256_AES_SIV256_OR_1X => {
                 Self::FilsSha256AesSiv256OrIeee8021x
             }
@@ -894,6 +968,9 @@ impl From<u32> for Nl80211AkmSuite {
             AKM_OWE => Self::Owe,
             AKM_FT_PSK_SHA384 => Self::FtPskSha384,
             AKM_PSK_SHA384 => Self::PskSha384,
+            AKM_PASN => Self::Pasn,
+            AKM_FT_1X_SHA384 => Self::FtIeee8021xSha384,
+            AKM_1X_SHA384 => Self::Ieee8021xSha384,
             AKM_SAE_GROUP_HASH => Self::SaeGroupDependentHash,
             AKM_FT_SAE_GROUP_HASH => Self::FtSaeGroupDependentHash,
             _ => Self::Other(d),
@@ -901,50 +978,55 @@ impl From<u32> for Nl80211AkmSuite {
     }
 }
 
-impl From<Nl80211AkmSuite> for u32 {
-    fn from(v: Nl80211AkmSuite) -> u32 {
+impl From<Ieee80211AkmSuite> for u32 {
+    fn from(v: Ieee80211AkmSuite) -> u32 {
         match v {
-            Nl80211AkmSuite::Ieee8021x => AKM_1X,
-            Nl80211AkmSuite::Psk => AKM_PSK,
-            Nl80211AkmSuite::FtIeee8021x => AKM_FT_1X,
-            Nl80211AkmSuite::FtPsk => AKM_FT_PSK,
-            Nl80211AkmSuite::Ieee8021xSha256 => AKM_1X_SHA256,
-            Nl80211AkmSuite::PskSha256 => AKM_PSK_SHA256,
-            Nl80211AkmSuite::Tdls => AKM_TDLS,
-            Nl80211AkmSuite::Sae => AKM_SAE,
-            Nl80211AkmSuite::FtSae => AKM_FT_SAE,
-            Nl80211AkmSuite::ApPeerKey => AKM_AP_PEER_KEY,
-            Nl80211AkmSuite::Ieee8021xSuiteB => AKM_1X_SUITB,
-            Nl80211AkmSuite::Ieee8021xCnsa => AKM_1X_CNSA,
-            Nl80211AkmSuite::FtIeee8021xSha384 => AKM_FT_1X_SHA384,
-            Nl80211AkmSuite::FilsSha256AesSiv256OrIeee8021x => {
+            Ieee80211AkmSuite::Ieee8021x => AKM_1X,
+            Ieee80211AkmSuite::Psk => AKM_PSK,
+            Ieee80211AkmSuite::FtIeee8021x => AKM_FT_1X,
+            Ieee80211AkmSuite::FtPsk => AKM_FT_PSK,
+            Ieee80211AkmSuite::Ieee8021xSha256 => AKM_1X_SHA256,
+            Ieee80211AkmSuite::PskSha256 => AKM_PSK_SHA256,
+            Ieee80211AkmSuite::Tdls => AKM_TDLS,
+            Ieee80211AkmSuite::Sae => AKM_SAE,
+            Ieee80211AkmSuite::FtSae => AKM_FT_SAE,
+            Ieee80211AkmSuite::ApPeerKey => AKM_AP_PEER_KEY,
+            Ieee80211AkmSuite::Ieee8021xSuiteB => AKM_1X_SUITB,
+            Ieee80211AkmSuite::Ieee8021xCnsa => AKM_1X_CNSA,
+            Ieee80211AkmSuite::FtIeee8021xSha384SuiteB => {
+                AKM_FT_1X_SHA384_SUITE_B
+            }
+            Ieee80211AkmSuite::FilsSha256AesSiv256OrIeee8021x => {
                 AKM_FILS_SHA256_AES_SIV256_OR_1X
             }
-            Nl80211AkmSuite::FilsSha384AesSiv512OrIeee8021x => {
+            Ieee80211AkmSuite::FilsSha384AesSiv512OrIeee8021x => {
                 AKM_FILS_SHA384_AES_SIV512_OR_1X
             }
-            Nl80211AkmSuite::FtFilsSha256AesSiv256OrIeee8021x => {
+            Ieee80211AkmSuite::FtFilsSha256AesSiv256OrIeee8021x => {
                 AKM_FT_FILS_SHA256_AES_SIV256_OR_1X
             }
-            Nl80211AkmSuite::FtFilsSha384AesSiv512OrIeee8021x => {
+            Ieee80211AkmSuite::FtFilsSha384AesSiv512OrIeee8021x => {
                 AKM_FT_FILS_SHA384_AES_SIV512_OR_1X
             }
-            Nl80211AkmSuite::Owe => AKM_OWE,
-            Nl80211AkmSuite::FtPskSha384 => AKM_FT_PSK_SHA384,
-            Nl80211AkmSuite::PskSha384 => AKM_PSK_SHA384,
-            Nl80211AkmSuite::SaeGroupDependentHash => AKM_SAE_GROUP_HASH,
-            Nl80211AkmSuite::FtSaeGroupDependentHash => AKM_FT_SAE_GROUP_HASH,
-            Nl80211AkmSuite::Other(d) => d,
+            Ieee80211AkmSuite::Owe => AKM_OWE,
+            Ieee80211AkmSuite::FtPskSha384 => AKM_FT_PSK_SHA384,
+            Ieee80211AkmSuite::PskSha384 => AKM_PSK_SHA384,
+            Ieee80211AkmSuite::Pasn => AKM_PASN,
+            Ieee80211AkmSuite::FtIeee8021xSha384 => AKM_FT_1X_SHA384,
+            Ieee80211AkmSuite::Ieee8021xSha384 => AKM_1X_SHA384,
+            Ieee80211AkmSuite::SaeGroupDependentHash => AKM_SAE_GROUP_HASH,
+            Ieee80211AkmSuite::FtSaeGroupDependentHash => AKM_FT_SAE_GROUP_HASH,
+            Ieee80211AkmSuite::Other(d) => d,
         }
     }
 }
-impl Nl80211AkmSuite {
+impl Ieee80211AkmSuite {
     pub const LENGTH: usize = 4;
 
     pub fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
         if payload.len() < 4 {
             Err(format!(
-                "Invalid buffer length for Nl80211AkmSuite, \
+                "Invalid buffer length for Ieee80211AkmSuite, \
                 expecting 4, but got {payload:?}"
             )
             .into())
@@ -958,7 +1040,6 @@ impl Nl80211AkmSuite {
 }
 
 const RSN_CAP_PRE_AUTH: u16 = 1 << 0;
-const RSN_CAP_NO_PAIRWISE: u16 = 1 << 1;
 const RSN_CAP_PTKSA_REPLAY_COUNT_2: u16 = 1 << 2;
 const RSN_CAP_PTKSA_REPLAY_COUNT_4: u16 = 1 << 3;
 const RSN_CAP_GTKSA_REPLAY_COUNT_2: u16 = 1 << 4;
@@ -967,9 +1048,7 @@ const RSN_CAP_MFPR: u16 = 1 << 6;
 const RSN_CAP_MFPC: u16 = 1 << 7;
 const RSN_CAP_JOINT_MULTI_BAND_RSNA: u16 = 1 << 8;
 const RSN_CAP_PEER_KEY_ENABLED: u16 = 1 << 9;
-const RSN_CAP_SPP_A_MSDU_CAPABLE: u16 = 1 << 10;
-const RSN_CAP_SPP_A_MSDU_REQUIRED: u16 = 1 << 11;
-const RSN_CAP_PBAC: u16 = 1 << 12;
+const RSN_CAP_BIP_COMPACT_ENCAPSULATION: u16 = 1 << 12;
 const RSN_CAP_EXTENDED_KEY_ID_PTKSA: u16 = 1 << 13;
 const RSN_CAP_OCVC: u16 = 1 << 14;
 
@@ -978,12 +1057,9 @@ bitflags::bitflags! {
     /// what to use
     #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
     #[non_exhaustive]
-    pub struct Nl80211RsnCapbilities: u16 {
+    pub struct Ieee80211RsnCapbilities: u16 {
         /// Indicates the AP support preauthentication.
         const PreAuth = RSN_CAP_PRE_AUTH;
-        /// Indicates the STA does not support WEP default key 0 simultaneously
-        /// with a pairwise key.
-        const NoPairwise = RSN_CAP_NO_PAIRWISE;
         /// When Both PtksaReplayCount2 and PtksaReplayCount4 are set,
         /// it means 16 replay counters per PTKSA.
         /// When Neither PtksaReplayCount2 or PtksaReplayCount4 is set,
@@ -1006,12 +1082,8 @@ bitflags::bitflags! {
         const JointMultiBandRsna = RSN_CAP_JOINT_MULTI_BAND_RSNA;
         /// An AP indicate it supports PeerKey handshake
         const PeerKeyEnabled = RSN_CAP_PEER_KEY_ENABLED;
-        /// A STA indicate it supports signaling and payload protected A-MSDUs.
-        const SppAMsduCapable = RSN_CAP_SPP_A_MSDU_CAPABLE;
-        /// A STA indicate it allows only SPP A-MSDUs.
-        const SppAMsduRequired = RSN_CAP_SPP_A_MSDU_REQUIRED;
-        /// Protected block ack agreement capable.
-        const Pbac = RSN_CAP_PBAC;
+        /// BIP Compact Encapsulation (S1G).
+        const BipCompactEncapsulation = RSN_CAP_BIP_COMPACT_ENCAPSULATION;
         /// Extended Key ID for Individually Addressed Frames.
         /// Indicate that the STA supports Key ID values in the range 0 to 1 for
         /// a PTKSA when the cipher suite is CCMP or GCMP.
@@ -1027,17 +1099,17 @@ bitflags::bitflags! {
     }
 }
 
-impl Nl80211RsnCapbilities {
+impl Ieee80211RsnCapbilities {
     pub const LENGTH: usize = 2;
 
     pub fn parse(raw: &[u8]) -> Result<Self, DecodeError> {
         Ok(Self::from_bits_retain(parse_u16_le(raw).context(
-            format!("Invalid Nl80211RsnCapbilities payload {raw:?}"),
+            format!("Invalid Ieee80211RsnCapbilities payload {raw:?}"),
         )?))
     }
 }
 
-impl Emitable for Nl80211RsnCapbilities {
+impl Emitable for Ieee80211RsnCapbilities {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
@@ -1088,7 +1160,7 @@ bitflags::bitflags! {
     /// represent every possible capability bit (a `u32` could not).
     #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
     #[non_exhaustive]
-    pub struct Nl80211RsnExtCapbilities: u128 {
+    pub struct Ieee80211RsnExtCapbilities: u128 {
         /// Protected TWT Operations Support (bit 4).
         const ProtectedTwt = RSNX_CAP_PROTECTED_TWT;
         /// SAE Hash-to-element (H2E) password derivation supported (bit 5).
@@ -1127,15 +1199,15 @@ bitflags::bitflags! {
 /// RSN Extension element (RSNXE), IEEE 802.11 element id 244.
 ///
 /// Carries the Extended RSN Capabilities; for WPA3 the most relevant bit is
-/// [`Nl80211RsnExtCapbilities::SaeH2e`]. The Field length subfield in the low
+/// [`Ieee80211RsnExtCapbilities::SaeH2e`]. The Field length subfield in the low
 /// nibble of the first octet is computed automatically from the capability
 /// bits and need not be set by the caller.
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
-pub struct Nl80211ElementRsnExt {
-    pub capabilities: Nl80211RsnExtCapbilities,
+pub struct Ieee80211ElementRsnExt {
+    pub capabilities: Ieee80211RsnExtCapbilities,
 }
 
-impl Nl80211ElementRsnExt {
+impl Ieee80211ElementRsnExt {
     /// Number of octets of the Extended RSN Capabilities field needed to hold
     /// the set capability bits (at least 1, at most [`RSNX_FIELD_MAX_OCTETS`]).
     fn octet_len(&self) -> usize {
@@ -1151,7 +1223,7 @@ impl Nl80211ElementRsnExt {
     pub fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
         if payload.is_empty() {
             return Err(format!(
-                "Invalid Nl80211ElementRsnExt payload {payload:?}"
+                "Invalid Ieee80211ElementRsnExt payload {payload:?}"
             )
             .into());
         }
@@ -1167,12 +1239,12 @@ impl Nl80211ElementRsnExt {
         // Drop the Field length subfield (low nibble); keep the capabilities.
         let bits = u128::from_le_bytes(raw) & !RSNX_FIELD_LEN_MASK;
         Ok(Self {
-            capabilities: Nl80211RsnExtCapbilities::from_bits_retain(bits),
+            capabilities: Ieee80211RsnExtCapbilities::from_bits_retain(bits),
         })
     }
 }
 
-impl Emitable for Nl80211ElementRsnExt {
+impl Emitable for Ieee80211ElementRsnExt {
     fn buffer_len(&self) -> usize {
         self.octet_len()
     }
@@ -1187,15 +1259,15 @@ impl Emitable for Nl80211ElementRsnExt {
 
 /// Authentication Key Management Suite
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Nl80211Pmkid(pub [u8; 16]);
+pub struct Ieee80211Pmkid(pub [u8; 16]);
 
-impl Nl80211Pmkid {
+impl Ieee80211Pmkid {
     pub const LENGTH: usize = 16;
 
     pub fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
         if payload.len() < Self::LENGTH {
             Err(format!(
-                "Invalid buffer length for Nl80211Pmkid, \
+                "Invalid buffer length for Ieee80211Pmkid, \
                 expecting {}, but got {payload:?}",
                 Self::LENGTH
             )

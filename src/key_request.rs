@@ -5,7 +5,7 @@ use netlink_packet_core::{NLM_F_ACK, NLM_F_REQUEST};
 use netlink_packet_generic::GenlMessage;
 
 use crate::{
-    nl80211_execute, Nl80211Attr, Nl80211CipherSuite, Nl80211Command,
+    nl80211_execute, Ieee80211CipherSuite, Nl80211Attr, Nl80211Command,
     Nl80211Error, Nl80211Handle, Nl80211KeyAttr, Nl80211KeyDefaultType,
     Nl80211KeyType, Nl80211Message,
 };
@@ -28,7 +28,7 @@ impl Nl80211Key {
             mac: None,
             key_data: Vec::new(),
             key_index: 0,
-            cipher: Nl80211CipherSuite::Ccmp128,
+            cipher: Ieee80211CipherSuite::Ccmp128,
             seq: None,
             key_type: None,
             default_mgmt: false,
@@ -78,7 +78,7 @@ impl Nl80211Key {
         Self::new(if_index)
             .key_data(key_data)
             .key_index(key_index)
-            .cipher(Nl80211CipherSuite::BipCmac128)
+            .cipher(Ieee80211CipherSuite::BipCmac128)
             .seq(seq)
             .key_type(Nl80211KeyType::Group)
             .default_mgmt(true)
@@ -97,7 +97,7 @@ impl Nl80211Key {
         Self::new(if_index)
             .key_data(key_data)
             .key_index(key_index)
-            .cipher(Nl80211CipherSuite::BipCmac128)
+            .cipher(Ieee80211CipherSuite::BipCmac128)
             .seq(seq)
             .key_type(Nl80211KeyType::Group)
     }
@@ -110,7 +110,7 @@ pub struct Nl80211KeyRequestBuilder {
     mac: Option<[u8; 6]>,
     key_data: Vec<u8>,
     key_index: u8,
-    cipher: Nl80211CipherSuite,
+    cipher: Ieee80211CipherSuite,
     seq: Option<Vec<u8>>,
     key_type: Option<Nl80211KeyType>,
     default_mgmt: bool,
@@ -136,8 +136,8 @@ impl Nl80211KeyRequestBuilder {
         self
     }
 
-    /// Cipher suite, e.g. [`Nl80211CipherSuite::Ccmp128`].
-    pub fn cipher(mut self, cipher: Nl80211CipherSuite) -> Self {
+    /// Cipher suite, e.g. [`Ieee80211CipherSuite::Ccmp128`].
+    pub fn cipher(mut self, cipher: Ieee80211CipherSuite) -> Self {
         self.cipher = cipher;
         self
     }
@@ -172,7 +172,7 @@ impl Nl80211KeyRequestBuilder {
 
     /// Build the attribute list for a `NL80211_CMD_NEW_KEY` request.
     pub fn build(self) -> Vec<Nl80211Attr> {
-        // `Nl80211CipherSuite` stores the 802.11 element byte-order; the
+        // `Ieee80211CipherSuite` stores the 802.11 element byte-order; the
         // netlink `NL80211_KEY_CIPHER` attribute expects the kernel's u32
         // (OUI in the high bytes), so swap — see the `CiphersPairwise` emit
         // in `attr.rs`.

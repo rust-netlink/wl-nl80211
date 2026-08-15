@@ -38,48 +38,7 @@ use netlink_packet_core::{
 };
 
 use crate::bytes::{write_i32, write_u16, write_u32, write_u64};
-
-bitflags::bitflags! {
-    /// IEEE 802.11-202, 9.4.1.4 Capability Information field
-    #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
-    #[non_exhaustive]
-    pub struct Nl80211BssCapabilities: u16 {
-        const Ess = 1 << 0;
-        const Ibss = 1 << 1;
-        const Privacy = 1 << 4;
-        const ShortPreamble = 1 << 5;
-        const SpectrumManagement = 1 << 8;
-        const Qos = 1 << 9;
-        const ShortSlotTime = 1 << 10;
-        const Apsd = 1 << 11;
-        const RadioMeasurement = 1 << 12 ;
-        const Epd =  1 << 13;
-        const _ = !0;
-    }
-}
-
-impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Nl80211BssCapabilities {
-    fn parse(buf: &T) -> Result<Self, DecodeError> {
-        let buf: &[u8] = buf.as_ref();
-        Ok(Self::from_bits_retain(parse_u16(buf).context(format!(
-            "Invalid Nl80211BssCapabilities payload {buf:?}"
-        ))?))
-    }
-}
-
-impl Nl80211BssCapabilities {
-    pub const LENGTH: usize = 2;
-}
-
-impl Emitable for Nl80211BssCapabilities {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&self.bits().to_ne_bytes())
-    }
-}
+use crate::Ieee80211CapabilityInfo;
 
 bitflags::bitflags! {
     #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
@@ -151,11 +110,11 @@ pub enum Nl80211BssInfo {
     Tsf(u64),
     /// Beacon interval of the (I)BSS
     BeaconInterval(u16),
-    Capability(Nl80211BssCapabilities),
+    Capability(Ieee80211CapabilityInfo),
     /// Considering this information element is provided by WIFI hardware
     /// vendor which might provide malformed data causing parsing error, we
     /// only store unparsed Information Elements(IEs) here, please parsed by
-    /// [Nl80211Elements::parse()]
+    /// [Ieee80211Elements::parse()]
     RawInformationElements(Vec<u8>),
     SignalMbm(i32),
     SignalUnspec(u8),
@@ -164,14 +123,14 @@ pub enum Nl80211BssInfo {
     /// Considering this information element is provided by WIFI hardware
     /// vendor which might provide malformed data causing parsing error, we
     /// only store unparsed beacon Information Elements(IEs) here, please
-    /// parsed by [Nl80211Elements::parse()]
+    /// parsed by [Ieee80211Elements::parse()]
     RawBeaconInformationElements(Vec<u8>),
     ChanWidth(u32),
     BeaconTsf(u64),
     /// Considering this information element is provided by WIFI hardware
     /// vendor which might provide malformed data causing parsing error, we
     /// only store unparsed probe response Information Elements(IEs) here,
-    /// please parsed by [Nl80211Elements::parse()]
+    /// please parsed by [Ieee80211Elements::parse()]
     RawProbeResponseInformationElements(Vec<u8>),
     /// `CLOCK_BOOTTIME` timestamp when this entry was last updated by a
     /// received frame. The value is expected to be accurate to about 10ms.
@@ -199,7 +158,7 @@ impl Nla for Nl80211BssInfo {
             Self::RawInformationElements(v)
             | Self::RawBeaconInformationElements(v)
             | Self::RawProbeResponseInformationElements(v) => v.len(),
-            Self::Capability(_) => Nl80211BssCapabilities::LENGTH,
+            Self::Capability(_) => Ieee80211CapabilityInfo::LENGTH,
             Self::UseFor(_) => Nl80211BssUseFor::LENGTH,
             Self::Other(attr) => attr.value_len(),
         }
@@ -290,7 +249,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 Self::BeaconInterval(parse_u16(payload).context(err_msg)?)
             }
             NL80211_BSS_CAPABILITY => {
-                Self::Capability(Nl80211BssCapabilities::parse(payload)?)
+                Self::Capability(Ieee80211CapabilityInfo::parse(payload)?)
             }
             NL80211_BSS_BEACON_IES => {
                 Self::RawBeaconInformationElements(payload.to_vec())

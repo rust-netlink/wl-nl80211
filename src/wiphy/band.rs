@@ -37,10 +37,11 @@ use netlink_packet_core::{
 
 use crate::{
     bytes::{write_u16, write_u32},
-    Nl80211EhtMacCapInfo, Nl80211EhtMcsNssSupp, Nl80211EhtPhyCapInfo,
-    Nl80211EhtPpeThres, Nl80211He6GhzCapa, Nl80211HeMacCapInfo,
-    Nl80211HeMcsNssSupp, Nl80211HePhyCapInfo, Nl80211HePpeThreshold,
-    Nl80211HtCaps, Nl80211HtMcsInfo, Nl80211VhtCapInfo, Nl80211VhtMcsInfo,
+    Ieee80211EhtMacCapInfo, Ieee80211EhtMcsNssSupp, Ieee80211EhtPhyCapInfo,
+    Ieee80211EhtPpeThres, Ieee80211He6GhzCapa, Ieee80211HeMacCapInfo,
+    Ieee80211HeMcsNssSupp, Ieee80211HePhyCapInfo, Ieee80211HePpeThreshold,
+    Ieee80211HtCaps, Ieee80211HtMcsInfo, Ieee80211VhtCapInfo,
+    Ieee80211VhtMcsInfo,
 };
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -187,17 +188,17 @@ pub enum Nl80211BandInfo {
     /// Supported bitrates in this band.
     Rates(Vec<Vec<Nl80211Rate>>),
     /// The MCS set as defined in 802.11n(WIFI 4).
-    HtMcsSet(Nl80211HtMcsInfo),
+    HtMcsSet(Ieee80211HtMcsInfo),
     /// HT capabilities, as in the HT information IE.
-    HtCapa(Nl80211HtCaps),
+    HtCapa(Ieee80211HtCaps),
     /// Maximum A-MPDU length factor, as in 802.11n(WIFI 4).
     HtAmpduFactor(u8),
     /// Minimum A-MPDU spacing, as in 802.11n(WIFI 4).
     HtAmpduDensity(u8),
     /// The MCS set as defined in 802.11ac(WIFI 5).
-    VhtMcsSet(Nl80211VhtMcsInfo),
+    VhtMcsSet(Ieee80211VhtMcsInfo),
     /// VHT capabilities, as in the HT information IE
-    VhtCap(Nl80211VhtCapInfo),
+    VhtCap(Ieee80211VhtCapInfo),
     /// Interface type data
     IftypeData(Vec<Nl80211BandIftypeData>),
     /// Bitmap that indicates the 2.16 GHz channel(s) that are allowed to be
@@ -217,12 +218,12 @@ impl Nla for Nl80211BandInfo {
             Self::Rates(s) => {
                 Nl80211RateAttrsList::from(s).as_slice().buffer_len()
             }
-            Self::HtMcsSet(_) => Nl80211HtMcsInfo::LENGTH,
+            Self::HtMcsSet(_) => Ieee80211HtMcsInfo::LENGTH,
             Self::HtCapa(_) => 2,
             Self::HtAmpduFactor(_) => 1,
             Self::HtAmpduDensity(_) => 1,
-            Self::VhtMcsSet(_) => Nl80211VhtMcsInfo::LENGTH,
-            Self::VhtCap(_) => Nl80211VhtCapInfo::LENGTH,
+            Self::VhtMcsSet(_) => Ieee80211VhtMcsInfo::LENGTH,
+            Self::VhtCap(_) => Ieee80211VhtCapInfo::LENGTH,
             Self::IftypeData(s) => s.as_slice().buffer_len(),
             Self::EdmgChannels(_) => 1,
             Self::EdmgBwConfig(_) => 1,
@@ -300,10 +301,10 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 Self::Rates(nlas)
             }
             NL80211_BAND_ATTR_HT_MCS_SET => {
-                Self::HtMcsSet(Nl80211HtMcsInfo::parse(payload)?)
+                Self::HtMcsSet(Ieee80211HtMcsInfo::parse(payload)?)
             }
             NL80211_BAND_ATTR_HT_CAPA => {
-                Self::HtCapa(Nl80211HtCaps::parse(payload)?)
+                Self::HtCapa(Ieee80211HtCaps::parse(payload)?)
             }
             NL80211_BAND_ATTR_HT_AMPDU_FACTOR => {
                 let err_msg = format!(
@@ -318,10 +319,10 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                 Self::HtAmpduDensity(parse_u8(payload).context(err_msg)?)
             }
             NL80211_BAND_ATTR_VHT_MCS_SET => {
-                Self::VhtMcsSet(Nl80211VhtMcsInfo::parse(payload)?)
+                Self::VhtMcsSet(Ieee80211VhtMcsInfo::parse(payload)?)
             }
             NL80211_BAND_ATTR_VHT_CAPA => {
-                Self::VhtCap(Nl80211VhtCapInfo::parse(payload)?)
+                Self::VhtCap(Ieee80211VhtCapInfo::parse(payload)?)
             }
             NL80211_BAND_ATTR_IFTYPE_DATA => {
                 let err_msg = format!(
@@ -372,17 +373,17 @@ const NL80211_BAND_IFTYPE_ATTR_EHT_CAP_PPE: u16 = 11;
 #[non_exhaustive]
 pub enum Nl80211BandIftypeData {
     IfTypes(Vec<Nl80211IfType>),
-    HeCapMac(Nl80211HeMacCapInfo),
-    HeCapPhy(Nl80211HePhyCapInfo),
-    HeCapMcsSet(Nl80211HeMcsNssSupp),
-    HeCapPpeThreshold(Nl80211HePpeThreshold),
-    He6ghzCapa(Nl80211He6GhzCapa),
+    HeCapMac(Ieee80211HeMacCapInfo),
+    HeCapPhy(Ieee80211HePhyCapInfo),
+    HeCapMcsSet(Ieee80211HeMcsNssSupp),
+    HeCapPpeThreshold(Ieee80211HePpeThreshold),
+    He6ghzCapa(Ieee80211He6GhzCapa),
     /// Vendor specific data
     VendorElems(Vec<u8>),
-    EhtCapMac(Nl80211EhtMacCapInfo),
-    EhtCapPhy(Nl80211EhtPhyCapInfo),
-    EhtCapMcsSet(Nl80211EhtMcsNssSupp),
-    EhtCapPpe(Nl80211EhtPpeThres),
+    EhtCapMac(Ieee80211EhtMacCapInfo),
+    EhtCapPhy(Ieee80211EhtPhyCapInfo),
+    EhtCapMcsSet(Ieee80211EhtMcsNssSupp),
+    EhtCapPpe(Ieee80211EhtPpeThres),
     Other(DefaultNla),
 }
 
@@ -455,97 +456,97 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     .0,
             ),
             NL80211_BAND_IFTYPE_ATTR_HE_CAP_MAC => {
-                if payload.len() < Nl80211HeMacCapInfo::LENGTH {
+                if payload.len() < Ieee80211HeMacCapInfo::LENGTH {
                     return Err(format!(
                         "NL80211_BAND_IFTYPE_ATTR_HE_CAP_MAC value \
                         length is less than expected {}: {:?}",
-                        Nl80211HeMacCapInfo::LENGTH,
+                        Ieee80211HeMacCapInfo::LENGTH,
                         payload
                     )
                     .into());
                 }
-                Self::HeCapMac(Nl80211HeMacCapInfo::new(payload))
+                Self::HeCapMac(Ieee80211HeMacCapInfo::new(payload))
             }
             NL80211_BAND_IFTYPE_ATTR_HE_CAP_PHY => {
-                if payload.len() < Nl80211HePhyCapInfo::LENGTH {
+                if payload.len() < Ieee80211HePhyCapInfo::LENGTH {
                     return Err(format!(
                         "NL80211_BAND_IFTYPE_ATTR_HE_CAP_PHY value \
                         length is less than expected {}: {:?}",
-                        Nl80211HePhyCapInfo::LENGTH,
+                        Ieee80211HePhyCapInfo::LENGTH,
                         payload
                     )
                     .into());
                 }
-                Self::HeCapPhy(Nl80211HePhyCapInfo::new(payload))
+                Self::HeCapPhy(Ieee80211HePhyCapInfo::new(payload))
             }
             NL80211_BAND_IFTYPE_ATTR_HE_CAP_MCS_SET => {
-                if payload.len() < Nl80211HeMcsNssSupp::LENGTH {
+                if payload.len() < Ieee80211HeMcsNssSupp::LENGTH {
                     return Err(format!(
                         "NL80211_BAND_IFTYPE_ATTR_HE_CAP_MCS_SET value \
                         length is less than expected {}: {:?}",
-                        Nl80211HeMcsNssSupp::LENGTH,
+                        Ieee80211HeMcsNssSupp::LENGTH,
                         payload
                     )
                     .into());
                 }
-                Self::HeCapMcsSet(Nl80211HeMcsNssSupp::parse(payload)?)
+                Self::HeCapMcsSet(Ieee80211HeMcsNssSupp::parse(payload)?)
             }
             NL80211_BAND_IFTYPE_ATTR_HE_CAP_PPE => {
-                if payload.len() < Nl80211HePpeThreshold::LENGTH {
+                if payload.len() < Ieee80211HePpeThreshold::LENGTH {
                     return Err(format!(
                         "NL80211_BAND_IFTYPE_ATTR_HE_CAP_PPE value \
                         length is less than expected {}: {:?}",
-                        Nl80211HePpeThreshold::LENGTH,
+                        Ieee80211HePpeThreshold::LENGTH,
                         payload
                     )
                     .into());
                 }
-                Self::HeCapPpeThreshold(Nl80211HePpeThreshold::new(payload))
+                Self::HeCapPpeThreshold(Ieee80211HePpeThreshold::new(payload))
             }
             NL80211_BAND_IFTYPE_ATTR_HE_6GHZ_CAPA => {
-                if payload.len() < Nl80211He6GhzCapa::LENGTH {
+                if payload.len() < Ieee80211He6GhzCapa::LENGTH {
                     return Err(format!(
                         "NL80211_BAND_IFTYPE_ATTR_HE_6GHZ_CAPA value \
                         length is less than expected {}: {:?}",
-                        Nl80211He6GhzCapa::LENGTH,
+                        Ieee80211He6GhzCapa::LENGTH,
                         payload
                     )
                     .into());
                 }
-                Self::He6ghzCapa(Nl80211He6GhzCapa::new(payload))
+                Self::He6ghzCapa(Ieee80211He6GhzCapa::new(payload))
             }
             NL80211_BAND_IFTYPE_ATTR_VENDOR_ELEMS => {
                 Self::VendorElems(payload.to_vec())
             }
             NL80211_BAND_IFTYPE_ATTR_EHT_CAP_MAC => {
-                if payload.len() < Nl80211EhtMacCapInfo::LENGTH {
+                if payload.len() < Ieee80211EhtMacCapInfo::LENGTH {
                     return Err(format!(
                         "NL80211_BAND_IFTYPE_ATTR_EHT_CAP_MAC value \
                         length is less than expected {}: {:?}",
-                        Nl80211EhtMacCapInfo::LENGTH,
+                        Ieee80211EhtMacCapInfo::LENGTH,
                         payload
                     )
                     .into());
                 }
-                Self::EhtCapMac(Nl80211EhtMacCapInfo::new(payload))
+                Self::EhtCapMac(Ieee80211EhtMacCapInfo::new(payload))
             }
             NL80211_BAND_IFTYPE_ATTR_EHT_CAP_PHY => {
-                if payload.len() < Nl80211EhtPhyCapInfo::LENGTH {
+                if payload.len() < Ieee80211EhtPhyCapInfo::LENGTH {
                     return Err(format!(
                         "NL80211_BAND_IFTYPE_ATTR_EHT_CAP_PHY value \
                         length is less than expected {}: {:?}",
-                        Nl80211EhtPhyCapInfo::LENGTH,
+                        Ieee80211EhtPhyCapInfo::LENGTH,
                         payload
                     )
                     .into());
                 }
-                Self::EhtCapPhy(Nl80211EhtPhyCapInfo::new(payload))
+                Self::EhtCapPhy(Ieee80211EhtPhyCapInfo::new(payload))
             }
             NL80211_BAND_IFTYPE_ATTR_EHT_CAP_MCS_SET => {
-                Self::EhtCapMcsSet(Nl80211EhtMcsNssSupp::parse(payload)?)
+                Self::EhtCapMcsSet(Ieee80211EhtMcsNssSupp::parse(payload)?)
             }
             NL80211_BAND_IFTYPE_ATTR_EHT_CAP_PPE => {
-                Self::EhtCapPpe(Nl80211EhtPpeThres::new(payload))
+                Self::EhtCapPpe(Ieee80211EhtPpeThres::new(payload))
             }
             _ => Self::Other(
                 DefaultNla::parse(buf).context("invalid NLA (unknown kind)")?,

@@ -39,24 +39,24 @@ use crate::{
     bytes::{write_u16, write_u32, write_u64},
     scan::{NestedIndexedNlaList, Nla80211ScanFreqNlas, Nla80211ScanSsidNlas},
     wiphy::Nl80211Commands,
-    Nl80211AkmSuite, Nl80211AuthType, Nl80211Band, Nl80211BandTypes,
-    Nl80211BssInfo, Nl80211ChannelWidth, Nl80211CipherSuit, Nl80211CipherSuite,
+    Ieee80211AkmSuite, Ieee80211CipherSuite, Ieee80211ExtendedCapability,
+    Ieee80211HtCapabilityMask, Ieee80211VhtCapability, Nl80211AuthType,
+    Nl80211Band, Nl80211BandTypes, Nl80211BssInfo, Nl80211ChannelWidth,
     Nl80211Command, Nl80211ExtFeature, Nl80211ExtFeatures,
-    Nl80211ExtendedCapability, Nl80211ExternalAuthAction, Nl80211Features,
-    Nl80211HtCapabilityMask, Nl80211HtWiphyChannelType, Nl80211IfMode,
-    Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas, Nl80211IfaceComb,
-    Nl80211IfaceFrameType, Nl80211InterfaceType, Nl80211InterfaceTypes,
-    Nl80211KeyAttr, Nl80211MloLink, Nl80211RekeyData, Nl80211ScanFlags,
-    Nl80211SchedScanMatch, Nl80211SchedScanPlan, Nl80211StationInfo,
-    Nl80211SurveyInfo, Nl80211TransmitQueueStat, Nl80211UseMfp,
-    Nl80211VhtCapability, Nl80211WowlanTriggersSupport, Nl80211WpaVersions,
+    Nl80211ExternalAuthAction, Nl80211Features, Nl80211HtWiphyChannelType,
+    Nl80211IfMode, Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas,
+    Nl80211IfaceComb, Nl80211IfaceFrameType, Nl80211InterfaceType,
+    Nl80211InterfaceTypes, Nl80211KeyAttr, Nl80211MloLink, Nl80211RekeyData,
+    Nl80211ScanFlags, Nl80211SchedScanMatch, Nl80211SchedScanPlan,
+    Nl80211StationInfo, Nl80211SurveyInfo, Nl80211TransmitQueueStat,
+    Nl80211UseMfp, Nl80211WowlanTriggersSupport, Nl80211WpaVersions,
 };
 
 const ETH_ALEN: usize = 6;
 
 fn parse_cipher_suites(
     payload: &[u8],
-) -> Result<Vec<Nl80211CipherSuite>, DecodeError> {
+) -> Result<Vec<Ieee80211CipherSuite>, DecodeError> {
     if payload.len() % 4 != 0 {
         return Err(format!(
             "Invalid cipher suite list length {}, expecting multiple of 4",
@@ -75,14 +75,14 @@ fn parse_cipher_suites(
             // big-endian `[0x00, 0x0f, 0xac, 0x04]` both decode to
             // `0x000fac04`.
             //
-            // `.swap_bytes()` is then required because `Nl80211CipherSuite`
+            // `.swap_bytes()` is then required because `Ieee80211CipherSuite`
             // (from element.rs) does NOT store the kernel constant: its u32 is
             // the byte-reverse of it (`0x04ac0f00` = `IEEE_80211_OUI |
             // (4 << 24)`), because that type derives its value from the
             // information-element selector `[00, 0f, ac, 04]` read as
             // little-endian. Swapping bridges the kernel constant
             // (`0x000fac04`) and our internal representation (`0x04ac0f00`).
-            Nl80211CipherSuite::from(
+            Ieee80211CipherSuite::from(
                 u32::from_ne_bytes([c[0], c[1], c[2], c[3]]).swap_bytes(),
             )
         })
@@ -91,7 +91,7 @@ fn parse_cipher_suites(
 
 fn parse_akm_suites(
     payload: &[u8],
-) -> Result<Vec<Nl80211AkmSuite>, DecodeError> {
+) -> Result<Vec<Ieee80211AkmSuite>, DecodeError> {
     if payload.len() % 4 != 0 {
         return Err(format!(
             "Invalid AKM suite list length {}, expecting multiple of 4",
@@ -105,10 +105,10 @@ fn parse_akm_suites(
             // AKM-suite selectors use the same wire encoding as cipher
             // suites: a native-endian u32 of the kernel's OUI-based constant
             // (e.g. `0x000fac08` for SAE). `.swap_bytes()` converts that
-            // constant to `Nl80211AkmSuite`'s byte-reversed internal
+            // constant to `Ieee80211AkmSuite`'s byte-reversed internal
             // representation (`0x08ac0f00` = `IEEE_80211_OUI | (8 << 24)`).
             // See `parse_cipher_suites` for the full rationale.
-            Nl80211AkmSuite::from(
+            Ieee80211AkmSuite::from(
                 u32::from_ne_bytes([c[0], c[1], c[2], c[3]]).swap_bytes(),
             )
         })
@@ -566,7 +566,7 @@ pub enum Nl80211Attr {
     RoamSupport,
     TdlsSupport,
     TdlsExternalSetup,
-    CipherSuites(Vec<Nl80211CipherSuit>),
+    CipherSuites(Vec<Ieee80211CipherSuite>),
     MaxNumPmkids(u8),
     /// EtherType of the control-port (802.1X/EAPOL) frames, used with
     /// `NL80211_CMD_CONTROL_PORT_FRAME` and on connect/associate. Typically
@@ -608,16 +608,16 @@ pub enum Nl80211Attr {
     Features(Nl80211Features),
     ExtFeatures(Vec<Nl80211ExtFeature>),
     InterfaceCombination(Vec<Nl80211IfaceComb>),
-    HtCapabilityMask(Nl80211HtCapabilityMask),
+    HtCapabilityMask(Ieee80211HtCapabilityMask),
     TxFrameTypes(Vec<Nl80211IfaceFrameType>),
     RxFrameTypes(Vec<Nl80211IfaceFrameType>),
     MaxNumSchedScanPlans(u32),
     MaxScanPlanInterval(u32),
     MaxScanPlanIterations(u32),
-    ExtCap(Nl80211ExtendedCapability),
-    ExtCapMask(Nl80211ExtendedCapability),
-    VhtCap(Nl80211VhtCapability),
-    VhtCapMask(Nl80211VhtCapability),
+    ExtCap(Ieee80211ExtendedCapability),
+    ExtCapMask(Ieee80211ExtendedCapability),
+    VhtCap(Ieee80211VhtCapability),
+    VhtCapMask(Ieee80211VhtCapability),
     MaxCsaCounters(u8),
     WiphySelfManagedReg,
     SchedScanMaxReqs(u32),
@@ -679,12 +679,12 @@ pub enum Nl80211Attr {
     /// are enabled.
     WpaVersions(Nl80211WpaVersions),
     /// Unicast (pairwise) cipher suites used for the connection.
-    CiphersPairwise(Vec<Nl80211CipherSuite>),
+    CiphersPairwise(Vec<Ieee80211CipherSuite>),
     /// Group (broadcast/multicast) cipher suite used for the connection.
-    CipherGroup(Nl80211CipherSuite),
+    CipherGroup(Ieee80211CipherSuite),
     /// Authentication and Key Management (AKM) suites used for the connection,
     /// e.g. SAE for WPA3-Personal.
-    AkmSuites(Vec<Nl80211AkmSuite>),
+    AkmSuites(Vec<Ieee80211AkmSuite>),
     /// Raw information element(s) (e.g. an RSN element) to be added to the
     /// (re)association request.
     Ie(Vec<u8>),
@@ -846,7 +846,7 @@ impl Nla for Nl80211Attr {
             Self::Features(_) => 4,
             Self::ExtFeatures(_) => Nl80211ExtFeatures::LENGTH,
             Self::InterfaceCombination(s) => s.as_slice().buffer_len(),
-            Self::HtCapabilityMask(_) => Nl80211HtCapabilityMask::LENGTH,
+            Self::HtCapabilityMask(_) => Ieee80211HtCapabilityMask::LENGTH,
             Self::TxFrameTypes(s) => s.as_slice().buffer_len(),
             Self::RxFrameTypes(s) => s.as_slice().buffer_len(),
             Self::ExtCap(v) => v.len(),
@@ -1128,11 +1128,16 @@ impl Nla for Nl80211Attr {
             | Self::MaxNumPmkids(d)
             | Self::PmkReauthThreshold(d) => buffer[0] = *d,
             Self::CipherSuites(suits) => {
-                let nums: Vec<u32> =
-                    suits.as_slice().iter().map(|s| u32::from(*s)).collect();
-                for (i, v) in nums.as_slice().iter().enumerate() {
-                    buffer[i * 4..(i + 1) * 4]
-                        .copy_from_slice(&v.to_ne_bytes());
+                // `.swap_bytes()` converts our byte-reversed internal value
+                // (`0x04ac0f00` for CCMP-128) back to the kernel's OUI
+                // constant (`0x000fac04`); `to_ne_bytes` then lays it out in
+                // native order to match the kernel's `nla_put_u32` wire format
+                // on any host. See `parse_cipher_suites` for the full
+                // rationale.
+                for (i, c) in suits.iter().enumerate() {
+                    buffer[i * 4..(i + 1) * 4].copy_from_slice(
+                        &u32::from(*c).swap_bytes().to_ne_bytes(),
+                    );
                 }
             }
             Self::SupportedIftypes(s) => s.as_slice().emit(buffer),
@@ -1501,18 +1506,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             NL80211_ATTR_TDLS_SUPPORT => Self::TdlsSupport,
             NL80211_ATTR_TDLS_EXTERNAL_SETUP => Self::TdlsExternalSetup,
             NL80211_ATTR_CIPHER_SUITES => {
-                let err_msg = format!(
-                    "Invalid NL80211_ATTR_CIPHER_SUITES value {payload:?}"
-                );
-                let mut suits = Vec::new();
-                for i in 0..(payload.len() / 4) {
-                    suits.push(
-                        parse_u32(&payload[i * 4..(i + 1) * 4])
-                            .context(err_msg.clone())?
-                            .into(),
-                    );
-                }
-                Self::CipherSuites(suits)
+                Self::CipherSuites(parse_cipher_suites(payload)?)
             }
             NL80211_ATTR_MAX_NUM_PMKIDS => {
                 let err_msg = format!(
@@ -1678,7 +1672,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 Self::InterfaceCombination(nlas)
             }
             NL80211_ATTR_HT_CAPABILITY_MASK => {
-                Self::HtCapabilityMask(Nl80211HtCapabilityMask::new(payload))
+                Self::HtCapabilityMask(Ieee80211HtCapabilityMask::new(payload))
             }
             NL80211_ATTR_RX_FRAME_TYPES => {
                 let mut nlas = Vec::new();
@@ -1725,16 +1719,16 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 )?)
             }
             NL80211_ATTR_EXT_CAPA => {
-                Self::ExtCap(Nl80211ExtendedCapability::new(payload))
+                Self::ExtCap(Ieee80211ExtendedCapability::new(payload))
             }
             NL80211_ATTR_EXT_CAPA_MASK => {
-                Self::ExtCapMask(Nl80211ExtendedCapability::new(payload))
+                Self::ExtCapMask(Ieee80211ExtendedCapability::new(payload))
             }
             NL80211_ATTR_VHT_CAPABILITY => {
-                Self::VhtCap(Nl80211VhtCapability::parse(payload)?)
+                Self::VhtCap(Ieee80211VhtCapability::parse(payload)?)
             }
             NL80211_ATTR_VHT_CAPABILITY_MASK => {
-                Self::VhtCapMask(Nl80211VhtCapability::parse(payload)?)
+                Self::VhtCapMask(Ieee80211VhtCapability::parse(payload)?)
             }
             NL80211_ATTR_MAX_CSA_COUNTERS => {
                 Self::MaxCsaCounters(parse_u8(payload).context(format!(
@@ -1883,7 +1877,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 // `.swap_bytes()` bridges the kernel's native-endian OUI
                 // constant and our byte-reversed representation; see
                 // `parse_cipher_suites` for the full rationale.
-                Self::CipherGroup(Nl80211CipherSuite::from(
+                Self::CipherGroup(Ieee80211CipherSuite::from(
                     u32::from_ne_bytes(payload.try_into().unwrap())
                         .swap_bytes(),
                 ))

@@ -161,9 +161,9 @@ fn test_get_scan_reply() {
                     ]),
                     Nl80211BssInfo::BeaconInterval(100),
                     Nl80211BssInfo::Capability(
-                        Nl80211BssCapabilities::Ess
-                            | Nl80211BssCapabilities::Privacy
-                            | Nl80211BssCapabilities::ShortSlotTime,
+                        Ieee80211CapabilityInfo::Ess
+                            | Ieee80211CapabilityInfo::Privacy
+                            | Ieee80211CapabilityInfo::ShortSlotTime,
                     ),
                     Nl80211BssInfo::Frequency(2412),
                     Nl80211BssInfo::FrequencyOffset(0),
@@ -208,39 +208,39 @@ fn test_parse_ies() {
         0x40,
     ];
 
-    let expected = Nl80211Elements(vec![
-        Nl80211Element::Other(73, vec![]),
-        Nl80211Element::Other(6, vec![]),
-        Nl80211Element::Ssid("Test-WIFI".to_string()),
-        Nl80211Element::SupportedRatesAndSelectors(vec![
-            Nl80211RateAndSelector::BssBasicRateSet(2),
-            Nl80211RateAndSelector::BssBasicRateSet(4),
-            Nl80211RateAndSelector::BssBasicRateSet(11),
-            Nl80211RateAndSelector::BssBasicRateSet(22),
-            Nl80211RateAndSelector::Rate(12),
-            Nl80211RateAndSelector::Rate(18),
-            Nl80211RateAndSelector::Rate(24),
-            Nl80211RateAndSelector::Rate(36),
+    let expected = Ieee80211Elements(vec![
+        Ieee80211Element::Other(73, vec![]),
+        Ieee80211Element::Other(6, vec![]),
+        Ieee80211Element::Ssid("Test-WIFI".to_string()),
+        Ieee80211Element::SupportedRatesAndSelectors(vec![
+            Ieee80211RateAndSelector::BssBasicRateSet(2),
+            Ieee80211RateAndSelector::BssBasicRateSet(4),
+            Ieee80211RateAndSelector::BssBasicRateSet(11),
+            Ieee80211RateAndSelector::BssBasicRateSet(22),
+            Ieee80211RateAndSelector::Rate(12),
+            Ieee80211RateAndSelector::Rate(18),
+            Ieee80211RateAndSelector::Rate(24),
+            Ieee80211RateAndSelector::Rate(36),
         ]),
-        Nl80211Element::Channel(1),
-        Nl80211Element::Other(42, vec![4]),
-        Nl80211Element::Other(50, vec![48, 72, 96, 108]),
-        Nl80211Element::Rsn(Nl80211ElementRsn {
+        Ieee80211Element::Channel(1),
+        Ieee80211Element::Other(42, vec![4]),
+        Ieee80211Element::Other(50, vec![48, 72, 96, 108]),
+        Ieee80211Element::Rsn(Ieee80211ElementRsn {
             version: 1,
-            group_cipher: Some(Nl80211CipherSuite::Ccmp128),
-            pairwise_ciphers: vec![Nl80211CipherSuite::Ccmp128],
-            akm_suits: vec![Nl80211AkmSuite::Sae],
+            group_cipher: Some(Ieee80211CipherSuite::Ccmp128),
+            pairwise_ciphers: vec![Ieee80211CipherSuite::Ccmp128],
+            akm_suits: vec![Ieee80211AkmSuite::Sae],
             rsn_capbilities: Some(
-                Nl80211RsnCapbilities::Mfpr | Nl80211RsnCapbilities::Mfpc,
+                Ieee80211RsnCapbilities::Mfpr | Ieee80211RsnCapbilities::Mfpc,
             ),
             pmkids: vec![],
             group_mgmt_cipher: None,
         }),
-        Nl80211Element::Other(59, vec![81, 0]),
-        Nl80211Element::Other(127, vec![4, 0, 0, 0, 0, 0, 0, 64]),
+        Ieee80211Element::Other(59, vec![81, 0]),
+        Ieee80211Element::Other(127, vec![4, 0, 0, 0, 0, 0, 0, 64]),
     ]);
 
-    assert_eq!(expected, Nl80211Elements::parse(&raw).unwrap());
+    assert_eq!(expected, Ieee80211Elements::parse(&raw).unwrap());
 
     let mut buf = vec![0; expected.buffer_len()];
 

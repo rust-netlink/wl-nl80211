@@ -7,10 +7,10 @@ use netlink_packet_core::{DecodeError, Emitable};
 const EHT_MAC_CAP_INFO_LEN: usize = 2;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Nl80211EhtMacCapInfo(pub [u8; EHT_MAC_CAP_INFO_LEN]);
+pub struct Ieee80211EhtMacCapInfo(pub [u8; EHT_MAC_CAP_INFO_LEN]);
 
 // TODO: Failed to get WIFI7(802.11be) SPEC PDF, hence no parsing functions
-impl Nl80211EhtMacCapInfo {
+impl Ieee80211EhtMacCapInfo {
     pub const LENGTH: usize = EHT_MAC_CAP_INFO_LEN;
 
     pub fn new(value: &[u8]) -> Self {
@@ -24,7 +24,7 @@ impl Nl80211EhtMacCapInfo {
     }
 }
 
-impl Emitable for Nl80211EhtMacCapInfo {
+impl Emitable for Ieee80211EhtMacCapInfo {
     fn buffer_len(&self) -> usize {
         EHT_MAC_CAP_INFO_LEN
     }
@@ -44,9 +44,9 @@ impl Emitable for Nl80211EhtMacCapInfo {
 const EHT_PHY_CAP_INFO_LEN: usize = 9;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Nl80211EhtPhyCapInfo(pub [u8; EHT_PHY_CAP_INFO_LEN]);
+pub struct Ieee80211EhtPhyCapInfo(pub [u8; EHT_PHY_CAP_INFO_LEN]);
 
-impl Nl80211EhtPhyCapInfo {
+impl Ieee80211EhtPhyCapInfo {
     pub const LENGTH: usize = EHT_PHY_CAP_INFO_LEN;
 
     pub fn new(value: &[u8]) -> Self {
@@ -60,7 +60,7 @@ impl Nl80211EhtPhyCapInfo {
     }
 }
 
-impl Emitable for Nl80211EhtPhyCapInfo {
+impl Emitable for Ieee80211EhtPhyCapInfo {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
@@ -80,7 +80,7 @@ impl Emitable for Nl80211EhtPhyCapInfo {
 /// MCS/NSS support for 20 MHz-only STA.
 // Kernel data type: `struct ieee80211_eht_mcs_nss_supp_20mhz_only`
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Nl80211EhtMcsNssSuppOnly20Mhz {
+pub struct Ieee80211EhtMcsNssSuppOnly20Mhz {
     /// MCS 0 - 7
     pub rx_tx_mcs7_max_nss: u8,
     /// MCS 8 - 9
@@ -91,7 +91,7 @@ pub struct Nl80211EhtMcsNssSuppOnly20Mhz {
     pub rx_tx_mcs13_max_nss: u8,
 }
 
-impl Nl80211EhtMcsNssSuppOnly20Mhz {
+impl Ieee80211EhtMcsNssSuppOnly20Mhz {
     pub const LENGTH: usize = 4;
 
     pub fn parse(buf: &[u8]) -> Self {
@@ -104,7 +104,7 @@ impl Nl80211EhtMcsNssSuppOnly20Mhz {
     }
 }
 
-impl Emitable for Nl80211EhtMcsNssSuppOnly20Mhz {
+impl Emitable for Ieee80211EhtMcsNssSuppOnly20Mhz {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
@@ -126,7 +126,7 @@ impl Emitable for Nl80211EhtMcsNssSuppOnly20Mhz {
 
 // Kernel data type: `struct ieee80211_eht_mcs_nss_supp_bw`
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Nl80211EhtMcsNssSuppBw {
+pub struct Ieee80211EhtMcsNssSuppBw {
     /// MCS 8 - 9
     pub rx_tx_mcs9_max_nss: u8,
     /// MCS 10 - 11
@@ -135,7 +135,7 @@ pub struct Nl80211EhtMcsNssSuppBw {
     pub rx_tx_mcs13_max_nss: u8,
 }
 
-impl Nl80211EhtMcsNssSuppBw {
+impl Ieee80211EhtMcsNssSuppBw {
     pub const LENGTH: usize = 3;
 
     pub fn parse(buf: &[u8]) -> Self {
@@ -147,7 +147,7 @@ impl Nl80211EhtMcsNssSuppBw {
     }
 }
 
-impl Emitable for Nl80211EhtMcsNssSuppBw {
+impl Emitable for Ieee80211EhtMcsNssSuppBw {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
@@ -167,29 +167,29 @@ impl Emitable for Nl80211EhtMcsNssSuppBw {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Nl80211EhtMcsNssSuppMoreThan20Mhz {
-    pub mhz_80: Nl80211EhtMcsNssSuppBw,
-    pub mhz_160: Nl80211EhtMcsNssSuppBw,
-    pub mhz_320: Nl80211EhtMcsNssSuppBw,
+pub struct Ieee80211EhtMcsNssSuppMoreThan20Mhz {
+    pub mhz_80: Ieee80211EhtMcsNssSuppBw,
+    pub mhz_160: Ieee80211EhtMcsNssSuppBw,
+    pub mhz_320: Ieee80211EhtMcsNssSuppBw,
 }
 
-impl Nl80211EhtMcsNssSuppMoreThan20Mhz {
-    pub const LENGTH: usize = Nl80211EhtMcsNssSuppBw::LENGTH * 3;
+impl Ieee80211EhtMcsNssSuppMoreThan20Mhz {
+    pub const LENGTH: usize = Ieee80211EhtMcsNssSuppBw::LENGTH * 3;
 
     pub fn parse(buf: &[u8]) -> Self {
         Self {
-            mhz_80: Nl80211EhtMcsNssSuppBw::parse(buf),
-            mhz_160: Nl80211EhtMcsNssSuppBw::parse(
-                &buf[Nl80211EhtMcsNssSuppMoreThan20Mhz::LENGTH..],
+            mhz_80: Ieee80211EhtMcsNssSuppBw::parse(buf),
+            mhz_160: Ieee80211EhtMcsNssSuppBw::parse(
+                &buf[Ieee80211EhtMcsNssSuppBw::LENGTH..],
             ),
-            mhz_320: Nl80211EhtMcsNssSuppBw::parse(
-                &buf[Nl80211EhtMcsNssSuppMoreThan20Mhz::LENGTH * 2..],
+            mhz_320: Ieee80211EhtMcsNssSuppBw::parse(
+                &buf[Ieee80211EhtMcsNssSuppBw::LENGTH * 2..],
             ),
         }
     }
 }
 
-impl Emitable for Nl80211EhtMcsNssSuppMoreThan20Mhz {
+impl Emitable for Ieee80211EhtMcsNssSuppMoreThan20Mhz {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
@@ -204,27 +204,29 @@ impl Emitable for Nl80211EhtMcsNssSuppMoreThan20Mhz {
         }
         self.mhz_80.emit(buffer);
         self.mhz_160
-            .emit(&mut buffer[Nl80211EhtMcsNssSuppMoreThan20Mhz::LENGTH..]);
+            .emit(&mut buffer[Ieee80211EhtMcsNssSuppBw::LENGTH..]);
         self.mhz_320
-            .emit(&mut buffer[Nl80211EhtMcsNssSuppMoreThan20Mhz::LENGTH * 2..]);
+            .emit(&mut buffer[Ieee80211EhtMcsNssSuppBw::LENGTH * 2..]);
     }
 }
 
 // Kernel data type: `struct ieee80211_eht_mcs_nss_supp`
 ///  EHT max supported NSS per MCS
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Nl80211EhtMcsNssSupp {
-    Only20Mhz(Nl80211EhtMcsNssSuppOnly20Mhz),
-    MoreThan20Mhz(Nl80211EhtMcsNssSuppMoreThan20Mhz),
+pub enum Ieee80211EhtMcsNssSupp {
+    Only20Mhz(Ieee80211EhtMcsNssSuppOnly20Mhz),
+    MoreThan20Mhz(Ieee80211EhtMcsNssSuppMoreThan20Mhz),
     /// This other might be removed once 802.11be standard published
     Other(Vec<u8>),
 }
 
-impl Emitable for Nl80211EhtMcsNssSupp {
+impl Emitable for Ieee80211EhtMcsNssSupp {
     fn buffer_len(&self) -> usize {
         match self {
-            Self::Only20Mhz(_) => Nl80211EhtMcsNssSuppOnly20Mhz::LENGTH,
-            Self::MoreThan20Mhz(_) => Nl80211EhtMcsNssSuppMoreThan20Mhz::LENGTH,
+            Self::Only20Mhz(_) => Ieee80211EhtMcsNssSuppOnly20Mhz::LENGTH,
+            Self::MoreThan20Mhz(_) => {
+                Ieee80211EhtMcsNssSuppMoreThan20Mhz::LENGTH
+            }
             Self::Other(v) => v.len(),
         }
     }
@@ -238,25 +240,25 @@ impl Emitable for Nl80211EhtMcsNssSupp {
     }
 }
 
-impl Nl80211EhtMcsNssSupp {
+impl Ieee80211EhtMcsNssSupp {
     pub fn parse(buf: &[u8]) -> Result<Self, DecodeError> {
-        if buf.len() > Nl80211EhtMcsNssSuppOnly20Mhz::LENGTH {
-            if buf.len() >= Nl80211EhtMcsNssSuppMoreThan20Mhz::LENGTH {
+        if buf.len() > Ieee80211EhtMcsNssSuppOnly20Mhz::LENGTH {
+            if buf.len() >= Ieee80211EhtMcsNssSuppMoreThan20Mhz::LENGTH {
                 Ok(Self::MoreThan20Mhz(
-                    Nl80211EhtMcsNssSuppMoreThan20Mhz::parse(buf),
+                    Ieee80211EhtMcsNssSuppMoreThan20Mhz::parse(buf),
                 ))
             } else {
                 Err(format!(
                     "Invalid NL80211_BAND_IFTYPE_ATTR_EHT_CAP_MCS_SET \
                     data, expecting u8 array with size {} or {}, but got {}",
-                    Nl80211EhtMcsNssSuppOnly20Mhz::LENGTH,
-                    Nl80211EhtMcsNssSuppMoreThan20Mhz::LENGTH,
+                    Ieee80211EhtMcsNssSuppOnly20Mhz::LENGTH,
+                    Ieee80211EhtMcsNssSuppMoreThan20Mhz::LENGTH,
                     buf.len()
                 )
                 .into())
             }
         } else {
-            Ok(Self::Only20Mhz(Nl80211EhtMcsNssSuppOnly20Mhz::parse(buf)))
+            Ok(Self::Only20Mhz(Ieee80211EhtMcsNssSuppOnly20Mhz::parse(buf)))
         }
     }
 }
@@ -266,9 +268,9 @@ const IEEE80211_EHT_PPE_THRES_MAX_LEN: usize = 32;
 /// PPE thresholds
 // TODO: write passing function
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Nl80211EhtPpeThres(pub [u8; IEEE80211_EHT_PPE_THRES_MAX_LEN]);
+pub struct Ieee80211EhtPpeThres(pub [u8; IEEE80211_EHT_PPE_THRES_MAX_LEN]);
 
-impl Nl80211EhtPpeThres {
+impl Ieee80211EhtPpeThres {
     pub const LENGTH: usize = IEEE80211_EHT_PPE_THRES_MAX_LEN;
 
     pub fn new(value: &[u8]) -> Self {
@@ -282,7 +284,7 @@ impl Nl80211EhtPpeThres {
     }
 }
 
-impl Emitable for Nl80211EhtPpeThres {
+impl Emitable for Ieee80211EhtPpeThres {
     fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
