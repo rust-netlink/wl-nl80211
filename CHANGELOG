@@ -1,4 +1,28 @@
 # Changelog
+## [0.6.0] - 2026-08-16
+### Breaking changes
+ - Rename IEEE 802.11 types to Ieee80211 prefix and merge duplicate
+   cipher/capability types. (1ff74d3)
+ - scan: Nl80211SchedScanMatch/Nl80211SchedScanPlan are now nested-set structs;
+   old enums renamed to Nl80211SchedScanMatchAttr/Nl80211SchedScanPlanAttr.
+   (3a3e47b)
+ - scan: schedule_stop_all() now requires an interface index. (f5676dd)
+
+### New features
+ - cqm: Add SET_CQM request and NOTIFY_CQM RSSI event support. (05f3536)
+ - Add roaming-related attributes and commands: prev_bssid() reassociation,
+   IGTK/BIGTK/default management key helpers, and PMKSA/PMK builders. (d1c6197)
+ - wowlan: Add SET_WOWLAN triggers plus wake notifications with deauth/disassoc
+   reasons. (61a51b8)
+
+### Bug fixes
+ - Parse the status code from (re)association response IEEE frames instead of
+   defaulting to Success. (d2767cc)
+ - Handle zero-length NL80211_ATTR_CONTROL_PORT_ETHERTYPE wiphy flag so wiphy
+   dumps remain parseable. (686470d)
+ - scan: Emit sched scan match/plan attributes as the kernel's two-layer nested
+   NLAs. (bea36a4)
+
 ## [0.5.0] - 2026-08-05
 ### Breaking changes
  - `Nl80211Attr::ControlPortEthertype` now holds `EthernetProtocol`. (7b53f23)
