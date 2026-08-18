@@ -1,4 +1,14 @@
 # Changelog
+## [0.7.0] - 2026-08-18
+### Breaking changes
+ - Use latest rust-netlink crates. (69931a9)
+
+### New features
+ - N/A
+
+### Bug fixes
+ - N/A
+
 ## [0.6.0] - 2026-08-16
 ### Breaking changes
  - Rename IEEE 802.11 types to Ieee80211 prefix and merge duplicate
