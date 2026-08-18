@@ -14,8 +14,12 @@ impl Nl80211WiphyHandle {
         Nl80211WiphyHandle(handle)
     }
 
-    /// Retrieve the wireless interfaces
-    /// (equivalent to `iw phy`)
+    /// Retrieve the wireless interfaces (equivalent to `iw phy`).
+    ///
+    /// Without a filter this dumps all wiphys. Use
+    /// [`Nl80211WiphyGetRequest::wiphy_index`] or
+    /// [`Nl80211WiphyGetRequest::if_index`] to request information for a
+    /// single wiphy.
     pub fn get(&mut self) -> Nl80211WiphyGetRequest {
         Nl80211WiphyGetRequest::new(self.0.clone())
     }
