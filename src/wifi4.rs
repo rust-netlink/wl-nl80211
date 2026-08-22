@@ -8,6 +8,8 @@ use netlink_packet_core::{
 
 use crate::bytes::{get_bit, get_bits_as_u8, write_u16_le};
 
+// test data are using hard coded little endian byte order, not for big-endian
+#[cfg(not(target_endian = "big"))]
 #[cfg(test)]
 mod test;
 
