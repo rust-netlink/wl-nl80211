@@ -575,6 +575,301 @@ impl From<u16> for Ieee80211StatusCode {
     }
 }
 
+impl From<Ieee80211StatusCode> for u16 {
+    /// The raw IEEE 802.11 status code value.
+    fn from(status: Ieee80211StatusCode) -> u16 {
+        match status {
+            Ieee80211StatusCode::Success => IEEE_SUCCESS,
+            Ieee80211StatusCode::UnspecifiedFailure => {
+                IEEE_REFUSED_REASON_UNSPECIFIED
+            }
+            Ieee80211StatusCode::TdlsRejectedAlternativeProvided => {
+                IEEE_TDLS_REJECTED_ALTERNATIVE_PROVIDED
+            }
+            Ieee80211StatusCode::TdlsRejected => IEEE_TDLS_REJECTED,
+            Ieee80211StatusCode::SecurityDisabled => IEEE_SECURITY_DISABLED,
+            Ieee80211StatusCode::UnacceptableLifetime => {
+                IEEE_UNACCEPTABLE_LIFETIME
+            }
+            Ieee80211StatusCode::NotInSameBss => IEEE_NOT_IN_SAME_BSS,
+            Ieee80211StatusCode::CapsUnsupported => {
+                IEEE_REFUSED_CAPABILITIES_MISMATCH
+            }
+            Ieee80211StatusCode::ReassocNoAssoc => {
+                IEEE_DENIED_NO_ASSOCIATION_EXISTS
+            }
+            Ieee80211StatusCode::AssocDeniedUnspec => IEEE_DENIED_OTHER_REASON,
+            Ieee80211StatusCode::NotSupportedAuthAlg => {
+                IEEE_UNSUPPORTED_AUTH_ALGORITHM
+            }
+            Ieee80211StatusCode::UnknownAuthTransaction => {
+                IEEE_TRANSACTION_SEQUENCE_ERROR
+            }
+            Ieee80211StatusCode::ChallengeFail => IEEE_CHALLENGE_FAILURE,
+            Ieee80211StatusCode::AuthTimeout => IEEE_REJECTED_SEQUENCE_TIMEOUT,
+            Ieee80211StatusCode::ApUnableToHandleNewSta => {
+                IEEE_DENIED_NO_MORE_STAS
+            }
+            Ieee80211StatusCode::AssocDeniedRates => {
+                IEEE_REFUSED_BASIC_RATES_NOT_SUPPORTED
+            }
+            Ieee80211StatusCode::AssocDeniedNoShortPreamble => {
+                IEEE_DENIED_NO_SHORT_PREAMBLE_SUPPORTED
+            }
+            Ieee80211StatusCode::AssocDeniedNoPbcc => IEEE_DENIED_NO_PBCC,
+            Ieee80211StatusCode::AssocDeniedNoAgility => IEEE_DENIED_NO_AGILITY,
+            Ieee80211StatusCode::AssocDeniedNoSpectrum => {
+                IEEE_REJECTED_SPECTRUM_MANAGEMENT_REQUIRED
+            }
+            Ieee80211StatusCode::AssocRejectedBadPower => {
+                IEEE_REJECTED_BAD_POWER_CAPABILITY
+            }
+            Ieee80211StatusCode::AssocRejectedBadSuppChan => {
+                IEEE_REJECTED_BAD_SUPPORTED_CHANNELS
+            }
+            Ieee80211StatusCode::AssocDeniedNoShortTime => {
+                IEEE_DENIED_NO_SHORT_SLOT_TIME_SUPPORTED
+            }
+            Ieee80211StatusCode::AssocDeniedNoDsssOfdm => {
+                IEEE_DENIED_NO_DSSS_OFDM
+            }
+            Ieee80211StatusCode::DeniedNoHtSupport => IEEE_DENIED_NO_HT_SUPPORT,
+            Ieee80211StatusCode::R0khUnreachable => IEEE_R0KH_UNREACHABLE,
+            Ieee80211StatusCode::AssocRejectedTemporarily => {
+                IEEE_REFUSED_TEMPORARILY
+            }
+            Ieee80211StatusCode::RobustMgmtFramePolicyViolation => {
+                IEEE_ROBUST_MANAGEMENT_POLICY_VIOLATION
+            }
+            Ieee80211StatusCode::UnspecifiedQos => IEEE_UNSPECIFIED_QOS_FAILURE,
+            Ieee80211StatusCode::AssocDeniedNoBandwidth => {
+                IEEE_DENIED_INSUFFICIENT_BANDWIDTH
+            }
+            Ieee80211StatusCode::AssocDeniedLowAck => {
+                IEEE_DENIED_POOR_CHANNEL_CONDITIONS
+            }
+            Ieee80211StatusCode::AssocDeniedUnsuppQos => {
+                IEEE_DENIED_QOS_NOT_SUPPORTED
+            }
+            Ieee80211StatusCode::RequestDeclined => IEEE_REQUEST_DECLINED,
+            Ieee80211StatusCode::InvalidQosParam => IEEE_INVALID_PARAMETERS,
+            Ieee80211StatusCode::RejectedWithSuggestedChanges => {
+                IEEE_REJECTED_WITH_SUGGESTED_CHANGES
+            }
+            Ieee80211StatusCode::InvalidIe => IEEE_STATUS_INVALID_ELEMENT,
+            Ieee80211StatusCode::InvalidGroupCipher => {
+                IEEE_STATUS_INVALID_GROUP_CIPHER
+            }
+            Ieee80211StatusCode::InvalidPairwiseCipher => {
+                IEEE_STATUS_INVALID_PAIRWISE_CIPHER
+            }
+            Ieee80211StatusCode::InvalidAkm => IEEE_STATUS_INVALID_AKMP,
+            Ieee80211StatusCode::UnsuppRsnVersion => {
+                IEEE_UNSUPPORTED_RSNE_VERSION
+            }
+            Ieee80211StatusCode::InvalidRsnIeCap => {
+                IEEE_INVALID_RSNE_CAPABILITIES
+            }
+            Ieee80211StatusCode::CipherSuiteRejected => {
+                IEEE_STATUS_CIPHER_OUT_OF_POLICY
+            }
+            Ieee80211StatusCode::RejectedForDelayPeriod => {
+                IEEE_REJECTED_FOR_DELAY_PERIOD
+            }
+            Ieee80211StatusCode::NoDirectLink => IEEE_NO_DIRECT_LINK,
+            Ieee80211StatusCode::StaNotPresent => IEEE_NOT_PRESENT,
+            Ieee80211StatusCode::StaNotQsta => IEEE_NOT_QOS_STA,
+            Ieee80211StatusCode::AssocDeniedListenIntervalTooLarge => {
+                IEEE_DENIED_LISTEN_INTERVAL_TOO_LARGE
+            }
+            Ieee80211StatusCode::InvalidFtActionFrameCount => {
+                IEEE_STATUS_INVALID_FT_ACTION_FRAME_COUNT
+            }
+            Ieee80211StatusCode::InvalidPmkid => IEEE_STATUS_INVALID_PMKID,
+            Ieee80211StatusCode::InvalidMde => IEEE_STATUS_INVALID_MDE,
+            Ieee80211StatusCode::InvalidFte => IEEE_STATUS_INVALID_FTE,
+            Ieee80211StatusCode::RequestedTclasNotSupported => {
+                IEEE_REQUESTED_TCLAS_NOT_SUPPORTED
+            }
+            Ieee80211StatusCode::InsufficientTclasProcessingResources => {
+                IEEE_INSUFFICIENT_TCLAS_PROCESSING_RESOURCES
+            }
+            Ieee80211StatusCode::TryAnotherBss => IEEE_TRY_ANOTHER_BSS,
+            Ieee80211StatusCode::GasAdvertisementProtocolNotSupported => {
+                IEEE_GAS_ADVERTISEMENT_PROTOCOL_NOT_SUPPORTED
+            }
+            Ieee80211StatusCode::NoOutstandingGasRequest => {
+                IEEE_NO_OUTSTANDING_GAS_REQUEST
+            }
+            Ieee80211StatusCode::GasResponseNotReceived => {
+                IEEE_GAS_RESPONSE_NOT_RECEIVED_FROM_SERVER
+            }
+            Ieee80211StatusCode::GasQueryTimeout => IEEE_GAS_QUERY_TIMEOUT,
+            Ieee80211StatusCode::GasQueryResponseTooLarge => {
+                IEEE_GAS_QUERY_RESPONSE_TOO_LARGE
+            }
+            Ieee80211StatusCode::RejectedHomeWithSuggestedChanges => {
+                IEEE_REJECTED_HOME_WITH_SUGGESTED_CHANGES
+            }
+            Ieee80211StatusCode::ServerUnreachable => IEEE_SERVER_UNREACHABLE,
+            Ieee80211StatusCode::RejectedForSspPermissions => {
+                IEEE_REJECTED_FOR_SSP_PERMISSIONS
+            }
+            Ieee80211StatusCode::RefusedUnauthenticatedAccessNotSupported => {
+                IEEE_REFUSED_UNAUTHENTICATED_ACCESS_NOT_SUPPORTED
+            }
+            Ieee80211StatusCode::InvalidRsne => IEEE_INVALID_RSNE,
+            Ieee80211StatusCode::UapsdCoexistenceNotSupported => {
+                IEEE_U_APSD_COEXISTENCE_NOT_SUPPORTED
+            }
+            Ieee80211StatusCode::UapsdCoexModeNotSupported => {
+                IEEE_U_APSD_COEX_MODE_NOT_SUPPORTED
+            }
+            Ieee80211StatusCode::BadIntervalWithUapsdCoex => {
+                IEEE_BAD_INTERVAL_WITH_U_APSD_COEX
+            }
+            Ieee80211StatusCode::AntiClogRequired => {
+                IEEE_ANTI_CLOGGING_TOKEN_REQUIRED
+            }
+            Ieee80211StatusCode::UnsupportedFiniteCyclicGroup => {
+                IEEE_UNSUPPORTED_FINITE_CYCLIC_GROUP
+            }
+            Ieee80211StatusCode::CannotFindAlternativeTbtt => {
+                IEEE_CANNOT_FIND_ALTERNATIVE_TBTT
+            }
+            Ieee80211StatusCode::TransmissionFailure => {
+                IEEE_TRANSMISSION_FAILURE
+            }
+            Ieee80211StatusCode::TclasResourcesExhausted => {
+                IEEE_TCLAS_RESOURCES_EXHAUSTED
+            }
+            Ieee80211StatusCode::RejectedWithSuggestedBssTransition => {
+                IEEE_REJECTED_WITH_SUGGESTED_BSS_TRANSITION
+            }
+            Ieee80211StatusCode::RejectWithSchedule => {
+                IEEE_REJECT_WITH_SCHEDULE
+            }
+            Ieee80211StatusCode::RejectNoWakeupSpecified => {
+                IEEE_REJECT_NO_WAKEUP_SPECIFIED
+            }
+            Ieee80211StatusCode::SuccessPowerSaveMode => {
+                IEEE_SUCCESS_POWER_SAVE_MODE
+            }
+            Ieee80211StatusCode::PendingAdmittingFstSession => {
+                IEEE_PENDING_ADMITTING_FST_SESSION
+            }
+            Ieee80211StatusCode::PerformingFstNow => IEEE_PERFORMING_FST_NOW,
+            Ieee80211StatusCode::PendingGapInBaWindow => {
+                IEEE_PENDING_GAP_IN_BA_WINDOW
+            }
+            Ieee80211StatusCode::RejectUPidSetting => IEEE_REJECT_U_PID_SETTING,
+            Ieee80211StatusCode::RefusedExternalReason => {
+                IEEE_REFUSED_EXTERNAL_REASON
+            }
+            Ieee80211StatusCode::RefusedApOutOfMemory => {
+                IEEE_REFUSED_AP_OUT_OF_MEMORY
+            }
+            Ieee80211StatusCode::RejectedEmergencyServicesNotSupported => {
+                IEEE_REJECTED_EMERGENCY_SERVICES_NOT_SUPPORTED
+            }
+            Ieee80211StatusCode::QueryResponseOutstanding => {
+                IEEE_QUERY_RESPONSE_OUTSTANDING
+            }
+            Ieee80211StatusCode::RejectDseBand => IEEE_REJECT_DSE_BAND,
+            Ieee80211StatusCode::TclasProcessingTerminated => {
+                IEEE_TCLAS_PROCESSING_TERMINATED
+            }
+            Ieee80211StatusCode::TsScheduleConflict => {
+                IEEE_TS_SCHEDULE_CONFLICT
+            }
+            Ieee80211StatusCode::DeniedWithSuggestedBandAndChannel => {
+                IEEE_DENIED_WITH_SUGGESTED_BAND_AND_CHANNEL
+            }
+            Ieee80211StatusCode::McaopReservationConflict => {
+                IEEE_MCCAOP_RESERVATION_CONFLICT
+            }
+            Ieee80211StatusCode::MafLimitExceeded => IEEE_MAF_LIMIT_EXCEEDED,
+            Ieee80211StatusCode::McaTrackLimitExceeded => {
+                IEEE_MCCA_TRACK_LIMIT_EXCEEDED
+            }
+            Ieee80211StatusCode::DeniedDueToSpectrumManagement => {
+                IEEE_DENIED_DUE_TO_SPECTRUM_MANAGEMENT
+            }
+            Ieee80211StatusCode::DeniedVhtNotSupported => {
+                IEEE_DENIED_VHT_NOT_SUPPORTED
+            }
+            Ieee80211StatusCode::EnablementDenied => IEEE_ENABLEMENT_DENIED,
+            Ieee80211StatusCode::RestrictionFromAuthorizedGdb => {
+                IEEE_RESTRICTION_FROM_AUTHORIZED_GDB
+            }
+            Ieee80211StatusCode::AuthorizationDeenabled => {
+                IEEE_AUTHORIZATION_DEENABLED
+            }
+            Ieee80211StatusCode::EnergyLimitedOperationNotSupported => {
+                IEEE_ENERGY_LIMITED_OPERATION_NOT_SUPPORTED
+            }
+            Ieee80211StatusCode::RejectedNdpBlockAckSuggested => {
+                IEEE_REJECTED_NDP_BLOCK_ACK_SUGGESTED
+            }
+            Ieee80211StatusCode::RejectedMaxAwayDurationUnacceptable => {
+                IEEE_REJECTED_MAX_AWAY_DURATION_UNACCEPTABLE
+            }
+            Ieee80211StatusCode::FilsAuthenticationFailure => {
+                IEEE_FILS_AUTHENTICATION_FAILURE
+            }
+            Ieee80211StatusCode::UnknownAuthenticationServer => {
+                IEEE_UNKNOWN_AUTHENTICATION_SERVER
+            }
+            Ieee80211StatusCode::DeniedNotificationPeriodAllocation => {
+                IEEE_DENIED_NOTIFICATION_PERIOD_ALLOCATION
+            }
+            Ieee80211StatusCode::DeniedChannelSplitting => {
+                IEEE_DENIED_CHANNEL_SPLITTING
+            }
+            Ieee80211StatusCode::DeniedAllocation => IEEE_DENIED_ALLOCATION,
+            Ieee80211StatusCode::CmmgFeaturesNotSupported => {
+                IEEE_CMMG_FEATURES_NOT_SUPPORTED
+            }
+            Ieee80211StatusCode::GasFragmentNotAvailable => {
+                IEEE_GAS_FRAGMENT_NOT_AVAILABLE
+            }
+            Ieee80211StatusCode::SuccessCagVersionsMatch => {
+                IEEE_SUCCESS_CAG_VERSIONS_MATCH
+            }
+            Ieee80211StatusCode::GlkNotAuthorized => IEEE_GLK_NOT_AUTHORIZED,
+            Ieee80211StatusCode::UnknownPasswordIdentifier => {
+                IEEE_UNKNOWN_PASSWORD_IDENTIFIER
+            }
+            Ieee80211StatusCode::DeniedHeNotSupported => {
+                IEEE_DENIED_HE_NOT_SUPPORTED
+            }
+            Ieee80211StatusCode::DeniedLocalMacAddressNotSupported => {
+                IEEE_DENIED_LOCAL_MAC_ADDRESS_POLICY_VIOLATION
+            }
+            Ieee80211StatusCode::SaeHashToElement => IEEE_SAE_HASH_TO_ELEMENT,
+            Ieee80211StatusCode::SaePk => IEEE_SAE_PK,
+            Ieee80211StatusCode::DeniedTidToLinkMapping => {
+                IEEE_DENIED_TID_TO_LINK_MAPPING
+            }
+            Ieee80211StatusCode::PrefTidToLinkMappingSuggested => {
+                IEEE_PREFERRED_TID_TO_LINK_MAPPING_SUGGESTED
+            }
+            Ieee80211StatusCode::InvalidPublicKey => IEEE_INVALID_PUBLIC_KEY,
+            Ieee80211StatusCode::PasnBaseAkmFailed => {
+                IEEE_PASN_BASE_AKMP_FAILED
+            }
+            Ieee80211StatusCode::OciMismatch => IEEE_OCI_MISMATCH,
+            Ieee80211StatusCode::GasQueryRequestTooLarge => {
+                IEEE_GAS_QUERY_REQUEST_TOO_LARGE
+            }
+            Ieee80211StatusCode::Ieee8021xAuthSuccess => {
+                IEEE_8021X_AUTH_SUCCESS
+            }
+            Ieee80211StatusCode::Other(v) => v,
+        }
+    }
+}
+
 impl std::fmt::Display for Ieee80211StatusCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

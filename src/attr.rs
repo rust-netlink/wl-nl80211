@@ -41,16 +41,17 @@ use crate::{
     scan::{NestedIndexedNlaList, Nla80211ScanFreqNlas, Nla80211ScanSsidNlas},
     wiphy::Nl80211Commands,
     Ieee80211AkmSuite, Ieee80211CipherSuite, Ieee80211ExtendedCapability,
-    Ieee80211HtCapabilityMask, Ieee80211VhtCapability, Nl80211AuthType,
-    Nl80211Band, Nl80211BandTypes, Nl80211BssInfo, Nl80211ChannelWidth,
-    Nl80211Command, Nl80211CqmAttr, Nl80211ExtFeature, Nl80211ExtFeatures,
-    Nl80211ExternalAuthAction, Nl80211Features, Nl80211HtWiphyChannelType,
-    Nl80211IfMode, Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas,
-    Nl80211IfaceComb, Nl80211IfaceFrameType, Nl80211InterfaceType,
-    Nl80211InterfaceTypes, Nl80211KeyAttr, Nl80211MloLink, Nl80211RekeyData,
-    Nl80211ScanFlags, Nl80211SchedScanMatch, Nl80211SchedScanPlan,
-    Nl80211StationInfo, Nl80211SurveyInfo, Nl80211TransmitQueueStat,
-    Nl80211UseMfp, Nl80211WowlanTriggersSupport, Nl80211WpaVersions,
+    Ieee80211HtCapabilityMask, Ieee80211StatusCode, Ieee80211VhtCapability,
+    Nl80211AuthType, Nl80211Band, Nl80211BandTypes, Nl80211BssInfo,
+    Nl80211ChannelWidth, Nl80211Command, Nl80211CqmAttr, Nl80211ExtFeature,
+    Nl80211ExtFeatures, Nl80211ExternalAuthAction, Nl80211Features,
+    Nl80211HtWiphyChannelType, Nl80211IfMode, Nl80211IfTypeExtCapa,
+    Nl80211IfTypeExtCapas, Nl80211IfaceComb, Nl80211IfaceFrameType,
+    Nl80211InterfaceType, Nl80211InterfaceTypes, Nl80211KeyAttr,
+    Nl80211MloLink, Nl80211RekeyData, Nl80211ScanFlags, Nl80211SchedScanMatch,
+    Nl80211SchedScanPlan, Nl80211StationInfo, Nl80211SurveyInfo,
+    Nl80211TransmitQueueStat, Nl80211UseMfp, Nl80211WowlanTriggersSupport,
+    Nl80211WpaVersions,
 };
 
 fn parse_cipher_suites(
@@ -667,7 +668,7 @@ pub enum Nl80211Attr {
     ReasonCode(u16),
     /// IEEE 802.11 status code reported by the access point, e.g. as part of
     /// the result of a `NL80211_CMD_CONNECT`.
-    StatusCode(u16),
+    StatusCode(Ieee80211StatusCode),
     /// Whether management frame protection (IEEE 802.11w) is used for the
     /// connection. Mandatory for WPA3.
     UseMfp(Nl80211UseMfp),
@@ -1197,7 +1198,8 @@ impl Nla for Nl80211Attr {
             Self::AuthType(d) => write_u32(buffer, u32::from(*d)),
             Self::UseMfp(d) => write_u32(buffer, u32::from(*d)),
             Self::WpaVersions(d) => write_u32(buffer, d.bits()),
-            Self::ReasonCode(d) | Self::StatusCode(d) => write_u16(buffer, *d),
+            Self::ReasonCode(d) => write_u16(buffer, *d),
+            Self::StatusCode(d) => write_u16(buffer, u16::from(*d)),
             Self::FrameType(d) => write_u16(buffer, *d),
             Self::Cookie(d) => write_u64(buffer, *d),
             Self::ExternalAuthAction(d) => write_u32(buffer, u32::from(*d)),
@@ -1851,7 +1853,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 let err_msg = format!(
                     "Invalid NL80211_ATTR_STATUS_CODE value {payload:?}"
                 );
-                Self::StatusCode(parse_u16(payload).context(err_msg)?)
+                Self::StatusCode(Ieee80211StatusCode::from(
+                    parse_u16(payload).context(err_msg)?,
+                ))
             }
             NL80211_ATTR_USE_MFP => {
                 let err_msg =

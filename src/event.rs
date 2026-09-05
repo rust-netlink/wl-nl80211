@@ -93,7 +93,7 @@ impl Nl80211Event {
                             }
                             Nl80211Command::Connect => {
                                 Some(Nl80211Event::ConnectResult {
-                                    status: attr_status(&nl_msg).into(),
+                                    status: attr_status(&nl_msg),
                                 })
                             }
                             Nl80211Command::Disconnect => {
@@ -175,14 +175,14 @@ impl Nl80211Event {
     }
 }
 
-fn attr_status(msg: &Nl80211Message) -> u16 {
+fn attr_status(msg: &Nl80211Message) -> Ieee80211StatusCode {
     msg.attributes
         .iter()
         .find_map(|attr| match attr {
             Nl80211Attr::StatusCode(code) => Some(*code),
             _ => None,
         })
-        .unwrap_or(0)
+        .unwrap_or(Ieee80211StatusCode::Success)
 }
 
 fn attr_reason(msg: &Nl80211Message) -> u16 {
@@ -299,7 +299,7 @@ fn parse_cqm(msg: &Nl80211Message) -> Nl80211Event {
 }
 
 fn parse_authenticate(msg: &Nl80211Message) -> Nl80211Event {
-    let mut status = Ieee80211StatusCode::from(attr_status(msg));
+    let mut status = attr_status(msg);
     let frame = attr_frame(msg);
 
     // The kernel may deliver the authentication result without a
@@ -308,7 +308,7 @@ fn parse_authenticate(msg: &Nl80211Message) -> Nl80211Event {
     if status == Ieee80211StatusCode::Success {
         if let Some(ref frame) = frame {
             if let Ok(auth_frame) = Ieee80211AuthFrame::parse(frame) {
-                status = auth_frame.status_code;
+                status = auth_frame.status_code();
             }
         }
     }
@@ -329,7 +329,7 @@ fn parse_associate(msg: &Nl80211Message) -> Nl80211Event {
         .map(|frame| frame.status_code)
         .or_else(|| {
             msg.attributes.iter().find_map(|attr| match attr {
-                Nl80211Attr::StatusCode(code) => Some((*code).into()),
+                Nl80211Attr::StatusCode(code) => Some(*code),
                 _ => None,
             })
         })

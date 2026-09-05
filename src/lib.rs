@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 
 mod attr;
+mod band;
 mod builder;
 mod channel;
 mod command;
 mod connect;
 mod connection;
 mod cqm;
+mod eapol;
 mod element;
 mod error;
 mod event;
@@ -25,6 +27,7 @@ mod message;
 mod mlo;
 mod rekey;
 mod rekey_request;
+mod rrm;
 mod scan;
 mod station;
 mod stats;
@@ -34,6 +37,7 @@ mod wifi5;
 mod wifi6;
 mod wifi7;
 mod wiphy;
+mod wnm;
 mod wowlan_request;
 
 // test data are using hard coded little endian byte order, not for big-endian
@@ -48,6 +52,7 @@ pub use netlink_packet_core as packet_core;
 pub use netlink_packet_generic as packet_generic;
 
 pub use self::attr::Nl80211Attr;
+pub use self::band::Ieee80211OperatingClass;
 pub use self::builder::Nl80211AttrsBuilder;
 pub use self::channel::Nl80211ChannelWidth;
 pub use self::command::Nl80211Command;
@@ -74,6 +79,7 @@ pub use self::cqm::{
     Nl80211Cqm, Nl80211CqmAttr, Nl80211CqmRequest, Nl80211CqmRssiEvent,
     Nl80211CqmRssiThresholdEvent,
 };
+pub use self::eapol::{Ieee80211EapolEapFrame, Ieee80211EapolKeyFrame};
 pub use self::element::{
     Ieee80211AkmSuite, Ieee80211CipherSuite, Ieee80211Element,
     Ieee80211ElementCountryEnvironment, Ieee80211ElementCountryTriplet,
@@ -90,6 +96,12 @@ pub use self::ext_cap::{
 pub use self::feature::{Nl80211ExtFeature, Nl80211Features};
 pub use self::frame::{
     Ieee80211AssocRespFrame, Ieee80211AuthAlgorithm, Ieee80211AuthFrame,
+    Ieee80211AuthFrameEppke, Ieee80211AuthFrameFastBssTransition,
+    Ieee80211AuthFrameFilsPublicKey, Ieee80211AuthFrameFilsSharedKey,
+    Ieee80211AuthFrameFilsSharedKeyPfs, Ieee80211AuthFrameIeee8021x,
+    Ieee80211AuthFrameLeap, Ieee80211AuthFrameOpenSystem,
+    Ieee80211AuthFrameOther, Ieee80211AuthFramePasn, Ieee80211AuthFrameSae,
+    Ieee80211AuthFrameSharedKey, Ieee80211AuthFrameVendorSpecific,
     Ieee80211CapabilityInfo,
 };
 pub use self::frame_type::{Ieee80211FrameType, Nl80211IfaceFrameType};
@@ -109,6 +121,10 @@ pub use self::mlo::Nl80211MloLink;
 pub use self::rekey::Nl80211RekeyData;
 pub use self::rekey_request::{
     Nl80211RekeyOffload, Nl80211RekeyOffloadRequest,
+};
+pub use self::rrm::{
+    Ieee80211NeighborReportEntry, Ieee80211NeighborReportRequest,
+    Ieee80211NeighborReportResponse,
 };
 pub use self::scan::{
     Nl80211BssInfo, Nl80211BssUseFor, Nl80211Scan, Nl80211ScanFlags,
@@ -156,6 +172,9 @@ pub use self::wiphy::{
     Nl80211WiphyGetRequest, Nl80211WiphyHandle, Nl80211WowlanTcpTriggerSupport,
     Nl80211WowlanTriggerPatternSupport, Nl80211WowlanTriggersSupport,
     Nl80211WowlanWakeup,
+};
+pub use self::wnm::{
+    Ieee80211BtmCandidate, Ieee80211BtmRequest, Ieee80211BtmResponse,
 };
 pub use self::wowlan_request::{Nl80211Wowlan, Nl80211WowlanRequest};
 

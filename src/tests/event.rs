@@ -67,6 +67,23 @@ fn test_event_status_display_fromstr() {
     assert!("bogus".parse::<Ieee80211StatusCode>().is_err());
 }
 
+// From<Ieee80211StatusCode> for u16: the raw u16 round-trips through
+// From<u16>.
+#[test]
+fn test_event_status_u16_roundtrip() {
+    for (status, raw) in [
+        (Ieee80211StatusCode::Success, 0u16),
+        (Ieee80211StatusCode::ChallengeFail, 15),
+        (Ieee80211StatusCode::ApUnableToHandleNewSta, 17),
+        (Ieee80211StatusCode::SaeHashToElement, 126),
+        (Ieee80211StatusCode::Ieee8021xAuthSuccess, 153),
+        (Ieee80211StatusCode::Other(9999), 9999),
+    ] {
+        assert_eq!(u16::from(status), raw);
+        assert_eq!(Ieee80211StatusCode::from(raw), status);
+    }
+}
+
 // Ieee80211AuthFrame::parse: SAE Authentication frame (transaction 1) from
 // the same capture as test_captured_authenticate_event.
 #[test]
@@ -86,12 +103,13 @@ fn test_parse_auth_frame_sae() {
     ];
     let frame =
         crate::Ieee80211AuthFrame::parse(&raw).expect("parse SAE auth frame");
-    assert_eq!(crate::Ieee80211AuthAlgorithm::Sae, frame.algorithm);
-    assert_eq!(1, frame.transaction);
-    assert_eq!(Ieee80211StatusCode::Success, frame.status_code);
+    assert_eq!(crate::Ieee80211AuthAlgorithm::Sae, frame.algorithm());
+    assert_eq!(1, frame.transaction());
+    assert_eq!(Ieee80211StatusCode::Success, frame.status_code());
     // SAE commit body: group(2)=19, then scalar + element.
-    assert_eq!(98, frame.remains.len());
-    assert_eq!(&[0x13, 0x00], &frame.remains[0..2]);
+    let sae = frame.sae().expect("SAE frame");
+    assert_eq!(98, sae.body().len());
+    assert_eq!(&[0x13, 0x00], &sae.body()[0..2]);
 }
 
 // Ieee80211AuthFrame::parse: Open System Authentication frame (transaction 2,
@@ -105,10 +123,17 @@ fn test_parse_auth_frame_open() {
     ];
     let frame =
         crate::Ieee80211AuthFrame::parse(&raw).expect("parse open auth frame");
-    assert_eq!(crate::Ieee80211AuthAlgorithm::OpenSystem, frame.algorithm);
-    assert_eq!(2, frame.transaction);
-    assert_eq!(Ieee80211StatusCode::Success, frame.status_code);
-    assert!(frame.remains.is_empty());
+    assert_eq!(crate::Ieee80211AuthAlgorithm::OpenSystem, frame.algorithm());
+    assert_eq!(2, frame.transaction());
+    assert_eq!(Ieee80211StatusCode::Success, frame.status_code());
+    assert!(frame.body().is_empty());
+
+    let open = crate::Ieee80211AuthFrameOpenSystem::parse(&raw)
+        .expect("parse typed open auth frame");
+    assert_eq!([0x02, 0x00, 0x00, 0x00, 0x00, 0x00], open.da);
+    assert_eq!([0x02, 0x00, 0x00, 0x00, 0x01, 0x00], open.sa);
+    assert_eq!([0x02, 0x00, 0x00, 0x00, 0x01, 0x00], open.bssid);
+    assert_eq!(open.to_bytes(), raw);
 }
 
 // Ieee80211ReasonCode: conversion, Display / FromStr round-trip.

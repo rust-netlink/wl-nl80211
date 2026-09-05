@@ -12,7 +12,8 @@ use netlink_packet_core::{Emitable, NlaBuffer, Parseable};
 use crate::{
     Ieee80211AkmSuite, Ieee80211CipherSuite, Ieee80211Element,
     Ieee80211ElementRsn, Ieee80211Elements, Ieee80211RsnCapbilities,
-    Nl80211Attr, Nl80211AuthType, Nl80211UseMfp, Nl80211WpaVersions,
+    Ieee80211StatusCode, Nl80211Attr, Nl80211AuthType, Nl80211UseMfp,
+    Nl80211WpaVersions,
 };
 
 // NL80211_ATTR_AUTH_TYPE = NL80211_AUTHTYPE_SAE (from CMD_AUTHENTICATE).
@@ -132,7 +133,7 @@ fn test_captured_control_port_over_nl80211() {
 #[test]
 fn test_captured_status_code() {
     let raw = vec![0x06, 0x00, 0x48, 0x00, 0x00, 0x00, 0x00, 0x00];
-    let expected = Nl80211Attr::StatusCode(0);
+    let expected = Nl80211Attr::StatusCode(Ieee80211StatusCode::Success);
     assert_eq!(
         expected,
         Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
