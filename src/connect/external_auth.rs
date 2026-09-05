@@ -5,8 +5,8 @@ use netlink_packet_core::{NLM_F_ACK, NLM_F_REQUEST};
 use netlink_packet_generic::GenlMessage;
 
 use crate::{
-    nl80211_execute, Nl80211Attr, Nl80211AttrsBuilder, Nl80211Command,
-    Nl80211Error, Nl80211Handle, Nl80211Message,
+    nl80211_execute, Ieee80211StatusCode, Nl80211Attr, Nl80211AttrsBuilder,
+    Nl80211Command, Nl80211Error, Nl80211Handle, Nl80211Message,
 };
 
 /// Helper to build the attribute list for a `NL80211_CMD_EXTERNAL_AUTH`
@@ -33,8 +33,8 @@ impl Nl80211AttrsBuilder<Nl80211ExternalAuth> {
         self.replace(Nl80211Attr::Bssid(bssid))
     }
 
-    /// IEEE 802.11 status code of the authentication (0 means success).
-    pub fn status_code(self, status: u16) -> Self {
+    /// IEEE 802.11 status code of the authentication.
+    pub fn status_code(self, status: Ieee80211StatusCode) -> Self {
         self.replace(Nl80211Attr::StatusCode(status))
     }
 }
