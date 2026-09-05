@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-mod action_frame;
+mod action;
 mod assoc;
 mod auth;
 mod capability;
@@ -14,7 +14,7 @@ use crate::{
     attr::NL80211_ATTR_FRAME_TYPE, bytes::write_u16, Nl80211InterfaceType,
 };
 
-pub use self::action_frame::{
+pub use self::action::{
     Ieee80211ActionFrame, Ieee80211ActionFrameBtmRequest,
     Ieee80211ActionFrameBtmResponse, Ieee80211ActionFrameNeighborReportRequest,
     Ieee80211ActionFrameNeighborReportResponse, Ieee80211ActionFrameOther,

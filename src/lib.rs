@@ -76,7 +76,9 @@ pub use self::cqm::{
     Nl80211Cqm, Nl80211CqmAttr, Nl80211CqmRequest, Nl80211CqmRssiEvent,
     Nl80211CqmRssiThresholdEvent,
 };
-pub use self::eapol::{Ieee80211EapolEapFrame, Ieee80211EapolKeyFrame};
+pub use self::eapol::{
+    Ieee80211EapolEapFrame, Ieee80211EapolFrame, Ieee80211EapolKeyFrame,
+};
 pub use self::element::{
     Ieee80211AkmSuite, Ieee80211CipherSuite, Ieee80211Element,
     Ieee80211ElementCountryEnvironment, Ieee80211ElementCountryTriplet,
@@ -85,7 +87,9 @@ pub use self::element::{
     Ieee80211RsnExtCapbilities,
 };
 pub use self::error::Nl80211Error;
-pub use self::event::Nl80211Event;
+pub use self::event::{
+    Nl80211Event, Nl80211EventAssociated, Nl80211EventAuthenticated,
+};
 pub use self::event_status::{Ieee80211ReasonCode, Ieee80211StatusCode};
 pub use self::ext_cap::{
     Ieee80211ExtendedCapability, Nl80211IfTypeExtCapa, Nl80211IfTypeExtCapas,

@@ -17,8 +17,9 @@ use genetlink::message::RawGenlMessage;
 use netlink_packet_core::NetlinkMessage;
 
 use crate::{
-    Ieee80211Frame, Ieee80211ReasonCode, Ieee80211StatusCode, Nl80211Command,
-    Nl80211Event, Nl80211WowlanWakeup,
+    Ieee80211AuthFrame, Ieee80211EapolFrame, Ieee80211Frame,
+    Ieee80211ReasonCode, Ieee80211StatusCode, Nl80211Command, Nl80211Event,
+    Nl80211WowlanWakeup,
 };
 
 // Ieee80211StatusCode: known IEEE 802.11 status codes map to named variants,
@@ -202,9 +203,14 @@ fn test_captured_authenticate_event() {
         0x06, 0xd4, 0x7e, 0x62, 0x2f, 0xc2, 0xcb, 0x59, 0x1f, 0xa7, 0xdd, 0xe0,
     ];
     match parse_event(&raw).expect("parse event") {
-        Nl80211Event::Authenticated { status, frame } => {
-            assert_eq!(Ieee80211StatusCode::Success, status);
-            let frame = frame.expect("auth frame");
+        Nl80211Event::Authenticated(event) => {
+            assert_eq!(Ieee80211StatusCode::Success, event.status);
+            let Ieee80211AuthFrame::Sae(frame) =
+                event.frame.expect("auth frame")
+            else {
+                panic!("expected SAE auth frame");
+            };
+            let frame = frame.to_bytes();
             assert_eq!(128, frame.len());
             // 802.11 auth frame: management subtype auth, SAE alg (3),
             // transaction 1.
@@ -262,10 +268,10 @@ fn captured_assoc_resp_frame(status: u16) -> Vec<u8> {
 fn test_captured_associate_event() {
     let raw = captured_associate_event_raw(0);
     match parse_event(&raw).expect("parse event") {
-        Nl80211Event::Associated { status, ies } => {
-            assert_eq!(Ieee80211StatusCode::Success, status);
+        Nl80211Event::Associated(event) => {
+            assert_eq!(Ieee80211StatusCode::Success, event.status);
             // Supported rates IE starts the response IEs.
-            let ies = ies.expect("assoc IEs");
+            let ies = event.ies.expect("assoc IEs");
             assert_eq!(26, ies.len());
             assert_eq!(&ies[0..3], &[0x01, 0x08, 0x82]);
         }
@@ -299,9 +305,9 @@ fn test_parse_assoc_resp_frame() {
 fn test_captured_rejected_associate_event() {
     let raw = captured_associate_event_raw(1);
     match parse_event(&raw).expect("parse event") {
-        Nl80211Event::Associated { status, ies } => {
-            assert_eq!(Ieee80211StatusCode::UnspecifiedFailure, status);
-            let ies = ies.expect("rejected assoc response IEs");
+        Nl80211Event::Associated(event) => {
+            assert_eq!(Ieee80211StatusCode::UnspecifiedFailure, event.status);
+            let ies = event.ies.expect("rejected assoc response IEs");
             assert_eq!(26, ies.len());
             assert_eq!(&ies[0..3], &[0x01, 0x08, 0x82]);
         }
@@ -331,9 +337,7 @@ fn test_captured_connect_result_event() {
         0x00, 0x40, 0x00, 0x00,
     ];
     assert_eq!(
-        Nl80211Event::ConnectResult {
-            status: Ieee80211StatusCode::Success,
-        },
+        Nl80211Event::ConnectResult(Ieee80211StatusCode::Success),
         parse_event(&raw).expect("parse event")
     );
 }
@@ -348,9 +352,7 @@ fn test_captured_disconnect_event() {
         0x06, 0x00, 0x36, 0x00, 0x03, 0x00, 0x00, 0x00,
     ];
     assert_eq!(
-        Nl80211Event::Disconnect {
-            reason: Ieee80211ReasonCode::DeauthLeaving,
-        },
+        Nl80211Event::Disconnect(Ieee80211ReasonCode::DeauthLeaving),
         parse_event(&raw).expect("parse event")
     );
 }
@@ -371,9 +373,7 @@ fn test_captured_deauthenticated_event() {
         0x01, 0x00, 0x00, 0x01, 0x02, 0x00, 0x00, 0x00,
     ];
     assert_eq!(
-        Nl80211Event::Deauthenticated {
-            reason: Ieee80211ReasonCode::PrevAuthNotValid,
-        },
+        Nl80211Event::Deauthenticated(Ieee80211ReasonCode::PrevAuthNotValid),
         parse_event(&raw).expect("parse event")
     );
 }
@@ -392,9 +392,7 @@ fn test_captured_disassociated_event() {
         0x01, 0x00, 0x90, 0x01, 0x02, 0x00, 0x00, 0x00,
     ];
     assert_eq!(
-        Nl80211Event::Disassociated {
-            reason: Ieee80211ReasonCode::PrevAuthNotValid,
-        },
+        Nl80211Event::Disassociated(Ieee80211ReasonCode::PrevAuthNotValid),
         parse_event(&raw).expect("parse event")
     );
 }
@@ -409,9 +407,7 @@ fn test_deauthenticated_without_frame_is_unknown() {
         0xe2, 0x00, 0x00, 0x00, 0x08, 0x00, 0x03, 0x00, 0x0a, 0x03, 0x00, 0x00,
     ];
     assert_eq!(
-        Nl80211Event::Unknown {
-            cmd: Nl80211Command::Deauthenticate,
-        },
+        Nl80211Event::Unknown(Nl80211Command::Deauthenticate),
         parse_event(&raw).expect("parse event")
     );
 }
@@ -430,9 +426,7 @@ fn test_set_wowlan_wakeup_event() {
         0x08, 0x00, 0x75, 0x00, 0x04, 0x00, 0x06, 0x00,
     ];
     assert_eq!(
-        Nl80211Event::WowlanWakeup {
-            reasons: vec![Nl80211WowlanWakeup::GtkRekeyFailure],
-        },
+        Nl80211Event::WowlanWakeup(vec![Nl80211WowlanWakeup::GtkRekeyFailure]),
         parse_event(&raw).expect("parse event")
     );
 }
@@ -448,12 +442,10 @@ fn test_set_wowlan_wakeup_multi_reason_event() {
         0x0c, 0x00, 0x75, 0x00, 0x04, 0x00, 0x02, 0x00, 0x04, 0x00, 0x06, 0x00,
     ];
     assert_eq!(
-        Nl80211Event::WowlanWakeup {
-            reasons: vec![
-                Nl80211WowlanWakeup::Disconnect,
-                Nl80211WowlanWakeup::GtkRekeyFailure,
-            ],
-        },
+        Nl80211Event::WowlanWakeup(vec![
+            Nl80211WowlanWakeup::Disconnect,
+            Nl80211WowlanWakeup::GtkRekeyFailure,
+        ]),
         parse_event(&raw).expect("parse event")
     );
 }
@@ -470,7 +462,7 @@ fn test_set_wowlan_wakeup_pattern_reason_event() {
         0x0c, 0x00, 0x75, 0x00, 0x08, 0x00, 0x04, 0x00, 0x01, 0x00, 0x00, 0x00,
     ];
     match parse_event(&raw).expect("parse event") {
-        Nl80211Event::WowlanWakeup { reasons } => {
+        Nl80211Event::WowlanWakeup(reasons) => {
             assert_eq!(1, reasons.len());
             assert!(matches!(reasons[0], Nl80211WowlanWakeup::Other(_)));
         }
@@ -488,9 +480,7 @@ fn test_set_wowlan_without_triggers_is_unknown() {
         0x12, 0x00, 0x00, 0x00, 0x08, 0x00, 0x03, 0x00, 0xd3, 0x01, 0x00, 0x00,
     ];
     assert_eq!(
-        Nl80211Event::Unknown {
-            cmd: Nl80211Command::SetWowlan,
-        },
+        Nl80211Event::Unknown(Nl80211Command::SetWowlan),
         parse_event(&raw).expect("parse event")
     );
 }
@@ -552,10 +542,10 @@ fn test_captured_control_port_frame_event() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
     match parse_event(&raw).expect("parse event") {
-        Nl80211Event::ControlPortFrame { frame } => {
-            assert_eq!(99, frame.len());
+        Nl80211Event::ControlPortFrame(Ieee80211EapolFrame::Key(frame)) => {
+            assert_eq!(99, frame.raw.len());
             // EAPOL version 2, type 3 (EAPOL-Key).
-            assert_eq!(&frame[0..2], &[0x02, 0x03]);
+            assert_eq!(&frame.raw[0..2], &[0x02, 0x03]);
         }
         other => panic!("unexpected event: {other:?}"),
     }
@@ -670,9 +660,7 @@ fn test_captured_unknown_event() {
         0x04, 0x00, 0x5c, 0x00,
     ];
     assert_eq!(
-        Nl80211Event::Unknown {
-            cmd: Nl80211Command::FrameTxStatus,
-        },
+        Nl80211Event::Unknown(Nl80211Command::FrameTxStatus),
         parse_event(&raw).expect("parse event")
     );
 }
