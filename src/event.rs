@@ -5,9 +5,9 @@ use netlink_packet_core::{NetlinkMessage, NetlinkPayload};
 
 use crate::event_status::{Ieee80211ReasonCode, Ieee80211StatusCode};
 use crate::{
-    Ieee80211AssocRespFrame, Ieee80211AuthFrame, Nl80211Attr, Nl80211Command,
-    Nl80211CqmRssiEvent, Nl80211Message, Nl80211WowlanTriggersSupport,
-    Nl80211WowlanWakeup,
+    Ieee80211AssocRespFrame, Ieee80211AuthFrame, Ieee80211Frame, Nl80211Attr,
+    Nl80211Command, Nl80211CqmRssiEvent, Nl80211Message,
+    Nl80211WowlanTriggersSupport, Nl80211WowlanWakeup,
 };
 
 /// A multicast nl80211 event received from the kernel, e.g. on the `mlme`,
@@ -42,8 +42,8 @@ pub enum Nl80211Event {
     /// `reason` is the IEEE 802.11 reason code.
     Disassociated { reason: Ieee80211ReasonCode },
     /// `NL80211_CMD_FRAME` event: a received management frame the socket
-    /// registered for.
-    Frame { frame: Vec<u8> },
+    /// registered for, parsed into its typed frame representation.
+    Frame(Ieee80211Frame),
     /// `NL80211_CMD_CONTROL_PORT_FRAME` event: an EAPOL (802.1X control
     /// port) frame received over nl80211.
     ControlPortFrame { frame: Vec<u8> },
@@ -120,7 +120,10 @@ impl Nl80211Event {
                                     }))
                             }
                             Nl80211Command::Frame => attr_frame(&nl_msg)
-                                .map(|frame| Nl80211Event::Frame { frame }),
+                                .and_then(|frame| {
+                                    Ieee80211Frame::parse(&frame).ok()
+                                })
+                                .map(Nl80211Event::Frame),
                             Nl80211Command::PortAuthorized => {
                                 Some(Nl80211Event::PortAuthorized)
                             }

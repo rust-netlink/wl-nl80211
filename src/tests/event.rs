@@ -17,8 +17,8 @@ use genetlink::message::RawGenlMessage;
 use netlink_packet_core::NetlinkMessage;
 
 use crate::{
-    Ieee80211ReasonCode, Ieee80211StatusCode, Nl80211Command, Nl80211Event,
-    Nl80211WowlanWakeup,
+    Ieee80211Frame, Ieee80211ReasonCode, Ieee80211StatusCode, Nl80211Command,
+    Nl80211Event, Nl80211WowlanWakeup,
 };
 
 // Ieee80211StatusCode: known IEEE 802.11 status codes map to named variants,
@@ -519,12 +519,12 @@ fn test_captured_frame_event() {
         0xff, 0x07, 0x98, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00,
     ];
     match parse_event(&raw).expect("parse event") {
-        Nl80211Event::Frame { frame } => {
-            assert_eq!(125, frame.len());
+        Nl80211Event::Frame(Ieee80211Frame::Other { raw, .. }) => {
+            assert_eq!(125, raw.len());
             // Probe request: management subtype 4, broadcast DA.
-            assert_eq!(&frame[0..2], &[0x40, 0x00]);
+            assert_eq!(&raw[0..2], &[0x40, 0x00]);
             // First IE (supported rates) follows the 26-byte frame header.
-            assert_eq!(&frame[26..28], &[0x01, 0x08]);
+            assert_eq!(&raw[26..28], &[0x01, 0x08]);
         }
         other => panic!("unexpected event: {other:?}"),
     }

@@ -16,7 +16,6 @@ mod event_status;
 mod ext_cap;
 mod feature;
 mod frame;
-mod frame_type;
 mod handle;
 mod iface;
 mod key;
@@ -27,7 +26,6 @@ mod message;
 mod mlo;
 mod rekey;
 mod rekey_request;
-mod rrm;
 mod scan;
 mod station;
 mod stats;
@@ -37,7 +35,6 @@ mod wifi5;
 mod wifi6;
 mod wifi7;
 mod wiphy;
-mod wnm;
 mod wowlan_request;
 
 // test data are using hard coded little endian byte order, not for big-endian
@@ -95,6 +92,9 @@ pub use self::ext_cap::{
 };
 pub use self::feature::{Nl80211ExtFeature, Nl80211Features};
 pub use self::frame::{
+    Ieee80211ActionFrame, Ieee80211ActionFrameBtmRequest,
+    Ieee80211ActionFrameBtmResponse, Ieee80211ActionFrameNeighborReportRequest,
+    Ieee80211ActionFrameNeighborReportResponse, Ieee80211ActionFrameOther,
     Ieee80211AssocRespFrame, Ieee80211AuthAlgorithm, Ieee80211AuthFrame,
     Ieee80211AuthFrameEppke, Ieee80211AuthFrameFastBssTransition,
     Ieee80211AuthFrameFilsPublicKey, Ieee80211AuthFrameFilsSharedKey,
@@ -102,9 +102,11 @@ pub use self::frame::{
     Ieee80211AuthFrameLeap, Ieee80211AuthFrameOpenSystem,
     Ieee80211AuthFrameOther, Ieee80211AuthFramePasn, Ieee80211AuthFrameSae,
     Ieee80211AuthFrameSharedKey, Ieee80211AuthFrameVendorSpecific,
-    Ieee80211CapabilityInfo,
+    Ieee80211BtmCandidate, Ieee80211BtmRequest, Ieee80211BtmResponse,
+    Ieee80211CapabilityInfo, Ieee80211Frame, Ieee80211FrameType,
+    Ieee80211NeighborReportEntry, Ieee80211NeighborReportRequest,
+    Ieee80211NeighborReportResponse, Nl80211IfaceFrameType,
 };
-pub use self::frame_type::{Ieee80211FrameType, Nl80211IfaceFrameType};
 pub use self::handle::Nl80211Handle;
 pub use self::iface::{
     Nl80211IfaceComb, Nl80211IfaceCombAttribute, Nl80211IfaceCombLimit,
@@ -121,10 +123,6 @@ pub use self::mlo::Nl80211MloLink;
 pub use self::rekey::Nl80211RekeyData;
 pub use self::rekey_request::{
     Nl80211RekeyOffload, Nl80211RekeyOffloadRequest,
-};
-pub use self::rrm::{
-    Ieee80211NeighborReportEntry, Ieee80211NeighborReportRequest,
-    Ieee80211NeighborReportResponse,
 };
 pub use self::scan::{
     Nl80211BssInfo, Nl80211BssUseFor, Nl80211Scan, Nl80211ScanFlags,
@@ -172,9 +170,6 @@ pub use self::wiphy::{
     Nl80211WiphyGetRequest, Nl80211WiphyHandle, Nl80211WowlanTcpTriggerSupport,
     Nl80211WowlanTriggerPatternSupport, Nl80211WowlanTriggersSupport,
     Nl80211WowlanWakeup,
-};
-pub use self::wnm::{
-    Ieee80211BtmCandidate, Ieee80211BtmRequest, Ieee80211BtmResponse,
 };
 pub use self::wowlan_request::{Nl80211Wowlan, Nl80211WowlanRequest};
 

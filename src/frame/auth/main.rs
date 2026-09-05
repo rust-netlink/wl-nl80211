@@ -382,6 +382,25 @@ impl Ieee80211AuthFrame {
         }
     }
 
+    /// Serialize this frame into raw 802.11 management frame bytes.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        match self {
+            Self::OpenSystem(frame) => frame.to_bytes(),
+            Self::SharedKey(frame) => frame.to_bytes(),
+            Self::FastBssTransition(frame) => frame.to_bytes(),
+            Self::Sae(frame) => frame.to_bytes(),
+            Self::FilsSharedKey(frame) => frame.to_bytes(),
+            Self::FilsSharedKeyPfs(frame) => frame.to_bytes(),
+            Self::FilsPublicKey(frame) => frame.to_bytes(),
+            Self::Pasn(frame) => frame.to_bytes(),
+            Self::Ieee8021x(frame) => frame.to_bytes(),
+            Self::Eppke(frame) => frame.to_bytes(),
+            Self::Leap(frame) => frame.to_bytes(),
+            Self::VendorSpecific(frame) => frame.to_bytes(),
+            Self::Other(frame) => frame.to_bytes(),
+        }
+    }
+
     /// Whether this is a Simultaneous Authentication of Equals (SAE) frame.
     pub fn is_sae(&self) -> bool {
         matches!(self, Self::Sae(_))
