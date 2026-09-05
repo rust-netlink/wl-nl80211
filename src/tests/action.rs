@@ -256,6 +256,6 @@ fn ieee80211_frame_dispatch() {
     // Probe Request subtype: no full-frame codec, kept as Other.
     assert!(matches!(
         Ieee80211Frame::parse(&[0x40, 0x00]).expect("parse other"),
-        Ieee80211Frame::Other { .. }
+        Ieee80211Frame::Other(_)
     ));
 }

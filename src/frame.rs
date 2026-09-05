@@ -37,6 +37,16 @@ pub use self::capability::Ieee80211CapabilityInfo;
 /// Frame Control type/subtype mask (802.11-2020 §9.2.4.1.3, bits 2-7).
 const FRAME_CTRL_TYPE_SUBTYPE_MASK: u16 = 0x00FC;
 
+/// A management frame that has no full-frame codec, kept losslessly.
+#[derive(Debug, PartialEq, Eq, Clone)]
+#[non_exhaustive]
+pub struct Ieee80211FrameOther {
+    /// Frame Control field.
+    pub frame_control: u16,
+    /// Full frame bytes as received.
+    pub raw: Vec<u8>,
+}
+
 /// A parsed IEEE 802.11 management frame delivered by an nl80211 event.
 ///
 /// Only full-frame codecs are represented as typed variants; unmodelled or
@@ -49,12 +59,7 @@ pub enum Ieee80211Frame {
     /// Action management frame.
     Action(Ieee80211ActionFrame),
     /// Any other management frame, kept as the raw wire bytes.
-    Other {
-        /// Frame Control field.
-        frame_control: u16,
-        /// Full frame bytes as received.
-        raw: Vec<u8>,
-    },
+    Other(Ieee80211FrameOther),
 }
 
 impl Ieee80211Frame {
@@ -70,22 +75,22 @@ impl Ieee80211Frame {
         Ok(match frame_control & FRAME_CTRL_TYPE_SUBTYPE_MASK {
             IEEE80211_STYPE_AUTH => match Ieee80211AuthFrame::parse(data) {
                 Ok(frame) => Self::Auth(frame),
-                Err(_) => Self::Other {
+                Err(_) => Self::Other(Ieee80211FrameOther {
                     frame_control,
                     raw: data.to_vec(),
-                },
+                }),
             },
             IEEE80211_STYPE_ACTION => match Ieee80211ActionFrame::parse(data) {
                 Ok(frame) => Self::Action(frame),
-                Err(_) => Self::Other {
+                Err(_) => Self::Other(Ieee80211FrameOther {
                     frame_control,
                     raw: data.to_vec(),
-                },
+                }),
             },
-            _ => Self::Other {
+            _ => Self::Other(Ieee80211FrameOther {
                 frame_control,
                 raw: data.to_vec(),
-            },
+            }),
         })
     }
 
@@ -94,7 +99,7 @@ impl Ieee80211Frame {
         match self {
             Self::Auth(frame) => frame.to_bytes(),
             Self::Action(frame) => frame.to_bytes(),
-            Self::Other { raw, .. } => raw.clone(),
+            Self::Other(frame) => frame.raw.clone(),
         }
     }
 }

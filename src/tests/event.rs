@@ -509,7 +509,8 @@ fn test_captured_frame_event() {
         0xff, 0x07, 0x98, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00,
     ];
     match parse_event(&raw).expect("parse event") {
-        Nl80211Event::Frame(Ieee80211Frame::Other { raw, .. }) => {
+        Nl80211Event::Frame(Ieee80211Frame::Other(frame)) => {
+            let raw = &frame.raw;
             assert_eq!(125, raw.len());
             // Probe request: management subtype 4, broadcast DA.
             assert_eq!(&raw[0..2], &[0x40, 0x00]);
