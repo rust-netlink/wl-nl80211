@@ -107,9 +107,10 @@ pub use self::frame::{
     Ieee80211AuthFrameOther, Ieee80211AuthFramePasn, Ieee80211AuthFrameSae,
     Ieee80211AuthFrameSharedKey, Ieee80211AuthFrameVendorSpecific,
     Ieee80211BtmCandidate, Ieee80211BtmRequest, Ieee80211BtmResponse,
-    Ieee80211CapabilityInfo, Ieee80211Frame, Ieee80211FrameType,
-    Ieee80211NeighborReportEntry, Ieee80211NeighborReportRequest,
-    Ieee80211NeighborReportResponse, Nl80211IfaceFrameType,
+    Ieee80211CapabilityInfo, Ieee80211Frame, Ieee80211FrameOther,
+    Ieee80211FrameType, Ieee80211NeighborReportEntry,
+    Ieee80211NeighborReportRequest, Ieee80211NeighborReportResponse,
+    Nl80211IfaceFrameType,
 };
 pub use self::handle::Nl80211Handle;
 pub use self::iface::{
