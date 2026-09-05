@@ -285,7 +285,7 @@ const NL80211_ATTR_WIPHY_TX_POWER_LEVEL: u16 = 98;
 const NL80211_ATTR_TX_FRAME_TYPES: u16 = 99;
 const NL80211_ATTR_RX_FRAME_TYPES: u16 = 100;
 // Also used as a nested sub-attribute of NL80211_ATTR_{TX,RX}_FRAME_TYPES,
-// see frame_type.rs.
+// see frame.rs.
 pub(crate) const NL80211_ATTR_FRAME_TYPE: u16 = 101;
 const NL80211_ATTR_CONTROL_PORT_ETHERTYPE: u16 = 102;
 const NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT: u16 = 103;

@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-//! IEEE 802.11 management frame parsing types.
+//! IEEE 802.11 Authentication management frame parsing types.
 
-mod assoc;
 mod buffer;
-mod capability;
 mod eppke;
 mod fils_public_key;
 mod fils_shared_key;
@@ -19,8 +17,6 @@ mod sae;
 mod shared_key;
 mod vendor_specific;
 
-pub use self::assoc::Ieee80211AssocRespFrame;
-pub use self::capability::Ieee80211CapabilityInfo;
 pub use self::eppke::Ieee80211AuthFrameEppke;
 pub use self::fils_public_key::Ieee80211AuthFrameFilsPublicKey;
 pub use self::fils_shared_key::Ieee80211AuthFrameFilsSharedKey;

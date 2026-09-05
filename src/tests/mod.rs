@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+mod action;
 mod auth_assoc;
 mod band;
 mod connect;
