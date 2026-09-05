@@ -34,6 +34,9 @@ pub struct Ieee80211ActionFrameOther {
 
 impl Ieee80211ActionFrameOther {
     /// Create an unmodelled Action frame in the STA-to-AP direction.
+    ///
+    /// This is an escape hatch for one-off frames; new category/action pairs
+    /// should be contributed upstream as typed Action variants instead.
     pub fn new(
         sta_mac: [u8; 6],
         bssid: [u8; 6],
