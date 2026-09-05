@@ -5,71 +5,67 @@ use netlink_packet_core::{NetlinkMessage, NetlinkPayload};
 
 use crate::event_status::{Ieee80211ReasonCode, Ieee80211StatusCode};
 use crate::{
-    Ieee80211AssocRespFrame, Ieee80211AuthFrame, Ieee80211Frame, Nl80211Attr,
-    Nl80211Command, Nl80211CqmRssiEvent, Nl80211Message,
-    Nl80211WowlanTriggersSupport, Nl80211WowlanWakeup,
+    Ieee80211AssocRespFrame, Ieee80211AuthFrame, Ieee80211EapolFrame,
+    Ieee80211Frame, Nl80211Attr, Nl80211Command, Nl80211CqmRssiEvent,
+    Nl80211Message, Nl80211WowlanTriggersSupport, Nl80211WowlanWakeup,
 };
+
+/// `NL80211_CMD_AUTHENTICATE` event.
+#[derive(Debug, PartialEq, Eq, Clone)]
+#[non_exhaustive]
+pub struct Nl80211EventAuthenticated {
+    /// The authentication result status.
+    pub status: Ieee80211StatusCode,
+    /// The full 802.11 authentication frame, parsed, when the kernel
+    /// delivered one (SAE exchanges).
+    pub frame: Option<Ieee80211AuthFrame>,
+}
+
+/// `NL80211_CMD_ASSOCIATE` event.
+#[derive(Debug, PartialEq, Eq, Clone)]
+#[non_exhaustive]
+pub struct Nl80211EventAssociated {
+    /// The association result status.
+    pub status: Ieee80211StatusCode,
+    /// Information elements from the Association Response frame.
+    pub ies: Option<Vec<u8>>,
+}
 
 /// A multicast nl80211 event received from the kernel, e.g. on the `mlme`,
 /// `scan` or `config` groups (see [`crate::new_multicast_connection`]).
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]
 pub enum Nl80211Event {
-    /// `NL80211_CMD_AUTHENTICATE` event: the authentication result. `status`
-    /// is [`Ieee80211StatusCode`]; `frame` is the full 802.11 authentication
-    /// frame when the kernel delivered one (SAE exchanges).
-    Authenticated {
-        status: Ieee80211StatusCode,
-        frame: Option<Vec<u8>>,
-    },
-    /// `NL80211_CMD_ASSOCIATE` event: the association result. `ies` are the
-    /// information elements from the Association Response frame (they carry
-    /// e.g. the AP's OWE DH Parameter Element for OWE networks).
-    Associated {
-        status: Ieee80211StatusCode,
-        ies: Option<Vec<u8>>,
-    },
+    /// `NL80211_CMD_AUTHENTICATE` event: the authentication result.
+    Authenticated(Nl80211EventAuthenticated),
+    /// `NL80211_CMD_ASSOCIATE` event: the association result.
+    Associated(Nl80211EventAssociated),
     /// `NL80211_CMD_CONNECT` event: the connection result.
-    ConnectResult { status: Ieee80211StatusCode },
-    /// `NL80211_CMD_DISCONNECT` event: the IEEE 802.11 reason code.
-    Disconnect { reason: Ieee80211ReasonCode },
-    /// `NL80211_CMD_DEAUTHENTICATE` event: the AP deauthenticated the STA;
-    /// `reason` is the IEEE 802.11 reason code (e.g. 2
-    /// `PrevAuthNotValid` / 23 `Ieee8021xFailed` indicate a fatal
-    /// credential problem, anything else is transient).
-    Deauthenticated { reason: Ieee80211ReasonCode },
-    /// `NL80211_CMD_DISASSOCIATE` event: the AP disassociated the STA;
-    /// `reason` is the IEEE 802.11 reason code.
-    Disassociated { reason: Ieee80211ReasonCode },
-    /// `NL80211_CMD_FRAME` event: a received management frame the socket
-    /// registered for, parsed into its typed frame representation.
+    ConnectResult(Ieee80211StatusCode),
+    /// `NL80211_CMD_DISCONNECT` event.
+    Disconnect(Ieee80211ReasonCode),
+    /// `NL80211_CMD_DEAUTHENTICATE` event.
+    Deauthenticated(Ieee80211ReasonCode),
+    /// `NL80211_CMD_DISASSOCIATE` event.
+    Disassociated(Ieee80211ReasonCode),
+    /// `NL80211_CMD_FRAME` event: a received management frame.
     Frame(Ieee80211Frame),
-    /// `NL80211_CMD_CONTROL_PORT_FRAME` event: an EAPOL (802.1X control
-    /// port) frame received over nl80211.
-    ControlPortFrame { frame: Vec<u8> },
-    /// `NL80211_CMD_PORT_AUTHORIZED` event: the driver authorized the
-    /// control port for the peer.
+    /// `NL80211_CMD_CONTROL_PORT_FRAME` event.
+    ControlPortFrame(Ieee80211EapolFrame),
+    /// `NL80211_CMD_PORT_AUTHORIZED` event.
     PortAuthorized,
-    /// `NL80211_CMD_TRIGGER_SCAN` event: a scan started.
+    /// `NL80211_CMD_TRIGGER_SCAN` event.
     ScanStart,
-    /// `NL80211_CMD_NEW_SCAN_RESULTS` event: a scan finished and new BSS
-    /// results are available (retrieve them via a scan dump).
+    /// `NL80211_CMD_NEW_SCAN_RESULTS` event.
     NewScanResults,
-    /// `NL80211_CMD_EXTERNAL_AUTH` event: the kernel asks userspace to
-    /// perform the authentication (e.g. SAE) externally.
+    /// `NL80211_CMD_EXTERNAL_AUTH` event.
     ExternalAuth,
-    /// `NL80211_CMD_SET_WOWLAN` event: the device woke up while the host
-    /// was suspended; `reasons` carries the `NL80211_ATTR_WOWLAN_TRIGGERS`
-    /// sub-attributes reported by `cfg80211_report_wowlan_wakeup()`.
-    WowlanWakeup { reasons: Vec<Nl80211WowlanWakeup> },
-    /// `NL80211_CMD_NOTIFY_CQM` event: the connection quality monitor
-    /// reported an RSSI threshold crossing of the connected AP. `wiphy` /
-    /// `if_index` identify the reporting interface, `mac` the peer (when
-    /// the kernel included it) and `events` the `NL80211_ATTR_CQM`
-    /// sub-attributes (threshold crossing direction, RSSI level, ...).
+    /// `NL80211_CMD_SET_WOWLAN` wake notification.
+    WowlanWakeup(Vec<Nl80211WowlanWakeup>),
+    /// `NL80211_CMD_NOTIFY_CQM` event.
     CqmRssi(Nl80211CqmRssiEvent),
-    /// Any other command: carries the unmodelled [`Nl80211Command`].
-    Unknown { cmd: Nl80211Command },
+    /// Any other command.
+    Unknown(Nl80211Command),
 }
 
 impl Nl80211Event {
@@ -92,32 +88,28 @@ impl Nl80211Event {
                                 Some(Nl80211Event::ExternalAuth)
                             }
                             Nl80211Command::Connect => {
-                                Some(Nl80211Event::ConnectResult {
-                                    status: attr_status(&nl_msg),
-                                })
+                                Some(Nl80211Event::ConnectResult(attr_status(
+                                    &nl_msg,
+                                )))
                             }
                             Nl80211Command::Disconnect => {
-                                Some(Nl80211Event::Disconnect {
-                                    reason: attr_reason(&nl_msg).into(),
-                                })
+                                Some(Nl80211Event::Disconnect(
+                                    attr_reason(&nl_msg).into(),
+                                ))
                             }
                             Nl80211Command::Deauthenticate => {
                                 attr_frame_reason(&nl_msg)
-                                    .map(|reason| {
-                                        Nl80211Event::Deauthenticated { reason }
-                                    })
-                                    .or(Some(Nl80211Event::Unknown {
-                                        cmd: Nl80211Command::Deauthenticate,
-                                    }))
+                                    .map(Nl80211Event::Deauthenticated)
+                                    .or(Some(Nl80211Event::Unknown(
+                                        Nl80211Command::Deauthenticate,
+                                    )))
                             }
                             Nl80211Command::Disassociate => {
                                 attr_frame_reason(&nl_msg)
-                                    .map(|reason| Nl80211Event::Disassociated {
-                                        reason,
-                                    })
-                                    .or(Some(Nl80211Event::Unknown {
-                                        cmd: Nl80211Command::Disassociate,
-                                    }))
+                                    .map(Nl80211Event::Disassociated)
+                                    .or(Some(Nl80211Event::Unknown(
+                                        Nl80211Command::Disassociate,
+                                    )))
                             }
                             Nl80211Command::Frame => attr_frame(&nl_msg)
                                 .and_then(|frame| {
@@ -141,7 +133,9 @@ impl Nl80211Event {
                             }
                             Nl80211Command::ControlPortFrame => {
                                 attr_frame(&nl_msg).map(|frame| {
-                                    Nl80211Event::ControlPortFrame { frame }
+                                    Nl80211Event::ControlPortFrame(
+                                        Ieee80211EapolFrame::parse(&frame),
+                                    )
                                 })
                             }
                             Nl80211Command::NotifyCqm => {
@@ -153,14 +147,12 @@ impl Nl80211Event {
                             // stays an unmodelled event.
                             Nl80211Command::SetWowlan => {
                                 attr_wowlan_wakeup(&nl_msg)
-                                    .map(|reasons| Nl80211Event::WowlanWakeup {
-                                        reasons,
-                                    })
-                                    .or(Some(Nl80211Event::Unknown {
-                                        cmd: Nl80211Command::SetWowlan,
-                                    }))
+                                    .map(Nl80211Event::WowlanWakeup)
+                                    .or(Some(Nl80211Event::Unknown(
+                                        Nl80211Command::SetWowlan,
+                                    )))
                             }
-                            other => Some(Nl80211Event::Unknown { cmd: other }),
+                            other => Some(Nl80211Event::Unknown(other)),
                         }
                     }
                     Err(e) => {
@@ -303,20 +295,19 @@ fn parse_cqm(msg: &Nl80211Message) -> Nl80211Event {
 
 fn parse_authenticate(msg: &Nl80211Message) -> Nl80211Event {
     let mut status = attr_status(msg);
-    let frame = attr_frame(msg);
+    let frame = attr_frame(msg)
+        .and_then(|frame| Ieee80211AuthFrame::parse(&frame).ok());
 
     // The kernel may deliver the authentication result without a
     // NL80211_ATTR_STATUS_CODE, relying on the status code inside the
     // 802.11 authentication frame.
     if status == Ieee80211StatusCode::Success {
         if let Some(ref frame) = frame {
-            if let Ok(auth_frame) = Ieee80211AuthFrame::parse(frame) {
-                status = auth_frame.status_code();
-            }
+            status = frame.status_code();
         }
     }
 
-    Nl80211Event::Authenticated { status, frame }
+    Nl80211Event::Authenticated(Nl80211EventAuthenticated { status, frame })
 }
 
 fn parse_associate(msg: &Nl80211Message) -> Nl80211Event {
@@ -345,5 +336,5 @@ fn parse_associate(msg: &Nl80211Message) -> Nl80211Event {
             .map(|frame| frame.remains.get(2..).unwrap_or_default().to_vec())
     });
 
-    Nl80211Event::Associated { status, ies }
+    Nl80211Event::Associated(Nl80211EventAssociated { status, ies })
 }

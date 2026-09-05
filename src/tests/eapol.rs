@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 
 use crate::eapol::OFF_MIC;
-use crate::{Ieee80211EapolEapFrame, Ieee80211EapolKeyFrame};
+use crate::{
+    Ieee80211EapolEapFrame, Ieee80211EapolFrame, Ieee80211EapolKeyFrame,
+};
 
 #[test]
 fn roundtrip_msg2() {
@@ -35,4 +37,25 @@ fn eap_frame_roundtrip() {
     let parsed = Ieee80211EapolEapFrame::parse(&pdu).expect("parse EAP frame");
     assert_eq!(parsed.payload, b"hello");
     assert!(Ieee80211EapolEapFrame::parse(b"\x02\x03\x00\x00").is_none());
+}
+
+#[test]
+fn eapol_frame_dispatch() {
+    let key_pdu =
+        Ieee80211EapolKeyFrame::build_message_2(&[0u8; 32], 1, &[], 0);
+    assert!(matches!(
+        Ieee80211EapolFrame::parse(&key_pdu),
+        Ieee80211EapolFrame::Key(_)
+    ));
+
+    let eap_pdu = Ieee80211EapolEapFrame::build(b"hello");
+    assert!(matches!(
+        Ieee80211EapolFrame::parse(&eap_pdu),
+        Ieee80211EapolFrame::Eap(_)
+    ));
+
+    assert!(matches!(
+        Ieee80211EapolFrame::parse(&[2, 2, 0, 0]),
+        Ieee80211EapolFrame::Other(_)
+    ));
 }
