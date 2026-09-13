@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 
-use super::{
-    Emitable, Ieee80211ElementHtCap, Ieee80211HtAMpduPara, Ieee80211HtAselCaps,
+use netlink_packet_core::{Emitable, Parseable};
+
+use crate::wifi4::{
+    Ieee80211ElementHtCap, Ieee80211HtAMpduPara, Ieee80211HtAselCaps,
     Ieee80211HtCaps, Ieee80211HtExtendedCap, Ieee80211HtMcsInfo,
     Ieee80211HtTransmitBeamformingCaps, Ieee80211HtTxParameter,
-    Nl80211HtWiphyChannelType, Parseable, IEEE80211_HT_MCS_MASK_LEN,
-    NL80211_CHAN_HT40PLUS,
+    Nl80211HtWiphyChannelType,
 };
 
 #[test]
@@ -73,8 +74,7 @@ fn ht_wiphy_ht_20() {
 
 #[test]
 fn ht_wiphy_other() {
-    let val: Nl80211HtWiphyChannelType =
-        Nl80211HtWiphyChannelType::Other(NL80211_CHAN_HT40PLUS + 1);
+    let val: Nl80211HtWiphyChannelType = Nl80211HtWiphyChannelType::Other(4);
     let into: u32 = val.into();
     assert_eq!(<Nl80211HtWiphyChannelType>::from(into), val,);
 }
@@ -82,7 +82,7 @@ fn ht_wiphy_other() {
 #[test]
 fn mcs_info() {
     let val: Ieee80211HtMcsInfo = Ieee80211HtMcsInfo {
-        rx_mask: [0xA5; IEEE80211_HT_MCS_MASK_LEN],
+        rx_mask: [0xA5; 10],
         rx_highest: u16::MAX,
         tx_params: Ieee80211HtTxParameter {
             mcs_set_defined: false,
@@ -132,7 +132,7 @@ fn cap_mask() {
             min_space: 7,
         },
         mcs_set: Ieee80211HtMcsInfo {
-            rx_mask: [0xA5; IEEE80211_HT_MCS_MASK_LEN],
+            rx_mask: [0xA5; 10],
             rx_highest: u16::MAX,
             tx_params: Ieee80211HtTxParameter {
                 mcs_set_defined: false,
