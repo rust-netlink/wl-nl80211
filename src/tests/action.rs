@@ -130,6 +130,25 @@ fn parse_wnm_btm_request() {
     assert_eq!(candidate.preference, Some(255));
 }
 
+/// A BTM Request whose Request Mode advertises subelements that the body
+/// does not carry must yield no candidates instead of walking past the
+/// body.
+#[test]
+fn parse_wnm_btm_request_without_advertised_subelements() {
+    // Request Mode bit 3: the BSS Termination subelement (12 octets) is
+    // announced but absent.
+    let bss_termination = vec![7, 0x08, 0x00, 0x00, 0x14];
+    let parsed =
+        Ieee80211BtmRequest::parse(&bss_termination).expect("parse BTM");
+    assert!(parsed.candidates.is_empty());
+
+    // Request Mode bit 4: the ESS Disassociation Imminent subelement is
+    // present, but its URL length runs past the body.
+    let ess_disassoc = vec![7, 0x10, 0x00, 0x00, 0x14, 0xff];
+    let parsed = Ieee80211BtmRequest::parse(&ess_disassoc).expect("parse BTM");
+    assert!(parsed.candidates.is_empty());
+}
+
 #[test]
 fn build_wnm_btm_response() {
     let sta = [0x02u8; 6];
