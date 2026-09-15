@@ -77,7 +77,10 @@ pub use self::cqm::{
     Nl80211CqmRssiThresholdEvent,
 };
 pub use self::eapol::{
+    build_oci_kde, parse_gtk_kde, parse_key_data_kdes, parse_oci_kde,
     Ieee80211EapolEapFrame, Ieee80211EapolFrame, Ieee80211EapolKeyFrame,
+    Ieee80211KeyDataKdes, Ieee80211MgmtKeyKde, Ieee80211Oci,
+    Ieee80211OciBuffer, Ieee80211OciKeyDataElemBuffer,
 };
 pub use self::element::{
     ap_rsne_supports_ext_key_id, ap_rsne_supports_ocv,

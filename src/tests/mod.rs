@@ -10,6 +10,7 @@ mod disconnect;
 mod eapol;
 mod element;
 mod event;
+mod kde;
 mod key;
 mod register_frame;
 mod roaming;
