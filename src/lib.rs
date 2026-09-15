@@ -104,6 +104,7 @@ pub use self::element::{
 pub use self::error::Nl80211Error;
 pub use self::event::{
     Nl80211Event, Nl80211EventAssociated, Nl80211EventAuthenticated,
+    Nl80211EventRekeyOffload,
 };
 pub use self::event_status::{Ieee80211ReasonCode, Ieee80211StatusCode};
 pub use self::ext_cap::{

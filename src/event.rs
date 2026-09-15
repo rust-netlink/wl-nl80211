@@ -7,7 +7,8 @@ use crate::event_status::{Ieee80211ReasonCode, Ieee80211StatusCode};
 use crate::{
     Ieee80211AssocRespFrame, Ieee80211AuthFrame, Ieee80211EapolFrame,
     Ieee80211Frame, Nl80211Attr, Nl80211Command, Nl80211CqmRssiEvent,
-    Nl80211Message, Nl80211WowlanTriggersSupport, Nl80211WowlanWakeup,
+    Nl80211Message, Nl80211RekeyData, Nl80211WowlanTriggersSupport,
+    Nl80211WowlanWakeup, ETH_ALEN,
 };
 
 /// `NL80211_CMD_AUTHENTICATE` event.
@@ -29,6 +30,21 @@ pub struct Nl80211EventAssociated {
     pub status: Ieee80211StatusCode,
     /// Information elements from the Association Response frame.
     pub ies: Option<Vec<u8>>,
+}
+
+/// `NL80211_CMD_SET_REKEY_OFFLOAD` notification.
+///
+/// The driver/firmware completed a GTK rekey on its own (GTK rekey
+/// offload during WoWLAN suspend) and reports the BSSID and the replay
+/// counter it used, so the supplicant can keep its replay counter state
+/// in sync with the device.
+#[derive(Debug, PartialEq, Eq, Clone)]
+#[non_exhaustive]
+pub struct Nl80211EventRekeyOffload {
+    /// BSSID of the AP the GTK was rekeyed with.
+    pub bssid: [u8; ETH_ALEN],
+    /// Replay counter used by the driver/firmware.
+    pub replay_ctr: [u8; 8],
 }
 
 /// A multicast nl80211 event received from the kernel, e.g. on the `mlme`,
@@ -64,6 +80,9 @@ pub enum Nl80211Event {
     WowlanWakeup(Vec<Nl80211WowlanWakeup>),
     /// `NL80211_CMD_NOTIFY_CQM` event.
     CqmRssi(Nl80211CqmRssiEvent),
+    /// `NL80211_CMD_SET_REKEY_OFFLOAD` notification: the driver/firmware
+    /// rekeyed the GTK on its own.
+    RekeyOffload(Nl80211EventRekeyOffload),
     /// Any other command.
     Unknown(Nl80211Command),
 }
@@ -140,6 +159,16 @@ impl Nl80211Event {
                             }
                             Nl80211Command::NotifyCqm => {
                                 Some(parse_cqm(&nl_msg))
+                            }
+                            // The driver reports a GTK rekey it performed
+                            // itself; without the replay counter there is
+                            // nothing to sync, so it stays unmodelled.
+                            Nl80211Command::SetRekeyOffload => {
+                                parse_rekey_offload(&nl_msg)
+                                    .map(Nl80211Event::RekeyOffload)
+                                    .or(Some(Nl80211Event::Unknown(
+                                        Nl80211Command::SetRekeyOffload,
+                                    )))
                             }
                             // The kernel also uses SET_WOWLAN as a wakeup
                             // notification; without the wakeup attribute
@@ -269,6 +298,28 @@ fn attr_ie(msg: &Nl80211Message) -> Option<Vec<u8>> {
         Nl80211Attr::Ie(ie) => Some(ie.clone()),
         _ => None,
     })
+}
+
+/// The BSSID and replay counter of a `NL80211_CMD_SET_REKEY_OFFLOAD`
+/// notification. The kernel sends `NL80211_ATTR_MAC` for the BSSID and
+/// the replay counter inside `NL80211_ATTR_REKEY_DATA`; a message
+/// without either, or with a replay counter of the wrong size, carries
+/// no usable rekey information.
+fn parse_rekey_offload(
+    msg: &Nl80211Message,
+) -> Option<Nl80211EventRekeyOffload> {
+    let bssid = msg.attributes.iter().find_map(|attr| match attr {
+        Nl80211Attr::Mac(mac) => Some(*mac),
+        _ => None,
+    })?;
+    let replay_ctr = msg.attributes.iter().find_map(|attr| match attr {
+        Nl80211Attr::RekeyData(nlas) => nlas.iter().find_map(|nla| match nla {
+            Nl80211RekeyData::ReplayCtr(ctr) => ctr.as_slice().try_into().ok(),
+            _ => None,
+        }),
+        _ => None,
+    })?;
+    Some(Nl80211EventRekeyOffload { bssid, replay_ctr })
 }
 
 fn parse_cqm(msg: &Nl80211Message) -> Nl80211Event {
