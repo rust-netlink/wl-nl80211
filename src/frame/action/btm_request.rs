@@ -2,7 +2,7 @@
 
 use netlink_packet_core::{DecodeError, Emitable};
 
-use crate::mac::ETH_ALEN;
+use crate::{element::Ieee80211ElementBuffer, mac::ETH_ALEN};
 
 use super::buffer::{
     action_frame_buffer_len, emit_action_frame, parse_action_frame,
@@ -76,15 +76,18 @@ impl Ieee80211BtmRequest {
         }
 
         let mut candidates = Vec::new();
-        while pos + 2 <= body.len() {
-            let id = body[pos];
-            let len = body[pos + 1] as usize;
-            let start = pos + 2;
-            if start + len > body.len() {
+        // Neighbor Report elements, each `Element ID (1) || Length (1) ||
+        // body` (IEEE 802.11-2024 Figure 9-208). An element that is not
+        // complete - trailing bytes that are too short for their Length
+        // field - ends the parse. The Request Mode subelements above are
+        // skipped without checking the body holds them, so `pos` may be
+        // past its end, in which case there is nothing left to walk.
+        while let Some(rest) = body.get(pos..) {
+            let Ok((header, elem)) = Ieee80211ElementBuffer::split(rest) else {
                 break;
-            }
-            let elem = &body[start..start + len];
-            if id == IE_ID_NEIGHBOR_REPORT && elem.len() >= 13 {
+            };
+            pos += header.buffer_len();
+            if header.element_id == IE_ID_NEIGHBOR_REPORT && elem.len() >= 13 {
                 candidates.push(Ieee80211BtmCandidate {
                     bssid: elem[0..6].try_into().unwrap(),
                     bssid_info: u32::from_le_bytes([
@@ -98,7 +101,6 @@ impl Ieee80211BtmRequest {
                     preference: elem.get(13).copied(),
                 });
             }
-            pos = start + len;
         }
 
         Some(Self {

@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 
+use std::mem::size_of;
+
 use netlink_packet_core::{
     parse_string, parse_u8, DecodeError, Emitable, ErrorContext, Parseable,
 };
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned};
 
 use crate::{
     bytes::{parse_u16_le, write_u16_le, write_u32_le},
@@ -18,14 +21,13 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211Elements {
         let buf = buf.as_ref();
         let mut offset = 0;
         let mut ret = Vec::new();
-        while offset < buf.len() && offset + 1 < buf.len() {
-            let length = buf[offset + 1] as usize + 2;
-            if buf.len() < offset + length {
-                break;
-            }
-            let element =
-                Ieee80211Element::parse(&buf[offset..offset + length])?;
-            offset += length;
+        // An element that is not complete - trailing bytes that are too
+        // short for their Length field - ends the parse.
+        while let Ok((header, body)) =
+            Ieee80211ElementBuffer::split(&buf[offset..])
+        {
+            let element = Ieee80211Element::parse_body(header, body)?;
+            offset += header.buffer_len();
             ret.push(element);
         }
         Ok(Self(ret))
@@ -64,14 +66,120 @@ const ELEMENT_ID_SUPPORTED_RATES: u8 = 1;
 const ELEMENT_ID_CHANNEL: u8 = 3;
 const ELEMENT_ID_COUNTRY: u8 = 7;
 const ELEMENT_ID_HT_CAP: u8 = 45;
-const ELEMENT_ID_RSN: u8 = 48;
-const ELEMENT_ID_RSN_EXT: u8 = 244;
+/// Element ID of the RSNE (IEEE 802.11-2020 9.4.2.25).
+pub const ELEMENT_ID_RSN: u8 = 48;
+/// Element ID of the Mobility Domain element (IEEE 802.11-2020
+/// 9.4.2.47).
+pub const ELEMENT_ID_MDIE: u8 = 54;
+/// Element ID of the Fast BSS Transition element (IEEE 802.11-2020
+/// 9.4.2.48).
+pub const ELEMENT_ID_FTIE: u8 = 55;
+/// Element ID of the RM Enabled Capabilities element (IEEE
+/// 802.11-2020 9.4.2.43).
+pub const ELEMENT_ID_RM_ENABLED_CAPAB: u8 = 70;
+/// Element ID of the Extended Capabilities element (IEEE 802.11-2020
+/// 9.4.2.26).
+pub const ELEMENT_ID_EXT_CAPAB: u8 = 127;
+/// Element ID of the RSNXE (IEEE 802.11-2020 9.4.2.25a).
+pub const ELEMENT_ID_RSN_EXT: u8 = 244;
 const ELEMENT_ID_VHT_CAP: u8 = 191;
 const ELEMENT_ID_VENDOR: u8 = 221;
-const ELEMENT_ID_EXTENSION: u8 = 255;
+/// Element ID of an extensible element: its body starts with the Element ID
+/// Extension field (IEEE 802.11-2024 9.4.2, `Figure 9-208`).
+pub const ELEMENT_ID_EXTENSION: u8 = 255;
 const ELEMENT_ID_EXTENSION_HE_CAP: u8 = 35;
 
-/// IEEE 802.11-2020 `9.4.2 Elements`
+/// The two-octet header of every information element, IEEE 802.11-2024
+/// `Figure 9-208`:
+///
+/// ```text
+/// Element ID (1) | Length (1) | Element ID Extension (0 or 1) | Information
+/// ```
+///
+/// The Element ID Extension field is part of the element body and is present
+/// only when the Element ID is [`ELEMENT_ID_EXTENSION`], in which case it is
+/// the first body octet; `Length` counts every body octet, including the
+/// Element ID Extension field.
+///
+/// The body is not part of this struct: it is variable length, so parsing an
+/// element means keeping it next to the header, as done by [`Self::split`].
+#[derive(
+    Debug,
+    PartialEq,
+    Eq,
+    Clone,
+    Copy,
+    FromBytes,
+    IntoBytes,
+    KnownLayout,
+    Immutable,
+    Unaligned,
+)]
+#[repr(C, packed)]
+pub struct Ieee80211ElementBuffer {
+    /// Element ID, [`ELEMENT_ID_EXTENSION`] for an extensible element.
+    pub element_id: u8,
+    /// Number of octets following this header: the Element ID Extension
+    /// field when present, plus the Information field.
+    pub length: u8,
+}
+
+impl Ieee80211ElementBuffer {
+    /// Number of octets of this header.
+    pub const LEN: usize = size_of::<Self>();
+
+    /// The header of an element whose body is `length` octets long.
+    pub fn new(element_id: u8, length: u8) -> Self {
+        Self { element_id, length }
+    }
+
+    /// Split `buf` (the start of an element, `Element ID || Length || body`)
+    /// into the element header and the element body.
+    ///
+    /// `buf` may hold several concatenated elements: only the element at its
+    /// start is decoded, and the returned body is cut down to the `Length`
+    /// octets, so nothing that follows the element is mistaken for its
+    /// Information field. An error is returned when `buf` does not hold the
+    /// complete body the Length field promises.
+    pub fn split(buf: &[u8]) -> Result<(&Self, &[u8]), DecodeError> {
+        let (header, body) = Self::ref_from_prefix(buf)
+            .map_err(|_| DecodeError::buffer_too_small(buf.len(), Self::LEN))?;
+        let length = header.length as usize;
+        if body.len() < length {
+            return Err(DecodeError::from(format!(
+                "Truncated element: the Length field says {length} octets, \
+                 but only {} follow the {}-octet header",
+                body.len(),
+                Self::LEN
+            )));
+        }
+        Ok((header, &body[..length]))
+    }
+
+    /// Total number of octets of the element: this header plus its body.
+    pub fn buffer_len(&self) -> usize {
+        Self::LEN + self.length as usize
+    }
+
+    /// Whether the element carries an Element ID Extension field, i.e.
+    /// whether [`Self::element_id`] is [`ELEMENT_ID_EXTENSION`].
+    pub fn has_element_id_ext(&self) -> bool {
+        self.element_id == ELEMENT_ID_EXTENSION
+    }
+
+    /// The Element ID Extension field of an extensible element: the first
+    /// octet of its body. `None` when the element is not extensible or the
+    /// body is empty.
+    pub fn element_id_ext(&self, body: &[u8]) -> Option<u8> {
+        if self.has_element_id_ext() {
+            body.first().copied()
+        } else {
+            None
+        }
+    }
+}
+
+/// IEEE 802.11-2024 `9.4.2 Elements`
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]
 pub enum Ieee80211Element {
@@ -95,7 +203,7 @@ pub enum Ieee80211Element {
 }
 
 impl Ieee80211Element {
-    /// The ID field in IEEE 802.11-2020 `Figure 9-145 Element format`
+    /// The Element ID field of IEEE 802.11-2024 `Figure 9-208`.
     pub(crate) fn id(&self) -> u8 {
         match self {
             Self::Ssid(_) => ELEMENT_ID_SSID,
@@ -112,7 +220,7 @@ impl Ieee80211Element {
         }
     }
 
-    /// The length field in IEEE 802.11-2020 `Figure 9-145 Element format`
+    /// The Length field of IEEE 802.11-2024 `Figure 9-208`.
     pub(crate) fn length(&self) -> u8 {
         match self {
             Self::Ssid(v) => v.len() as u8,
@@ -128,70 +236,74 @@ impl Ieee80211Element {
             Self::Other(_, data) => (data.len()) as u8,
         }
     }
+
+    /// Parse the body of an element whose header was decoded by
+    /// [`Ieee80211ElementBuffer::split`].
+    ///
+    /// `body` holds the `Length` octets that follow the header, including
+    /// the Element ID Extension field for extensible elements.
+    pub fn parse_body(
+        header: &Ieee80211ElementBuffer,
+        body: &[u8],
+    ) -> Result<Self, DecodeError> {
+        Ok(match header.element_id {
+            ELEMENT_ID_SSID => Self::Ssid(
+                parse_string(body).context(format!("Invalid SSID {body:?}"))?,
+            ),
+            ELEMENT_ID_SUPPORTED_RATES => Self::SupportedRatesAndSelectors(
+                body.iter()
+                    .map(|d| Ieee80211RateAndSelector::from(*d))
+                    .collect(),
+            ),
+            ELEMENT_ID_CHANNEL => {
+                Self::Channel(parse_u8(body).context(format!(
+                    "Invalid DSSS(channel) element {body:?}"
+                ))?)
+            }
+            ELEMENT_ID_COUNTRY => {
+                Self::Country(Ieee80211ElementCountry::parse(body)?)
+            }
+            ELEMENT_ID_RSN => Self::Rsn(Ieee80211ElementRsn::parse(body)?),
+            ELEMENT_ID_RSN_EXT => {
+                Self::RsnExt(Ieee80211ElementRsnExt::parse(body)?)
+            }
+            ELEMENT_ID_VENDOR => Self::Vendor(body.to_vec()),
+            ELEMENT_ID_HT_CAP => {
+                Self::HtCapability(Ieee80211ElementHtCap::parse(body)?)
+            }
+            ELEMENT_ID_VHT_CAP => {
+                Self::VhtCapability(Ieee80211ElementVhtCap::parse(body)?)
+            }
+            ELEMENT_ID_EXTENSION => match header.element_id_ext(body) {
+                Some(ELEMENT_ID_EXTENSION_HE_CAP) => {
+                    Self::HeCapability(Ieee80211ElementHeCap::parse(body)?)
+                }
+                _ => Self::Other(ELEMENT_ID_EXTENSION, body.to_vec()),
+            },
+            element_id => Self::Other(element_id, body.to_vec()),
+        })
+    }
 }
 
 impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211Element {
     fn parse(buf: &T) -> Result<Self, DecodeError> {
         let buf = buf.as_ref();
-        if buf.len() < 2 {
-            return Err(
-                format!("Invalid length of Ieee80211Element {buf:?}").into()
-            );
-        }
-        let id = buf[0];
-        let length = buf[1];
-        let payload = &buf[2..length as usize + 2];
-        Ok(match id {
-            ELEMENT_ID_SSID => Self::Ssid(
-                parse_string(payload)
-                    .context(format!("Invalid SSID {payload:?}"))?,
-            ),
-            ELEMENT_ID_SUPPORTED_RATES => Self::SupportedRatesAndSelectors(
-                payload
-                    .iter()
-                    .map(|d| Ieee80211RateAndSelector::from(*d))
-                    .collect(),
-            ),
-            ELEMENT_ID_CHANNEL => Self::Channel(parse_u8(payload).context(
-                format!("Invalid DSSS(channel) element {payload:?}"),
-            )?),
-            ELEMENT_ID_COUNTRY => {
-                Self::Country(Ieee80211ElementCountry::parse(payload)?)
-            }
-            ELEMENT_ID_RSN => Self::Rsn(Ieee80211ElementRsn::parse(payload)?),
-            ELEMENT_ID_RSN_EXT => {
-                Self::RsnExt(Ieee80211ElementRsnExt::parse(payload)?)
-            }
-            ELEMENT_ID_VENDOR => Self::Vendor(payload.to_vec()),
-            ELEMENT_ID_HT_CAP => {
-                Self::HtCapability(Ieee80211ElementHtCap::parse(payload)?)
-            }
-            ELEMENT_ID_VHT_CAP => {
-                Self::VhtCapability(Ieee80211ElementVhtCap::parse(payload)?)
-            }
-            ELEMENT_ID_EXTENSION => {
-                if payload.is_empty() {
-                    Self::Other(ELEMENT_ID_EXTENSION, Vec::new())
-                } else if payload[0] == ELEMENT_ID_EXTENSION_HE_CAP {
-                    Self::HeCapability(Ieee80211ElementHeCap::parse(payload)?)
-                } else {
-                    Self::Other(ELEMENT_ID_EXTENSION, payload.to_vec())
-                }
-            }
-            _ => Self::Other(id, payload.to_vec()),
-        })
+        let (header, body) = Ieee80211ElementBuffer::split(buf)?;
+        Self::parse_body(header, body)
     }
 }
 
 impl Emitable for Ieee80211Element {
     fn buffer_len(&self) -> usize {
-        self.length() as usize + 2
+        Ieee80211ElementBuffer::LEN + self.length() as usize
     }
 
     fn emit(&self, buffer: &mut [u8]) {
-        buffer[0] = self.id();
-        buffer[1] = self.length();
-        let buffer = &mut buffer[2..self.length() as usize + 2];
+        let header = Ieee80211ElementBuffer::new(self.id(), self.length());
+        buffer[..Ieee80211ElementBuffer::LEN]
+            .copy_from_slice(header.as_bytes());
+        let buffer = &mut buffer[Ieee80211ElementBuffer::LEN
+            ..Ieee80211ElementBuffer::LEN + self.length() as usize];
         match self {
             Self::Ssid(s) => {
                 // IEEE 802.11-2020 indicate it is optional to have NULL
@@ -1281,5 +1393,691 @@ impl Ieee80211Pmkid {
 
     pub fn emit(&self, buffer: &mut [u8]) {
         buffer[..Self::LENGTH].copy_from_slice(&self.0);
+    }
+}
+
+/// Extended Capabilities bit 19: the BSS Transition capability
+/// (IEEE 802.11-2020 11.21.7, Table 9-192). Set by an AP that
+/// participates in BSS Transition Management.
+const EXT_CAP_BSS_TRANSITION: usize = 19;
+/// RM Enabled Capabilities octet 0 bit 1: the Neighbor Report capability
+/// (IEEE 802.11-2020 11.10.10). Set by an AP that answers neighbor
+/// report requests.
+const RM_CAP_NEIGHBOR_REPORT: u8 = 1 << 1;
+
+/// Find an element in an information element buffer and return the
+/// offset of its Element ID octet.
+///
+/// The `ies` buffer holds concatenated elements, each
+/// `Element ID (1) || Length (1) || body (Length)` (IEEE 802.11-2024
+/// Figure 9-208). Malformed trailing data ends the search.
+pub fn find_ie_pos(ies: &[u8], id: u8) -> Option<usize> {
+    let mut pos = 0;
+    while let Ok((header, _)) = Ieee80211ElementBuffer::split(&ies[pos..]) {
+        if header.element_id == id {
+            return Some(pos);
+        }
+        pos += header.buffer_len();
+    }
+    None
+}
+
+/// Find an element in an information element buffer and return its
+/// body, without the Element ID/Length header.
+pub fn find_ie(ies: &[u8], id: u8) -> Option<&[u8]> {
+    let pos = find_ie_pos(ies, id)?;
+    let (_, body) = Ieee80211ElementBuffer::split(&ies[pos..]).ok()?;
+    Some(body)
+}
+
+/// The full element (`Element ID || Length || body`) starting at `pos`, as
+/// returned by [`find_ie_pos`].
+///
+/// # Panics
+///
+/// Panics when `pos` does not hold a complete element; a position returned
+/// by [`find_ie_pos`] always does.
+pub fn ie_at(ies: &[u8], pos: usize) -> &[u8] {
+    let (header, _) = Ieee80211ElementBuffer::split(&ies[pos..])
+        .expect("ie_at() position does not hold a complete element");
+    &ies[pos..pos + header.buffer_len()]
+}
+
+/// Whether the AP's information elements advertise the BSS Transition
+/// (IEEE 802.11v) capability: bit 19 of the Extended Capabilities
+/// element (IEEE 802.11-2020 9.4.2.26). A missing or too-short element
+/// is not a BTM AP.
+pub fn ap_supports_btm(ies: &[u8]) -> bool {
+    find_ie(ies, ELEMENT_ID_EXT_CAPAB).is_some_and(|body| {
+        body.get(EXT_CAP_BSS_TRANSITION / 8).is_some_and(|octet| {
+            octet & (1 << (EXT_CAP_BSS_TRANSITION % 8)) != 0
+        })
+    })
+}
+
+/// Whether the AP's information elements advertise the Neighbor Report
+/// (IEEE 802.11k) capability: bit 1 of octet 0 of the RM Enabled
+/// Capabilities element (IEEE 802.11-2020 9.4.2.43). A missing or
+/// malformed element is not a neighbor-report AP.
+pub fn ap_supports_rm_neighbor_report(ies: &[u8]) -> bool {
+    find_ie(ies, ELEMENT_ID_RM_ENABLED_CAPAB).is_some_and(|body| {
+        body.first()
+            .is_some_and(|octet| octet & RM_CAP_NEIGHBOR_REPORT != 0)
+    })
+}
+
+/// Parse an RSNE body (the part after the Element ID and Length octets)
+/// into the typed RSN model.
+fn parse_rsne_body(body: &[u8]) -> Option<Ieee80211ElementRsn> {
+    Ieee80211ElementRsn::parse(body).ok()
+}
+
+/// First PMKID of an RSNE body (after the element header), if the RSNE
+/// carries one.
+pub fn rsne_first_pmkid(body: &[u8]) -> Option<[u8; 16]> {
+    parse_rsne_body(body)?.pmkids.first().map(|pmkid| pmkid.0)
+}
+
+/// The group management (BIP) cipher the AP advertises in its RSNE
+/// (full element: Element ID || Length || body); `None` when absent
+/// (older PMF-optional RSNEs omit it, and BIP-CMAC-128 is then
+/// assumed).
+pub fn parse_group_mgmt_cipher(rsne: &[u8]) -> Option<Ieee80211CipherSuite> {
+    let (_, body) = Ieee80211ElementBuffer::split(rsne).ok()?;
+    parse_rsne_body(body)?.group_mgmt_cipher
+}
+
+/// Whether the AP's RSNXE (full element: Element ID || Length || body, as
+/// delivered in beacons and probe responses) advertises SAE
+/// Hash-to-Element support. An empty slice (no RSNXE) or an element
+/// that does not hold the complete body its Length field promises both
+/// mean "not advertised".
+pub fn ap_rsnxe_supports_sae_h2e(ap_rsnxe: &[u8]) -> bool {
+    let Ok((_, body)) = Ieee80211ElementBuffer::split(ap_rsnxe) else {
+        return false;
+    };
+    Ieee80211ElementRsnExt::parse(body).is_ok_and(|rsnxe| {
+        rsnxe
+            .capabilities
+            .contains(Ieee80211RsnExtCapbilities::SaeH2e)
+    })
+}
+
+/// Offset of the RSN capabilities field (2 octets) inside an RSNE
+/// (full element: Element ID || Length || body).
+///
+/// The offset is derived from the pairwise cipher and AKM suite
+/// counts; the element body the Length field promises bounds the
+/// search, so an RSNE followed by other elements - the RSNXE of an SAE
+/// association request, for instance - is handled as well.
+fn rsne_capabilities_offset(rsne: &[u8]) -> Option<usize> {
+    let (_, body) = Ieee80211ElementBuffer::split(rsne).ok()?;
+    // version(2) group(4) pcount(2) pciphers acount(2) akms capab(2)
+    if body.len() < 8 {
+        return None;
+    }
+    let pcount = u16::from_le_bytes([body[6], body[7]]) as usize;
+    let akm_off = 8 + pcount * 4;
+    if body.len() < akm_off + 2 {
+        return None;
+    }
+    let acount =
+        u16::from_le_bytes([body[akm_off], body[akm_off + 1]]) as usize;
+    let capab_off = akm_off + 2 + acount * 4;
+    body.get(capab_off..capab_off + 2)?;
+    // The body starts after the Element ID and Length octets.
+    Some(capab_off + Ieee80211ElementBuffer::LEN)
+}
+
+/// Whether an RSNE advertises the given RSN capability (IEEE
+/// 802.11-2024 9.4.2.23). A missing or malformed element, or one
+/// without the RSN capabilities field, means "not advertised".
+fn rsne_has_capability(
+    rsne: &[u8],
+    capability: Ieee80211RsnCapbilities,
+) -> bool {
+    let Some(offset) = rsne_capabilities_offset(rsne) else {
+        return false;
+    };
+    let capab = u16::from_le_bytes([rsne[offset], rsne[offset + 1]]);
+    Ieee80211RsnCapbilities::from_bits_truncate(capab).contains(capability)
+}
+
+/// Whether the AP's RSNE (full element: ID || length || body)
+/// advertises the OCVC RSN capability (bit 14, IEEE 802.11-2020
+/// 9.4.2.25): Operating Channel Validation is only meaningful against
+/// an AP that advertises it, an AP that does not will never include an
+/// OCI KDE in the 4-way handshake Message 3.
+pub fn ap_rsne_supports_ocv(ap_rsne: &[u8]) -> bool {
+    rsne_has_capability(ap_rsne, Ieee80211RsnCapbilities::Ocvc)
+}
+
+/// Whether the AP's RSNE advertises the Extended Key ID for
+/// Individually Addressed Frames RSN capability (bit 13, IEEE
+/// 802.11-2020 9.4.2.25): an AP that does not will never send a Key ID
+/// KDE in the 4-way handshake Message 3.
+pub fn ap_rsne_supports_ext_key_id(ap_rsne: &[u8]) -> bool {
+    rsne_has_capability(ap_rsne, Ieee80211RsnCapbilities::ExtendedKeyIdPtksa)
+}
+
+/// Set or clear an RSN capability in an RSNE: only the 2 capability
+/// octets are rewritten, so whatever follows the RSNE - the RSNXE of
+/// an SAE association request, for instance - is left untouched. A
+/// malformed element, or one without the RSN capabilities field, is
+/// left untouched.
+fn rsne_set_capability(
+    rsne: &mut [u8],
+    capability: Ieee80211RsnCapbilities,
+    enabled: bool,
+) {
+    let Some(offset) = rsne_capabilities_offset(rsne) else {
+        return;
+    };
+    let capab = u16::from_le_bytes([rsne[offset], rsne[offset + 1]]);
+    let capab = if enabled {
+        capab | capability.bits()
+    } else {
+        capab & !capability.bits()
+    };
+    rsne[offset..offset + 2].copy_from_slice(&capab.to_le_bytes());
+}
+
+/// Set or clear the OCV capability bit (bit 14) in the RSN
+/// capabilities of an RSNE element.
+pub fn rsne_set_ocvc(rsne: &mut [u8], enabled: bool) {
+    rsne_set_capability(rsne, Ieee80211RsnCapbilities::Ocvc, enabled);
+}
+
+/// Set or clear the Extended Key ID capability bit (bit 13) in the RSN
+/// capabilities of an RSNE element.
+pub fn rsne_set_ext_key_id(rsne: &mut [u8], enabled: bool) {
+    rsne_set_capability(
+        rsne,
+        Ieee80211RsnCapbilities::ExtendedKeyIdPtksa,
+        enabled,
+    );
+}
+
+/// The RSNXE element advertising SAE Hash-to-Element support, as an
+/// element buffer (ID + length + body).
+pub fn sae_rsnxe() -> Vec<u8> {
+    let elements = Ieee80211Elements(vec![Ieee80211Element::RsnExt(
+        Ieee80211ElementRsnExt {
+            capabilities: Ieee80211RsnExtCapbilities::SaeH2e,
+        },
+    )]);
+
+    let mut buf = vec![0u8; elements.buffer_len()];
+    elements.emit(&mut buf);
+    buf
+}
+
+/// Build the RSNE + RSNXE for WPA3-Personal (SAE, CCMP-128, management
+/// frame protection required, SAE Hash-to-Element) with the negotiated
+/// group management (BIP) cipher.
+///
+/// The exact same bytes are used in the Association Request and in the
+/// 4-way handshake Message 2, so both call sites must use this single
+/// builder.
+pub fn sae_ie_cipher(mgmt_cipher: Ieee80211CipherSuite) -> Vec<u8> {
+    sae_ie_with_pmkid_cipher(None, mgmt_cipher)
+}
+
+/// [`sae_ie_cipher`] carrying a PMKID.
+pub fn sae_ie_with_pmkid_cipher(
+    pmkid: Option<[u8; 16]>,
+    mgmt_cipher: Ieee80211CipherSuite,
+) -> Vec<u8> {
+    let elements = Ieee80211Elements(vec![
+        Ieee80211Element::Rsn(Ieee80211ElementRsn {
+            version: 1,
+            group_cipher: Some(Ieee80211CipherSuite::Ccmp128),
+            pairwise_ciphers: vec![Ieee80211CipherSuite::Ccmp128],
+            akm_suits: vec![Ieee80211AkmSuite::Sae],
+            rsn_capbilities: Some(
+                Ieee80211RsnCapbilities::Mfpr | Ieee80211RsnCapbilities::Mfpc,
+            ),
+            pmkids: pmkid.into_iter().map(Ieee80211Pmkid).collect(),
+            group_mgmt_cipher: Some(mgmt_cipher),
+        }),
+        Ieee80211Element::RsnExt(Ieee80211ElementRsnExt {
+            capabilities: Ieee80211RsnExtCapbilities::SaeH2e,
+        }),
+    ]);
+
+    let mut buf = vec![0u8; elements.buffer_len()];
+    elements.emit(&mut buf);
+    buf
+}
+
+/// Build the RSNE + RSNXE for SAE-EXT-KEY (AKM 00-0F-AC:24): same
+/// security policy as [`sae_ie_cipher`], only the AKM differs.
+pub fn sae_ext_key_ie_cipher(mgmt_cipher: Ieee80211CipherSuite) -> Vec<u8> {
+    sae_ext_key_ie_with_pmkid_cipher(None, mgmt_cipher)
+}
+
+/// [`sae_ext_key_ie_cipher`] carrying a PMKID.
+pub fn sae_ext_key_ie_with_pmkid_cipher(
+    pmkid: Option<[u8; 16]>,
+    mgmt_cipher: Ieee80211CipherSuite,
+) -> Vec<u8> {
+    let elements = Ieee80211Elements(vec![
+        Ieee80211Element::Rsn(Ieee80211ElementRsn {
+            version: 1,
+            group_cipher: Some(Ieee80211CipherSuite::Ccmp128),
+            pairwise_ciphers: vec![Ieee80211CipherSuite::Ccmp128],
+            akm_suits: vec![Ieee80211AkmSuite::SaeGroupDependentHash],
+            rsn_capbilities: Some(
+                Ieee80211RsnCapbilities::Mfpr | Ieee80211RsnCapbilities::Mfpc,
+            ),
+            pmkids: pmkid.into_iter().map(Ieee80211Pmkid).collect(),
+            group_mgmt_cipher: Some(mgmt_cipher),
+        }),
+        Ieee80211Element::RsnExt(Ieee80211ElementRsnExt {
+            capabilities: Ieee80211RsnExtCapbilities::SaeH2e,
+        }),
+    ]);
+
+    let mut buf = vec![0u8; elements.buffer_len()];
+    elements.emit(&mut buf);
+    buf
+}
+
+/// Build the FT-SAE-EXT-KEY RSNE element only (AKM 00-0F-AC:25).
+pub fn ft_sae_ext_key_rsne_cipher(
+    pmkid: Option<[u8; 16]>,
+    mgmt_cipher: Ieee80211CipherSuite,
+) -> Vec<u8> {
+    let elements =
+        Ieee80211Elements(vec![Ieee80211Element::Rsn(Ieee80211ElementRsn {
+            version: 1,
+            group_cipher: Some(Ieee80211CipherSuite::Ccmp128),
+            pairwise_ciphers: vec![Ieee80211CipherSuite::Ccmp128],
+            akm_suits: vec![Ieee80211AkmSuite::FtSaeGroupDependentHash],
+            rsn_capbilities: Some(
+                Ieee80211RsnCapbilities::Mfpr | Ieee80211RsnCapbilities::Mfpc,
+            ),
+            pmkids: pmkid.into_iter().map(Ieee80211Pmkid).collect(),
+            group_mgmt_cipher: Some(mgmt_cipher),
+        })]);
+
+    let mut buf = vec![0u8; elements.buffer_len()];
+    elements.emit(&mut buf);
+    buf
+}
+
+/// Build the RSNE + RSNXE for FT-SAE-EXT-KEY (AKM 00-0F-AC:25).
+pub fn ft_sae_ext_key_ie_cipher(
+    pmkid: Option<[u8; 16]>,
+    mgmt_cipher: Ieee80211CipherSuite,
+) -> Vec<u8> {
+    let mut buf = ft_sae_ext_key_rsne_cipher(pmkid, mgmt_cipher);
+    buf.extend_from_slice(&sae_rsnxe());
+    buf
+}
+
+/// Build the RSNE for OWE (AKM 00-0F-AC:18, CCMP-128, MFP required).
+/// No RSNXE: OWE does not use SAE Hash-to-Element.
+pub fn owe_ie_cipher(mgmt_cipher: Ieee80211CipherSuite) -> Vec<u8> {
+    let elements =
+        Ieee80211Elements(vec![Ieee80211Element::Rsn(Ieee80211ElementRsn {
+            version: 1,
+            group_cipher: Some(Ieee80211CipherSuite::Ccmp128),
+            pairwise_ciphers: vec![Ieee80211CipherSuite::Ccmp128],
+            akm_suits: vec![Ieee80211AkmSuite::Owe],
+            rsn_capbilities: Some(
+                Ieee80211RsnCapbilities::Mfpr | Ieee80211RsnCapbilities::Mfpc,
+            ),
+            pmkids: vec![],
+            group_mgmt_cipher: Some(mgmt_cipher),
+        })]);
+
+    let mut buf = vec![0u8; elements.buffer_len()];
+    elements.emit(&mut buf);
+    buf
+}
+
+/// Build the RSNE for WPA2-PSK (AKM 00-0F-AC:2, CCMP-128) with
+/// optional management frame protection (MFPC without MFPR, iwd's
+/// default `ManagementFrameProtection=1` behaviour).
+pub fn wpa2_psk_ie_cipher(mgmt_cipher: Ieee80211CipherSuite) -> Vec<u8> {
+    wpa2_psk_ie_with_pmkid_cipher(None, mgmt_cipher)
+}
+
+/// [`wpa2_psk_ie_cipher`] carrying a PMKID.
+pub fn wpa2_psk_ie_with_pmkid_cipher(
+    pmkid: Option<[u8; 16]>,
+    mgmt_cipher: Ieee80211CipherSuite,
+) -> Vec<u8> {
+    let elements =
+        Ieee80211Elements(vec![Ieee80211Element::Rsn(Ieee80211ElementRsn {
+            version: 1,
+            group_cipher: Some(Ieee80211CipherSuite::Ccmp128),
+            pairwise_ciphers: vec![Ieee80211CipherSuite::Ccmp128],
+            akm_suits: vec![Ieee80211AkmSuite::Psk],
+            rsn_capbilities: Some(Ieee80211RsnCapbilities::Mfpc),
+            pmkids: pmkid.into_iter().map(Ieee80211Pmkid).collect(),
+            group_mgmt_cipher: Some(mgmt_cipher),
+        })]);
+
+    let mut buf = vec![0u8; elements.buffer_len()];
+    elements.emit(&mut buf);
+    buf
+}
+
+/// Build the RSNE for WPA2-Personal with SHA-256 algorithms
+/// (PSK-SHA256, AKM 00-0F-AC:6, CCMP-128): same security policy as
+/// [`wpa2_psk_ie_cipher`], only the AKM suite differs.
+pub fn wpa2_psk_sha256_ie_cipher(mgmt_cipher: Ieee80211CipherSuite) -> Vec<u8> {
+    wpa2_psk_sha256_ie_with_pmkid_cipher(None, mgmt_cipher)
+}
+
+/// [`wpa2_psk_sha256_ie_cipher`] carrying a PMKID.
+pub fn wpa2_psk_sha256_ie_with_pmkid_cipher(
+    pmkid: Option<[u8; 16]>,
+    mgmt_cipher: Ieee80211CipherSuite,
+) -> Vec<u8> {
+    let elements =
+        Ieee80211Elements(vec![Ieee80211Element::Rsn(Ieee80211ElementRsn {
+            version: 1,
+            group_cipher: Some(Ieee80211CipherSuite::Ccmp128),
+            pairwise_ciphers: vec![Ieee80211CipherSuite::Ccmp128],
+            akm_suits: vec![Ieee80211AkmSuite::PskSha256],
+            rsn_capbilities: Some(Ieee80211RsnCapbilities::Mfpc),
+            pmkids: pmkid.into_iter().map(Ieee80211Pmkid).collect(),
+            group_mgmt_cipher: Some(mgmt_cipher),
+        })]);
+
+    let mut buf = vec![0u8; elements.buffer_len()];
+    elements.emit(&mut buf);
+    buf
+}
+
+/// Build the RSNE for WPA2-Enterprise (802.1X, AKM 00-0F-AC:1,
+/// CCMP-128) with optional management frame protection.
+pub fn wpa2_ent_ie_cipher(mgmt_cipher: Ieee80211CipherSuite) -> Vec<u8> {
+    let elements =
+        Ieee80211Elements(vec![Ieee80211Element::Rsn(Ieee80211ElementRsn {
+            version: 1,
+            group_cipher: Some(Ieee80211CipherSuite::Ccmp128),
+            pairwise_ciphers: vec![Ieee80211CipherSuite::Ccmp128],
+            akm_suits: vec![Ieee80211AkmSuite::Ieee8021x],
+            rsn_capbilities: Some(Ieee80211RsnCapbilities::Mfpc),
+            pmkids: vec![],
+            group_mgmt_cipher: Some(mgmt_cipher),
+        })]);
+
+    let mut buf = vec![0u8; elements.buffer_len()];
+    elements.emit(&mut buf);
+    buf
+}
+
+/// Build the RSNE for WPA3-Enterprise (802.1X-SHA256, AKM
+/// 00-0F-AC:5, CCMP-128) with **mandatory** management frame
+/// protection (MFPR + MFPC), the WPA3 baseline requirement.
+pub fn wpa2_ent_sha256_ie_cipher(mgmt_cipher: Ieee80211CipherSuite) -> Vec<u8> {
+    let elements =
+        Ieee80211Elements(vec![Ieee80211Element::Rsn(Ieee80211ElementRsn {
+            version: 1,
+            group_cipher: Some(Ieee80211CipherSuite::Ccmp128),
+            pairwise_ciphers: vec![Ieee80211CipherSuite::Ccmp128],
+            akm_suits: vec![Ieee80211AkmSuite::Ieee8021xSha256],
+            rsn_capbilities: Some(
+                Ieee80211RsnCapbilities::Mfpr | Ieee80211RsnCapbilities::Mfpc,
+            ),
+            pmkids: vec![],
+            group_mgmt_cipher: Some(mgmt_cipher),
+        })]);
+
+    let mut buf = vec![0u8; elements.buffer_len()];
+    elements.emit(&mut buf);
+    buf
+}
+
+/// Build the FT-SAE RSNE element only (AKM 00-0F-AC:9). Used where the
+/// RSNE and RSNXE must stay separate elements (FT Reassociation
+/// Request: the FTIE MIC covers RSNE, MDIE, FTIE, then RSNXE in that
+/// order).
+pub fn ft_sae_rsne_cipher(
+    pmkid: Option<[u8; 16]>,
+    mgmt_cipher: Ieee80211CipherSuite,
+) -> Vec<u8> {
+    let elements =
+        Ieee80211Elements(vec![Ieee80211Element::Rsn(Ieee80211ElementRsn {
+            version: 1,
+            group_cipher: Some(Ieee80211CipherSuite::Ccmp128),
+            pairwise_ciphers: vec![Ieee80211CipherSuite::Ccmp128],
+            akm_suits: vec![Ieee80211AkmSuite::FtSae],
+            rsn_capbilities: Some(
+                Ieee80211RsnCapbilities::Mfpr | Ieee80211RsnCapbilities::Mfpc,
+            ),
+            pmkids: pmkid.into_iter().map(Ieee80211Pmkid).collect(),
+            group_mgmt_cipher: Some(mgmt_cipher),
+        })]);
+
+    let mut buf = vec![0u8; elements.buffer_len()];
+    elements.emit(&mut buf);
+    buf
+}
+
+/// Build the FT-PSK RSNE element only (AKM 00-0F-AC:4); see
+/// [`ft_sae_rsne_cipher`].
+pub fn ft_psk_rsne_cipher(
+    pmkid: Option<[u8; 16]>,
+    mgmt_cipher: Ieee80211CipherSuite,
+) -> Vec<u8> {
+    let elements =
+        Ieee80211Elements(vec![Ieee80211Element::Rsn(Ieee80211ElementRsn {
+            version: 1,
+            group_cipher: Some(Ieee80211CipherSuite::Ccmp128),
+            pairwise_ciphers: vec![Ieee80211CipherSuite::Ccmp128],
+            akm_suits: vec![Ieee80211AkmSuite::FtPsk],
+            rsn_capbilities: Some(Ieee80211RsnCapbilities::Mfpc),
+            pmkids: pmkid.into_iter().map(Ieee80211Pmkid).collect(),
+            group_mgmt_cipher: Some(mgmt_cipher),
+        })]);
+
+    let mut buf = vec![0u8; elements.buffer_len()];
+    elements.emit(&mut buf);
+    buf
+}
+
+/// Build the RSNE + RSNXE for FT-SAE (AKM 00-0F-AC:9): same crypto
+/// policy as [`sae_ie_cipher`], only the AKM differs. `pmkid` carries
+/// PMKR0Name / PMKR1Name during FT.
+pub fn ft_sae_ie_cipher(
+    pmkid: Option<[u8; 16]>,
+    mgmt_cipher: Ieee80211CipherSuite,
+) -> Vec<u8> {
+    let mut buf = ft_sae_rsne_cipher(pmkid, mgmt_cipher);
+    buf.extend_from_slice(&sae_rsnxe());
+    buf
+}
+
+/// Build the RSNE for FT-PSK (AKM 00-0F-AC:4): same crypto policy as
+/// [`wpa2_psk_ie_cipher`]. `pmkid` carries PMKR0Name / PMKR1Name
+/// during FT.
+pub fn ft_psk_ie_cipher(
+    pmkid: Option<[u8; 16]>,
+    mgmt_cipher: Ieee80211CipherSuite,
+) -> Vec<u8> {
+    ft_psk_rsne_cipher(pmkid, mgmt_cipher)
+}
+
+/// Build a Mobility Domain element: MDID (2) || FT Capability and
+/// Policy (1). `ft_capab` is normally echoed from the target AP's MDIE.
+pub fn mdie(mdid: [u8; 2], ft_capab: u8) -> Vec<u8> {
+    vec![ELEMENT_ID_MDIE, 3, mdid[0], mdid[1], ft_capab]
+}
+
+/// Parse a Mobility Domain element body: (MDID, FT capability/policy).
+pub fn parse_mdie(body: &[u8]) -> Option<([u8; 2], u8)> {
+    if body.len() < 3 {
+        return None;
+    }
+    Some(([body[0], body[1]], body[2]))
+}
+
+/// FTIE subelement identifiers (IEEE 802.11-2020 9.4.2.48).
+const FTIE_SUBELEM_R1KH_ID: u8 = 1;
+const FTIE_SUBELEM_GTK: u8 = 2;
+const FTIE_SUBELEM_R0KH_ID: u8 = 3;
+const FTIE_SUBELEM_IGTK: u8 = 4;
+const FTIE_SUBELEM_BIGTK: u8 = 6;
+
+/// Build the FTIE of an over-the-air FT Authentication request
+/// (transaction 1): SNonce and the R0KH-ID subelement, with the MIC
+/// left zeroed. The first FT authentication frame carries no MIC
+/// (wpa_supplicant's `wpa_ft_prepare_auth_request` does the same).
+pub fn ftie_auth_request(snonce: &[u8; 32], r0kh_id: &[u8]) -> Vec<u8> {
+    let body_len = 2 + 16 + 32 + 32 + 2 + r0kh_id.len();
+    let mut e = Vec::with_capacity(2 + body_len);
+    e.push(ELEMENT_ID_FTIE);
+    e.push(body_len as u8);
+    // MIC Control: MIC length code 0 (= 16 octets), element count 0.
+    e.extend_from_slice(&[0, 0]);
+    e.extend_from_slice(&[0u8; 16]); // MIC (zero)
+    e.extend_from_slice(&[0u8; 32]); // ANonce (zero in the request)
+    e.extend_from_slice(snonce);
+    e.push(FTIE_SUBELEM_R0KH_ID);
+    e.push(r0kh_id.len() as u8);
+    e.extend_from_slice(r0kh_id);
+    e
+}
+
+/// A group key delivered in an FTIE subelement (GTK / IGTK / BIGTK),
+/// still AES-Key-Wrapped with the KEK.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Ieee80211FtKeySubelem {
+    /// Key index: the GTK index (0-3) for a GTK subelement, the full
+    /// key index (4-7) for IGTK / BIGTK.
+    pub key_index: u8,
+    /// Receive sequence counter: RSC (8 octets) for the GTK, IPN/BIPN
+    /// (6 octets) for IGTK / BIGTK.
+    pub rsc: Vec<u8>,
+    /// The key, still AES-Key-Wrapped with the KEK.
+    pub wrapped_key: Vec<u8>,
+}
+
+/// Parsed Fast BSS Transition element (IEEE 802.11-2020 9.4.2.48).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Ieee80211FtIe {
+    /// MIC Control field: MIC length code and element count.
+    pub mic_control: [u8; 2],
+    /// MIC over the FT reassociation data.
+    pub mic: [u8; 16],
+    /// ANonce of the authenticator.
+    pub anonce: [u8; 32],
+    /// SNonce of the supplicant.
+    pub snonce: [u8; 32],
+    /// R0KH-ID subelement, when present.
+    pub r0kh_id: Option<Vec<u8>>,
+    /// R1KH-ID subelement, when present.
+    pub r1kh_id: Option<[u8; 6]>,
+    /// GTK subelement, when present.
+    pub gtk: Option<Ieee80211FtKeySubelem>,
+    /// IGTK subelement, when present.
+    pub igtk: Option<Ieee80211FtKeySubelem>,
+    /// BIGTK subelement, when present.
+    pub bigtk: Option<Ieee80211FtKeySubelem>,
+}
+
+fn parse_ft_key_subelem(
+    body: &[u8],
+    rsc_len: usize,
+) -> Option<Ieee80211FtKeySubelem> {
+    if rsc_len == 8 {
+        // GTK: Key Info[2] | Key Length[1] | RSC[8] | wrapped Key
+        // (IEEE 802.11-2020 9.4.2.48.3); only the first 6 RSC octets
+        // are the actual CCMP receive counter.
+        if body.len() < 11 {
+            return None;
+        }
+        let key_index = u16::from_le_bytes([body[0], body[1]]) & 0x03;
+        Some(Ieee80211FtKeySubelem {
+            key_index: key_index as u8,
+            rsc: body[3..9].to_vec(),
+            wrapped_key: body[11..].to_vec(),
+        })
+    } else {
+        // IGTK / BIGTK: Key Info[2] | IPN[6] | Key Length[1] | wrapped
+        // Key. Key Info carries the full key index (4-7), not a GTK
+        // index masked to two bits.
+        if body.len() < 9 {
+            return None;
+        }
+        let key_index = u16::from_le_bytes([body[0], body[1]]) as u8;
+        Some(Ieee80211FtKeySubelem {
+            key_index,
+            rsc: body[2..8].to_vec(),
+            wrapped_key: body[9..].to_vec(),
+        })
+    }
+}
+
+/// Parse a Fast BSS Transition element body (after the IE header).
+pub fn parse_ftie(body: &[u8]) -> Option<Ieee80211FtIe> {
+    // Fixed part: MIC Control(2) || MIC(16) || ANonce(32) || SNonce(32).
+    if body.len() < 2 + 16 + 32 + 32 {
+        return None;
+    }
+    let mut ftie = Ieee80211FtIe {
+        mic_control: [body[0], body[1]],
+        mic: body[2..18].try_into().unwrap(),
+        anonce: body[18..50].try_into().unwrap(),
+        snonce: body[50..82].try_into().unwrap(),
+        r0kh_id: None,
+        r1kh_id: None,
+        gtk: None,
+        igtk: None,
+        bigtk: None,
+    };
+
+    let mut pos = 82;
+    while pos + 2 <= body.len() {
+        let id = body[pos];
+        let len = body[pos + 1] as usize;
+        let start = pos + 2;
+        let end = start + len;
+        if end > body.len() {
+            break;
+        }
+        let sub = &body[start..end];
+        match id {
+            FTIE_SUBELEM_R0KH_ID => ftie.r0kh_id = Some(sub.to_vec()),
+            FTIE_SUBELEM_R1KH_ID if len == 6 => {
+                ftie.r1kh_id = Some(sub.try_into().unwrap());
+            }
+            FTIE_SUBELEM_GTK => ftie.gtk = parse_ft_key_subelem(sub, 8),
+            FTIE_SUBELEM_IGTK => ftie.igtk = parse_ft_key_subelem(sub, 6),
+            FTIE_SUBELEM_BIGTK => ftie.bigtk = parse_ft_key_subelem(sub, 6),
+            _ => {}
+        }
+        pos = end;
+    }
+    Some(ftie)
+}
+
+/// Compare two RSNE elements semantically while ignoring the PMKID
+/// list: FT (Re)Association Responses carry PMKR0Name / PMKR1Name as
+/// the PMKID, which the beacon RSNE lacks (wpa_supplicant's
+/// `wpa_compare_rsn_ie` does the same for FT AKMs).
+///
+/// Each argument is either a full RSNE element or a bare RSNE body; the
+/// comparison uses the typed RSN model, so octets after the modelled
+/// fields are ignored. Inputs the typed parser rejects are compared
+/// verbatim.
+pub fn rsne_match_ignore_pmkid(a: &[u8], b: &[u8]) -> bool {
+    let body_a = find_ie(a, ELEMENT_ID_RSN).unwrap_or(a);
+    let body_b = find_ie(b, ELEMENT_ID_RSN).unwrap_or(b);
+    match (parse_rsne_body(body_a), parse_rsne_body(body_b)) {
+        (Some(mut rsn_a), Some(mut rsn_b)) => {
+            rsn_a.pmkids.clear();
+            rsn_b.pmkids.clear();
+            rsn_a == rsn_b
+        }
+        _ => body_a == body_b,
     }
 }

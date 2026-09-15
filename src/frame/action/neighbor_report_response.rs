@@ -2,7 +2,7 @@
 
 use netlink_packet_core::{DecodeError, Emitable};
 
-use crate::mac::ETH_ALEN;
+use crate::{element::Ieee80211ElementBuffer, mac::ETH_ALEN};
 
 use super::buffer::{
     action_frame_buffer_len, emit_action_frame, parse_action_frame,
@@ -42,20 +42,20 @@ impl Ieee80211NeighborReportResponse {
 
     /// Parse a Neighbor Report Response from the Action body (after the
     /// category and action octets): dialog token followed by Neighbor
-    /// Report elements.
+    /// Report elements, each `Element ID (1) || Length (1) || body`
+    /// (IEEE 802.11-2024 Figure 9-208).
     pub fn parse(body: &[u8]) -> Option<Self> {
         let dialog_token = *body.first()?;
         let mut entries = Vec::new();
         let mut pos = 1;
-        while pos + 2 <= body.len() {
-            let id = body[pos];
-            let len = body[pos + 1] as usize;
-            let start = pos + 2;
-            if start + len > body.len() {
+        // An element that is not complete - trailing bytes that are too
+        // short for their Length field - ends the parse.
+        while let Some(rest) = body.get(pos..) {
+            let Ok((header, elem)) = Ieee80211ElementBuffer::split(rest) else {
                 break;
-            }
-            let elem = &body[start..start + len];
-            if id == IE_ID_NEIGHBOR_REPORT && elem.len() >= 13 {
+            };
+            pos += header.buffer_len();
+            if header.element_id == IE_ID_NEIGHBOR_REPORT && elem.len() >= 13 {
                 entries.push(Ieee80211NeighborReportEntry {
                     bssid: elem[0..6].try_into().unwrap(),
                     bssid_info: u32::from_le_bytes([
@@ -66,7 +66,6 @@ impl Ieee80211NeighborReportResponse {
                     phy_type: elem[12],
                 });
             }
-            pos = start + len;
         }
         Some(Self {
             dialog_token,
