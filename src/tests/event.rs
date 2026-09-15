@@ -14,11 +14,14 @@
 // produces the expected typed event.
 
 use genetlink::message::RawGenlMessage;
-use netlink_packet_core::NetlinkMessage;
+use netlink_packet_core::{NetlinkHeader, NetlinkMessage, NetlinkPayload};
+use netlink_packet_generic::GenlMessage;
 
+use crate::Nl80211Attr;
 use crate::{
     Ieee80211AuthFrame, Ieee80211EapolFrame, Ieee80211Frame,
     Ieee80211ReasonCode, Ieee80211StatusCode, Nl80211Command, Nl80211Event,
+    Nl80211EventRekeyOffload, Nl80211Message, Nl80211RekeyData,
     Nl80211WowlanWakeup,
 };
 
@@ -663,5 +666,85 @@ fn test_captured_unknown_event() {
     assert_eq!(
         Nl80211Event::Unknown(Nl80211Command::FrameTxStatus),
         parse_event(&raw).expect("parse event")
+    );
+}
+
+/// Wrap an `Nl80211Message` the way the kernel sends it: a genl header
+/// carrying the command in front of the attribute list.
+fn wrap_event(msg: Nl80211Message) -> NetlinkMessage<RawGenlMessage> {
+    let raw = RawGenlMessage::from_genlmsg(GenlMessage::from_payload(msg));
+    NetlinkMessage::new(
+        NetlinkHeader::default(),
+        NetlinkPayload::InnerMessage(raw),
+    )
+}
+
+// NL80211_CMD_SET_REKEY_OFFLOAD notification: the driver/firmware
+// rekeyed the GTK on its own while the host was suspended and reports
+// the BSSID and the replay counter it used. mac80211 only sends this on
+// the WoWLAN path, so the message is built with the crate's own
+// attribute emitters instead of a capture.
+#[test]
+fn test_rekey_offload_event() {
+    let bssid = [0x02, 0x00, 0x00, 0x00, 0x01, 0x00];
+    let replay_ctr = [1, 2, 3, 4, 5, 6, 7, 8];
+    let msg = Nl80211Message {
+        cmd: Nl80211Command::SetRekeyOffload,
+        attributes: vec![
+            Nl80211Attr::IfIndex(7),
+            Nl80211Attr::Mac(bssid),
+            Nl80211Attr::RekeyData(vec![Nl80211RekeyData::ReplayCtr(
+                replay_ctr.to_vec(),
+            )]),
+        ],
+    };
+
+    assert_eq!(
+        Nl80211Event::RekeyOffload(Nl80211EventRekeyOffload {
+            bssid,
+            replay_ctr,
+        }),
+        Nl80211Event::parse(wrap_event(msg)).expect("parse event")
+    );
+}
+
+// Without the replay counter (or with one of the wrong size) there is
+// no rekey information to sync: the event stays unmodelled.
+#[test]
+fn test_rekey_offload_without_replay_counter() {
+    let msg = Nl80211Message {
+        cmd: Nl80211Command::SetRekeyOffload,
+        attributes: vec![
+            Nl80211Attr::IfIndex(7),
+            Nl80211Attr::Mac([0x02, 0x00, 0x00, 0x00, 0x01, 0x00]),
+        ],
+    };
+    assert_eq!(
+        Nl80211Event::Unknown(Nl80211Command::SetRekeyOffload),
+        Nl80211Event::parse(wrap_event(msg)).expect("parse event")
+    );
+
+    let msg = Nl80211Message {
+        cmd: Nl80211Command::SetRekeyOffload,
+        attributes: vec![
+            Nl80211Attr::Mac([0x02, 0x00, 0x00, 0x00, 0x01, 0x00]),
+            Nl80211Attr::RekeyData(vec![Nl80211RekeyData::ReplayCtr(vec![
+                1, 2, 3, 4,
+            ])]),
+        ],
+    };
+    assert_eq!(
+        Nl80211Event::Unknown(Nl80211Command::SetRekeyOffload),
+        Nl80211Event::parse(wrap_event(msg)).expect("parse event")
+    );
+
+    // No BSSID either.
+    let msg = Nl80211Message {
+        cmd: Nl80211Command::SetRekeyOffload,
+        attributes: vec![Nl80211Attr::IfIndex(7)],
+    };
+    assert_eq!(
+        Nl80211Event::Unknown(Nl80211Command::SetRekeyOffload),
+        Nl80211Event::parse(wrap_event(msg)).expect("parse event")
     );
 }
