@@ -83,7 +83,9 @@ pub const ELEMENT_ID_EXT_CAPAB: u8 = 127;
 /// Element ID of the RSNXE (IEEE 802.11-2020 9.4.2.25a).
 pub const ELEMENT_ID_RSN_EXT: u8 = 244;
 const ELEMENT_ID_VHT_CAP: u8 = 191;
-const ELEMENT_ID_VENDOR: u8 = 221;
+/// Element ID of a vendor specific element (IEEE 802.11-2024
+/// `Table 9-77`).
+pub const ELEMENT_ID_VENDOR: u8 = 221;
 /// Element ID of an extensible element: its body starts with the Element ID
 /// Extension field (IEEE 802.11-2024 9.4.2, `Figure 9-208`).
 pub const ELEMENT_ID_EXTENSION: u8 = 255;
