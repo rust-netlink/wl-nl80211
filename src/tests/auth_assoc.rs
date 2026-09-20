@@ -55,6 +55,12 @@ fn parse_attrs(raw: &[u8]) -> Vec<Nl80211Attr> {
 fn attr_set(attrs: &[Nl80211Attr]) -> Vec<Nl80211Attr> {
     let mut map: HashMap<u16, Nl80211Attr> = HashMap::new();
     for attr in attrs {
+        // The parser always stores the SSID octets raw, the builders use
+        // the string variant: compare the same representation.
+        let attr = match attr {
+            Nl80211Attr::Ssid(s) => Nl80211Attr::SsidRaw(s.as_bytes().to_vec()),
+            attr => attr.clone(),
+        };
         map.insert(attr.kind(), attr.clone());
     }
     let mut ret: Vec<Nl80211Attr> = map.into_values().collect();

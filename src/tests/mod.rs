@@ -17,6 +17,7 @@ mod roaming;
 mod rrm;
 mod sae_auth;
 mod scan;
+mod ssid;
 mod wifi4;
 mod wnm;
 mod wowlan;

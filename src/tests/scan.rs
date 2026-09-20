@@ -32,6 +32,7 @@ fn test_trigger_scan() {
             cmd: Nl80211Command::TriggerScan,
             attributes: vec![
                 Nl80211Attr::IfIndex(2),
+                Nl80211Attr::ScanSsidsRaw(vec![Vec::new()]),
                 Nl80211Attr::ScanSsids(vec![String::new()]),
                 Nl80211Attr::ScanFlags(Nl80211ScanFlags::Colocated6Ghz),
             ],
@@ -211,6 +212,7 @@ fn test_parse_ies() {
     let expected = Ieee80211Elements(vec![
         Ieee80211Element::Other(73, vec![]),
         Ieee80211Element::Other(6, vec![]),
+        Ieee80211Element::SsidRaw(b"Test-WIFI".to_vec()),
         Ieee80211Element::Ssid("Test-WIFI".to_string()),
         Ieee80211Element::SupportedRatesAndSelectors(vec![
             Ieee80211RateAndSelector::BssBasicRateSet(2),
@@ -289,6 +291,7 @@ fn test_sched_scan_match() {
             attributes: vec![
                 Nl80211Attr::IfIndex(4),
                 Nl80211Attr::SchedScanMatch(vec![Nl80211SchedScanMatch(vec![
+                    Nl80211SchedScanMatchAttr::SsidRaw(b"WifiRefTest".to_vec()),
                     Nl80211SchedScanMatchAttr::Ssid("WifiRefTest".to_string()),
                 ])]),
             ],

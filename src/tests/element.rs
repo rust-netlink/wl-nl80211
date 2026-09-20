@@ -22,12 +22,14 @@ use crate::{
 
 #[test]
 fn ssid() {
+    // The string variant is only for building, the parser stores the SSID
+    // octets raw.
     let val: Ieee80211Element = Ieee80211Element::Ssid("test-ssid".to_owned());
     let mut buffer = vec![0; val.buffer_len() + 1];
     val.emit(buffer.as_mut_slice());
     assert_eq!(
         <Ieee80211Element>::parse(&buffer[0..val.buffer_len()]).unwrap(),
-        val,
+        Ieee80211Element::SsidRaw(b"test-ssid".to_vec()),
     );
 }
 

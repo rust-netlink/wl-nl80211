@@ -542,7 +542,15 @@ pub enum Nl80211Attr {
     CenterFreq1(u32),
     CenterFreq2(u32),
     WiphyTxPowerLevel(u32),
+    /// SSID as a string, used when building a message. The parser always
+    /// stores a received SSID as [Nl80211Attr::SsidRaw] and adds this
+    /// attribute as well when the SSID octets are valid UTF-8. When both are
+    /// present only the raw attribute is emitted.
     Ssid(String),
+    /// SSID raw octets, stored verbatim. IEEE 802.11 allows any octets in
+    /// the SSID, so the parser always stores the octets here instead of
+    /// converting them to a string which could fail.
+    SsidRaw(Vec<u8>),
     StationInfo(Vec<Nl80211StationInfo>),
     SurveyInfo(Vec<Nl80211SurveyInfo>),
     TransmitQueueStats(Vec<Nl80211TransmitQueueStat>),
@@ -633,7 +641,16 @@ pub enum Nl80211Attr {
     MaxHwTimestampPeers(u16),
     /// Basic Service Set (BSS)
     Bss(Vec<Nl80211BssInfo>),
+    /// SSIDs to probe for during an active scan, used when building a
+    /// message. The parser always stores received scan SSIDs as
+    /// [Nl80211Attr::ScanSsidsRaw] and adds this attribute as well when
+    /// every SSID is valid UTF-8. When both are present only the raw
+    /// attribute is emitted.
     ScanSsids(Vec<String>),
+    /// SSIDs raw octets, stored verbatim. IEEE 802.11 allows any octets in
+    /// the SSID, so the parser always stores the octets here instead of
+    /// converting them to strings which could fail.
+    ScanSsidsRaw(Vec<Vec<u8>>),
     ScanFlags(Nl80211ScanFlags),
     MeasurementDuration(u16),
     /// Scan interval in millisecond(ms)
@@ -807,6 +824,7 @@ impl Nla for Nl80211Attr {
             // not be NUL-terminated, otherwise the kernel's SSID matching
             // (e.g. cfg80211_get_bss) fails.
             Self::Ssid(s) => s.len(),
+            Self::SsidRaw(s) => s.len(),
             Self::Mac(_) | Self::MacMask(_) => ETH_ALEN,
             Self::MacAddrs(s) => {
                 MacAddressNlas::from(s).as_slice().buffer_len()
@@ -872,6 +890,9 @@ impl Nla for Nl80211Attr {
             Self::ScanSsids(v) => {
                 Nla80211ScanSsidNlas::from(v).as_slice().buffer_len()
             }
+            Self::ScanSsidsRaw(v) => {
+                Nla80211ScanSsidNlas::from(v).as_slice().buffer_len()
+            }
             Self::ScanFlags(v) => v.buffer_len(),
             Self::ScanFrequencies(v) => {
                 Nla80211ScanFreqNlas::from(v).as_slice().buffer_len()
@@ -931,7 +952,7 @@ impl Nla for Nl80211Attr {
             Self::CenterFreq1(_) => NL80211_ATTR_CENTER_FREQ1,
             Self::CenterFreq2(_) => NL80211_ATTR_CENTER_FREQ2,
             Self::WiphyTxPowerLevel(_) => NL80211_ATTR_WIPHY_TX_POWER_LEVEL,
-            Self::Ssid(_) => NL80211_ATTR_SSID,
+            Self::Ssid(_) | Self::SsidRaw(_) => NL80211_ATTR_SSID,
             Self::StationInfo(_) => NL80211_ATTR_STA_INFO,
             Self::SurveyInfo(_) => NL80211_ATTR_SURVEY_INFO,
             Self::SurveyRadioStats => NL80211_ATTR_SURVEY_RADIO_STATS,
@@ -1010,7 +1031,9 @@ impl Nla for Nl80211Attr {
             Self::MaxNumAkmSuites(_) => NL80211_ATTR_MAX_NUM_AKM_SUITES,
             Self::MaxHwTimestampPeers(_) => NL80211_ATTR_MAX_HW_TIMESTAMP_PEERS,
             Self::Bss(_) => NL80211_ATTR_BSS,
-            Self::ScanSsids(_) => NL80211_ATTR_SCAN_SSIDS,
+            Self::ScanSsids(_) | Self::ScanSsidsRaw(_) => {
+                NL80211_ATTR_SCAN_SSIDS
+            }
             Self::ScanFlags(_) => NL80211_ATTR_SCAN_FLAGS,
             Self::MeasurementDuration(_) => NL80211_ATTR_MEASUREMENT_DURATION,
             Self::SchedScanInterval(_) => NL80211_ATTR_SCHED_SCAN_INTERVAL,
@@ -1108,6 +1131,9 @@ impl Nla for Nl80211Attr {
             Self::Ssid(s) => {
                 buffer[..s.len()].copy_from_slice(s.as_bytes());
             }
+            Self::SsidRaw(s) => {
+                buffer[..s.len()].copy_from_slice(s);
+            }
             Self::Use4Addr(d) => buffer[0] = *d as u8,
             Self::ControlPortEthertype(d) => write_u16(buffer, d.value()),
             Self::SupportIbssRsn
@@ -1182,6 +1208,9 @@ impl Nla for Nl80211Attr {
             Self::Bands(v) => v.emit(buffer),
             Self::Bss(v) => v.as_slice().emit(buffer),
             Self::ScanSsids(v) => {
+                Nla80211ScanSsidNlas::from(v).as_slice().emit(buffer)
+            }
+            Self::ScanSsidsRaw(v) => {
                 Nla80211ScanSsidNlas::from(v).as_slice().emit(buffer)
             }
             Self::ScanFlags(v) => v.emit(buffer),
@@ -1376,9 +1405,11 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 Self::WiphyTxPowerLevel(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_SSID => {
-                let err_msg =
-                    format!("Invalid NL80211_ATTR_SSID value {payload:?}");
-                Self::Ssid(parse_string(payload).context(err_msg)?)
+                // NL80211_ATTR_SSID is a binary attribute (0..32 octets),
+                // store the octets verbatim: IEEE 802.11 does not require
+                // the SSID to be valid UTF-8, converting it to a string
+                // must not fail the whole message.
+                Self::SsidRaw(payload.to_vec())
             }
             NL80211_ATTR_STA_INFO => {
                 let err_msg =
@@ -1777,7 +1808,12 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 ))?,
             ),
             NL80211_ATTR_SCAN_SSIDS => {
-                Self::ScanSsids(Nla80211ScanSsidNlas::parse(payload)?.into())
+                // Each child NLA holds SSID octets verbatim, IEEE 802.11
+                // does not require the SSID to be valid UTF-8, converting
+                // it to a string must not fail the whole message.
+                Self::ScanSsidsRaw(
+                    Nla80211ScanSsidNlas::parse(payload)?.raw_ssids(),
+                )
             }
             NL80211_ATTR_SCAN_FLAGS => {
                 Self::ScanFlags(Nl80211ScanFlags::parse(payload)?)

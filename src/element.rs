@@ -3,7 +3,7 @@
 use std::mem::size_of;
 
 use netlink_packet_core::{
-    parse_string, parse_u8, DecodeError, Emitable, ErrorContext, Parseable,
+    parse_u8, DecodeError, Emitable, ErrorContext, Parseable,
 };
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned};
 
@@ -27,8 +27,14 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211Elements {
             Ieee80211ElementBuffer::split(&buf[offset..])
         {
             let element = Ieee80211Element::parse_body(header, body)?;
+            let view = ssid_string_view(&element);
             offset += header.buffer_len();
             ret.push(element);
+            // A received SSID is always stored raw, the `Ssid` string view
+            // of it is added as well when the octets are valid UTF-8.
+            if let Some(view) = view {
+                ret.push(view);
+            }
         }
         Ok(Self(ret))
     }
@@ -36,15 +42,48 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211Elements {
 
 impl Emitable for Ieee80211Elements {
     fn buffer_len(&self) -> usize {
-        self.0.as_slice().iter().map(|e| e.buffer_len()).sum()
+        self.0
+            .iter()
+            .filter(|element| !ssid_string_is_overridden(element, &self.0))
+            .map(|element| element.buffer_len())
+            .sum()
     }
 
     fn emit(&self, buffer: &mut [u8]) {
         let mut offset = 0;
-        for element in self.0.as_slice().iter() {
+        for element in self
+            .0
+            .iter()
+            .filter(|element| !ssid_string_is_overridden(element, &self.0))
+        {
             element.emit(&mut buffer[offset..(offset + element.buffer_len())]);
             offset += element.buffer_len();
         }
+    }
+}
+
+/// The UTF-8 string view of a raw SSID element, `None` when the SSID octets
+/// are not valid UTF-8.
+fn ssid_string_view(element: &Ieee80211Element) -> Option<Ieee80211Element> {
+    match element {
+        Ieee80211Element::SsidRaw(ssid) => std::str::from_utf8(ssid)
+            .ok()
+            .map(|ssid| Ieee80211Element::Ssid(ssid.to_string())),
+        _ => None,
+    }
+}
+
+/// Whether `element` is the string form of an SSID `elements` also holds in
+/// its raw form: the raw element wins, the string one is not emitted.
+fn ssid_string_is_overridden(
+    element: &Ieee80211Element,
+    elements: &[Ieee80211Element],
+) -> bool {
+    match element {
+        Ieee80211Element::Ssid(_) => elements
+            .iter()
+            .any(|element| matches!(element, Ieee80211Element::SsidRaw(_))),
+        _ => false,
     }
 }
 
@@ -185,7 +224,15 @@ impl Ieee80211ElementBuffer {
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]
 pub enum Ieee80211Element {
+    /// SSID as a string, used when building an element. A received SSID is
+    /// always stored as [Ieee80211Element::SsidRaw], this element is added
+    /// as well when the SSID octets are valid UTF-8. When both are present
+    /// only the raw element is emitted.
     Ssid(String),
+    /// SSID raw octets, stored verbatim. IEEE 802.11 allows any octets in
+    /// the SSID, so the parser always stores the octets here instead of
+    /// converting them to a string which could fail.
+    SsidRaw(Vec<u8>),
     /// Supported rates in units of 500 kb/s, if necessary rounded up to the
     /// next 500 kb/
     SupportedRatesAndSelectors(Vec<Ieee80211RateAndSelector>),
@@ -208,7 +255,7 @@ impl Ieee80211Element {
     /// The Element ID field of IEEE 802.11-2024 `Figure 9-208`.
     pub(crate) fn id(&self) -> u8 {
         match self {
-            Self::Ssid(_) => ELEMENT_ID_SSID,
+            Self::Ssid(_) | Self::SsidRaw(_) => ELEMENT_ID_SSID,
             Self::SupportedRatesAndSelectors(_) => ELEMENT_ID_SUPPORTED_RATES,
             Self::Channel(_) => ELEMENT_ID_CHANNEL,
             Self::Country(_) => ELEMENT_ID_COUNTRY,
@@ -226,6 +273,7 @@ impl Ieee80211Element {
     pub(crate) fn length(&self) -> u8 {
         match self {
             Self::Ssid(v) => v.len() as u8,
+            Self::SsidRaw(v) => v.len() as u8,
             Self::SupportedRatesAndSelectors(v) => v.len() as u8,
             Self::Channel(_) => 1,
             Self::Country(v) => v.buffer_len() as u8,
@@ -249,9 +297,10 @@ impl Ieee80211Element {
         body: &[u8],
     ) -> Result<Self, DecodeError> {
         Ok(match header.element_id {
-            ELEMENT_ID_SSID => Self::Ssid(
-                parse_string(body).context(format!("Invalid SSID {body:?}"))?,
-            ),
+            // IEEE 802.11 SSID holds 0..32 arbitrary octets, store the
+            // octets verbatim: the SSID is not required to be valid UTF-8,
+            // converting it to a string must not fail the element list.
+            ELEMENT_ID_SSID => Self::SsidRaw(body.to_vec()),
             ELEMENT_ID_SUPPORTED_RATES => Self::SupportedRatesAndSelectors(
                 body.iter()
                     .map(|d| Ieee80211RateAndSelector::from(*d))
@@ -311,6 +360,9 @@ impl Emitable for Ieee80211Element {
                 // IEEE 802.11-2020 indicate it is optional to have NULL
                 // terminator for this string.
                 buffer.copy_from_slice(s.as_bytes());
+            }
+            Self::SsidRaw(s) => {
+                buffer.copy_from_slice(s.as_slice());
             }
             Self::SupportedRatesAndSelectors(v) => {
                 let raw: Vec<u8> =
