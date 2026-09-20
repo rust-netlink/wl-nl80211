@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    parse_string, parse_u32, DecodeError, Emitable, ErrorContext, Nla,
-    NlasIterator, Parseable,
+    parse_u32, DecodeError, Emitable, ErrorContext, Nla, NlasIterator,
+    Parseable,
 };
 
 use crate::bytes::write_u32;
@@ -12,7 +12,8 @@ use crate::Nl80211Attr;
 #[derive(Debug, Clone)]
 pub(crate) struct Nla80211ScanSsidNla {
     index: u16,
-    ssid: String,
+    /// SSID raw octets, IEEE 802.11 does not require them to be UTF-8.
+    ssid: Vec<u8>,
 }
 
 impl Nla for Nla80211ScanSsidNla {
@@ -21,7 +22,7 @@ impl Nla for Nla80211ScanSsidNla {
     }
 
     fn emit_value(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(self.ssid.as_bytes())
+        buffer.copy_from_slice(self.ssid.as_slice())
     }
 
     fn kind(&self) -> u16 {
@@ -47,7 +48,7 @@ impl From<&Vec<String>> for Nla80211ScanSsidNlas {
         for (i, ssid) in ssids.iter().enumerate() {
             let nla = Nla80211ScanSsidNla {
                 index: i as u16,
-                ssid: ssid.to_string(),
+                ssid: ssid.as_bytes().to_vec(),
             };
             nlas.push(nla);
         }
@@ -55,10 +56,17 @@ impl From<&Vec<String>> for Nla80211ScanSsidNlas {
     }
 }
 
-impl From<Nla80211ScanSsidNlas> for Vec<String> {
-    fn from(ssids: Nla80211ScanSsidNlas) -> Self {
-        let mut ssids = ssids;
-        ssids.0.drain(..).map(|c| c.ssid).collect()
+impl From<&Vec<Vec<u8>>> for Nla80211ScanSsidNlas {
+    fn from(ssids: &Vec<Vec<u8>>) -> Self {
+        let mut nlas = Vec::new();
+        for (i, ssid) in ssids.iter().enumerate() {
+            let nla = Nla80211ScanSsidNla {
+                index: i as u16,
+                ssid: ssid.to_vec(),
+            };
+            nlas.push(nla);
+        }
+        Nla80211ScanSsidNlas(nlas)
     }
 }
 
@@ -67,15 +75,18 @@ impl Nla80211ScanSsidNlas {
         let mut ssids: Vec<Nla80211ScanSsidNla> = Vec::new();
         for (index, nla) in NlasIterator::new(payload).enumerate() {
             let error_msg = format!("Invalid NL80211_ATTR_SCAN_SSIDS: {nla:?}");
-            let nla = &nla.context(error_msg.clone())?;
-            let ssid = parse_string(nla.value())
-                .context(format!("Invalid NL80211_ATTR_SCAN_SSIDS: {nla:?}"))?;
+            let nla = &nla.context(error_msg)?;
             ssids.push(Nla80211ScanSsidNla {
                 index: index as u16,
-                ssid,
+                ssid: nla.value().to_vec(),
             });
         }
         Ok(Self(ssids))
+    }
+
+    /// SSIDs raw octets.
+    pub(crate) fn raw_ssids(&self) -> Vec<Vec<u8>> {
+        self.0.iter().map(|nla| nla.ssid.clone()).collect()
     }
 }
 

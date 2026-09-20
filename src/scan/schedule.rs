@@ -4,9 +4,8 @@ use std::ops::Deref;
 
 use futures::TryStream;
 use netlink_packet_core::{
-    parse_i32, parse_string, parse_u32, DecodeError, DefaultNla, Emitable,
-    ErrorContext, Nla, NlaBuffer, NlasIterator, Parseable, NLA_F_NESTED,
-    NLM_F_ACK, NLM_F_REQUEST,
+    parse_i32, parse_u32, DecodeError, DefaultNla, Emitable, ErrorContext, Nla,
+    NlaBuffer, NlasIterator, Parseable, NLA_F_NESTED, NLM_F_ACK, NLM_F_REQUEST,
 };
 use netlink_packet_generic::GenlMessage;
 
@@ -116,13 +115,39 @@ pub(crate) struct NestedIndexedNla<T> {
     attrs: Vec<T>,
 }
 
-impl<T: Nla> Nla for NestedIndexedNla<T> {
+/// An attribute of a nested list, i.e. one element of a match set or of a
+/// scan plan.
+pub(crate) trait NestedAttr: Nla {
+    /// Whether this attribute is the string form of an SSID `others` also
+    /// holds in its raw form: the raw attribute wins, the string one is not
+    /// emitted.
+    fn is_derived_view(&self, _others: &[Self]) -> bool
+    where
+        Self: Sized,
+    {
+        false
+    }
+}
+
+impl<T: NestedAttr> Nla for NestedIndexedNla<T> {
     fn value_len(&self) -> usize {
-        self.attrs.as_slice().buffer_len()
+        self.attrs
+            .iter()
+            .filter(|attr| !attr.is_derived_view(&self.attrs))
+            .map(|attr| attr.buffer_len())
+            .sum()
     }
 
     fn emit_value(&self, buffer: &mut [u8]) {
-        self.attrs.as_slice().emit(buffer);
+        let mut offset = 0;
+        for attr in self
+            .attrs
+            .iter()
+            .filter(|attr| !attr.is_derived_view(&self.attrs))
+        {
+            attr.emit(&mut buffer[offset..offset + attr.buffer_len()]);
+            offset += attr.buffer_len();
+        }
     }
 
     fn kind(&self) -> u16 {
@@ -163,17 +188,45 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
         let mut attrs = Vec::new();
         for nla in NlasIterator::new(buf.value()) {
             let nla = &nla.context(err)?;
-            attrs.push(Nl80211SchedScanMatchAttr::parse(nla).context(err)?);
+            let attr = Nl80211SchedScanMatchAttr::parse(nla).context(err)?;
+            let view = ssid_string_view(&attr);
+            attrs.push(attr);
+            // A received SSID is always stored raw, the `Ssid` string view
+            // of it is added as well when the octets are valid UTF-8.
+            if let Some(view) = view {
+                attrs.push(view);
+            }
         }
         Ok(Self(attrs))
     }
 }
 
+/// The UTF-8 string view of a raw match set SSID, `None` when the SSID
+/// octets are not valid UTF-8.
+fn ssid_string_view(
+    attr: &Nl80211SchedScanMatchAttr,
+) -> Option<Nl80211SchedScanMatchAttr> {
+    match attr {
+        Nl80211SchedScanMatchAttr::SsidRaw(ssid) => std::str::from_utf8(ssid)
+            .ok()
+            .map(|ssid| Nl80211SchedScanMatchAttr::Ssid(ssid.to_string())),
+        _ => None,
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Nl80211SchedScanMatchAttr {
-    /// SSID to be used for matching. Cannot use with
+    /// SSID to be used for matching, as a string when building a message. A
+    /// received SSID is always stored as
+    /// [Nl80211SchedScanMatchAttr::SsidRaw], this attribute is added as well
+    /// when the SSID octets are valid UTF-8. When both are present only the
+    /// raw attribute is emitted. Cannot use with
     /// [Nl80211SchedScanMatchAttr::Bssid].
     Ssid(String),
+    /// SSID raw octets, stored verbatim. IEEE 802.11 allows any octets in
+    /// the SSID, so the parser always stores the octets here instead of
+    /// converting them to a string which could fail.
+    SsidRaw(Vec<u8>),
     /// RSSI threshold (in dBm) for reporting a BSS in scan results. Filtering
     /// is turned off if not specified. Note that if this attribute is in a
     /// match set of its own, then it is treated as the default value for all
@@ -193,6 +246,7 @@ impl Nla for Nl80211SchedScanMatchAttr {
     fn value_len(&self) -> usize {
         match self {
             Self::Ssid(v) => v.len(),
+            Self::SsidRaw(v) => v.len(),
             Self::Bssid(_) => ETH_ALEN,
             Self::Rssi(_) => 4,
             Self::Other(v) => v.value_len(),
@@ -202,6 +256,7 @@ impl Nla for Nl80211SchedScanMatchAttr {
     fn emit_value(&self, buffer: &mut [u8]) {
         match self {
             Self::Ssid(v) => buffer.copy_from_slice(v.as_bytes()),
+            Self::SsidRaw(v) => buffer.copy_from_slice(v.as_slice()),
             Self::Bssid(v) => buffer.copy_from_slice(v),
             Self::Rssi(d) => write_i32(buffer, *d),
             Self::Other(attr) => attr.emit(buffer),
@@ -210,10 +265,23 @@ impl Nla for Nl80211SchedScanMatchAttr {
 
     fn kind(&self) -> u16 {
         match self {
-            Self::Ssid(_) => NL80211_SCHED_SCAN_MATCH_ATTR_SSID,
+            Self::Ssid(_) | Self::SsidRaw(_) => {
+                NL80211_SCHED_SCAN_MATCH_ATTR_SSID
+            }
             Self::Bssid(_) => NL80211_SCHED_SCAN_MATCH_ATTR_BSSID,
             Self::Rssi(_) => NL80211_SCHED_SCAN_MATCH_ATTR_RSSI,
             Self::Other(attr) => attr.kind(),
+        }
+    }
+}
+
+impl NestedAttr for Nl80211SchedScanMatchAttr {
+    fn is_derived_view(&self, others: &[Self]) -> bool {
+        match self {
+            Self::Ssid(_) => {
+                others.iter().any(|attr| matches!(attr, Self::SsidRaw(_)))
+            }
+            _ => false,
         }
     }
 }
@@ -225,10 +293,11 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_SCHED_SCAN_MATCH_ATTR_SSID => {
-                let err_msg = format!(
-                    "Invalid NL80211_SCHED_SCAN_MATCH_ATTR_SSID value {payload:?}"
-                );
-                Self::Ssid(parse_string(payload).context(err_msg)?)
+                // IEEE 802.11 SSID holds 0..32 arbitrary octets, store the
+                // octets verbatim: the SSID is not required to be valid
+                // UTF-8, converting it to a string must not fail the whole
+                // message.
+                Self::SsidRaw(payload.to_vec())
             }
             NL80211_SCHED_SCAN_MATCH_ATTR_RSSI => {
                 let err_msg = format!(
@@ -321,6 +390,8 @@ impl Nla for Nl80211SchedScanPlanAttr {
         }
     }
 }
+
+impl NestedAttr for Nl80211SchedScanPlanAttr {}
 
 impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
     for Nl80211SchedScanPlanAttr
