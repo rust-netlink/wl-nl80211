@@ -368,3 +368,89 @@ fn test_sched_scan_plans() {
 
     assert_eq!(buf, raw);
 }
+
+// `Nl80211Scan::socket_owner()` adds `NL80211_ATTR_SOCKET_OWNER` to a
+// scheduled scan request. The captured flag bytes are the
+// `NL80211_ATTR_SOCKET_OWNER` from the `NL80211_CMD_ASSOCIATE` request in
+// `tests/connect.rs` (`04 00 cc 00`); the kernel accepts the same flag on
+// `NL80211_CMD_START_SCHED_SCAN`.
+#[test]
+fn test_sched_scan_builder_socket_owner() {
+    let attrs = Nl80211Scan::new(4)
+        .ssids(vec!["".to_string(), "WifiRefTest".to_string()])
+        .socket_owner()
+        .schedule_scan_match(vec![Nl80211SchedScanMatch(vec![
+            Nl80211SchedScanMatchAttr::Ssid("WifiRefTest".to_string()),
+        ])])
+        .schedule_scan_plan(vec![Nl80211SchedScanPlan(vec![
+            Nl80211SchedScanPlanAttr::Interval(10),
+        ])])
+        .build();
+
+    assert_eq!(
+        attrs,
+        vec![
+            Nl80211Attr::IfIndex(4),
+            Nl80211Attr::ScanSsids(vec![
+                "".to_string(),
+                "WifiRefTest".to_string()
+            ]),
+            Nl80211Attr::SocketOwner,
+            Nl80211Attr::SchedScanMatch(vec![Nl80211SchedScanMatch(vec![
+                Nl80211SchedScanMatchAttr::Ssid("WifiRefTest".to_string()),
+            ])]),
+            Nl80211Attr::SchedScanPlans(vec![Nl80211SchedScanPlan(vec![
+                Nl80211SchedScanPlanAttr::Interval(10),
+            ])]),
+        ]
+    );
+
+    let mut buf = vec![0; Nl80211Attr::SocketOwner.buffer_len()];
+    Nl80211Attr::SocketOwner.emit(&mut buf);
+    assert_eq!(buf, vec![0x04, 0x00, 0xcc, 0x00]);
+}
+
+// Emit and re-parse a `NL80211_CMD_START_SCHED_SCAN` built with
+// `socket_owner()` to validate the generated message round-trips.
+#[test]
+fn test_sched_scan_builder_message_round_trip() {
+    let attributes = Nl80211Scan::new(4)
+        .socket_owner()
+        .schedule_scan_plan(vec![Nl80211SchedScanPlan(vec![
+            Nl80211SchedScanPlanAttr::Interval(10),
+        ])])
+        .build();
+
+    let family_id = 0x2a;
+
+    let expected = GenlMessage::new(
+        GenlHeader {
+            cmd: NL80211_CMD_START_SCHED_SCAN,
+            version: 0,
+        },
+        Nl80211Message {
+            cmd: Nl80211Command::StartSchedScan,
+            attributes,
+        },
+        family_id,
+    );
+
+    let mut buf = vec![0; expected.buffer_len()];
+    expected.emit(&mut buf);
+
+    let mut netlink_header = NetlinkHeader::default();
+    netlink_header.message_type = family_id;
+
+    let parsed =
+        GenlMessage::<Nl80211Message>::deserialize(&netlink_header, &buf)
+            .unwrap();
+
+    assert!(parsed
+        .payload
+        .attributes
+        .contains(&Nl80211Attr::SocketOwner));
+
+    let mut re_emitted = vec![0; parsed.buffer_len()];
+    parsed.emit(&mut re_emitted);
+    assert_eq!(buf, re_emitted);
+}
