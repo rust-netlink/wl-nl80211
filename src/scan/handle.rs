@@ -102,6 +102,15 @@ impl Nl80211AttrsBuilder<Nl80211Scan> {
         }
     }
 
+    /// Request that the kernel cancels the scan if the sending socket is
+    /// closed (`NL80211_ATTR_SOCKET_OWNER`).
+    ///
+    /// Recommended for scheduled scans: without it a process that dies
+    /// without stopping its scan leaves the hardware scanning.
+    pub fn socket_owner(self) -> Self {
+        self.replace(Nl80211Attr::SocketOwner)
+    }
+
     /// Duration in unit of TU(1024 microseconds(µs)
     pub fn duration(self, value: u16) -> Self {
         self.replace(Nl80211Attr::MeasurementDuration(value))
