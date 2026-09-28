@@ -1,5 +1,3 @@
-- Parse NL80211_ATTR_REQ_IE and NL80211_ATTR_RESP_IE into
-  Nl80211Attr variants
 - Expose request and response IEs on Nl80211Event::ConnectResult
 - Parse NL80211_CMD_EXTERNAL_AUTH event details: action, SSID,
   BSSID, AKM suite(s), and MLD address when present
