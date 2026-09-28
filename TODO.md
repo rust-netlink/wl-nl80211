@@ -1,4 +1,3 @@
-- Expose request and response IEs on Nl80211Event::ConnectResult
 - Parse NL80211_CMD_EXTERNAL_AUTH event details: action, SSID,
   BSSID, AKM suite(s), and MLD address when present
 - Parse NL80211_ATTR_TIMED_OUT and NL80211_ATTR_TIMEOUT_REASON on

@@ -32,6 +32,22 @@ pub struct Nl80211EventAssociated {
     pub ies: Option<Vec<u8>>,
 }
 
+/// `NL80211_CMD_CONNECT` event.
+#[derive(Debug, PartialEq, Eq, Clone)]
+#[non_exhaustive]
+pub struct Nl80211EventConnectResult {
+    /// The connection result status.
+    pub status: Ieee80211StatusCode,
+    /// (Re)association request information elements as sent out by the
+    /// card (`NL80211_ATTR_REQ_IE`). Use
+    /// [`crate::Ieee80211Elements::parse()`] to parse the raw octets.
+    pub req_ie: Option<Vec<u8>>,
+    /// (Re)association response information elements as sent by the
+    /// peer (`NL80211_ATTR_RESP_IE`). Use
+    /// [`crate::Ieee80211Elements::parse()`] to parse the raw octets.
+    pub resp_ie: Option<Vec<u8>>,
+}
+
 /// `NL80211_CMD_SET_REKEY_OFFLOAD` notification.
 ///
 /// The driver/firmware completed a GTK rekey on its own (GTK rekey
@@ -57,7 +73,7 @@ pub enum Nl80211Event {
     /// `NL80211_CMD_ASSOCIATE` event: the association result.
     Associated(Nl80211EventAssociated),
     /// `NL80211_CMD_CONNECT` event: the connection result.
-    ConnectResult(Ieee80211StatusCode),
+    ConnectResult(Nl80211EventConnectResult),
     /// `NL80211_CMD_DISCONNECT` event.
     Disconnect(Ieee80211ReasonCode),
     /// `NL80211_CMD_DEAUTHENTICATE` event.
@@ -107,9 +123,7 @@ impl Nl80211Event {
                                 Some(Nl80211Event::ExternalAuth)
                             }
                             Nl80211Command::Connect => {
-                                Some(Nl80211Event::ConnectResult(attr_status(
-                                    &nl_msg,
-                                )))
+                                Some(parse_connect(&nl_msg))
                             }
                             Nl80211Command::Disconnect => {
                                 Some(Nl80211Event::Disconnect(
@@ -300,6 +314,20 @@ fn attr_ie(msg: &Nl80211Message) -> Option<Vec<u8>> {
     })
 }
 
+fn attr_req_ie(msg: &Nl80211Message) -> Option<Vec<u8>> {
+    msg.attributes.iter().find_map(|attr| match attr {
+        Nl80211Attr::ReqIe(ie) => Some(ie.clone()),
+        _ => None,
+    })
+}
+
+fn attr_resp_ie(msg: &Nl80211Message) -> Option<Vec<u8>> {
+    msg.attributes.iter().find_map(|attr| match attr {
+        Nl80211Attr::RespIe(ie) => Some(ie.clone()),
+        _ => None,
+    })
+}
+
 /// The BSSID and replay counter of a `NL80211_CMD_SET_REKEY_OFFLOAD`
 /// notification. The kernel sends `NL80211_ATTR_MAC` for the BSSID and
 /// the replay counter inside `NL80211_ATTR_REKEY_DATA`; a message
@@ -341,6 +369,17 @@ fn parse_cqm(msg: &Nl80211Message) -> Nl80211Event {
         if_index,
         mac,
         events,
+    })
+}
+
+/// The result of a `NL80211_CMD_CONNECT`: the status plus the
+/// (re)association request and response IEs the driver reports on
+/// success.
+fn parse_connect(msg: &Nl80211Message) -> Nl80211Event {
+    Nl80211Event::ConnectResult(Nl80211EventConnectResult {
+        status: attr_status(msg),
+        req_ie: attr_req_ie(msg),
+        resp_ie: attr_resp_ie(msg),
     })
 }
 

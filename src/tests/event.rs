@@ -318,7 +318,8 @@ fn test_captured_rejected_associate_event() {
     }
 }
 
-// NL80211_CMD_CONNECT event: status code 0 (success).
+// NL80211_CMD_CONNECT event: status code 0 (success) plus the
+// (re)association request and response IEs the driver reports.
 #[test]
 fn test_captured_connect_result_event() {
     let raw = vec![
@@ -339,10 +340,25 @@ fn test_captured_connect_result_event() {
         0x30, 0x48, 0x60, 0x6c, 0x7f, 0x08, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x40, 0x00, 0x00,
     ];
-    assert_eq!(
-        Nl80211Event::ConnectResult(Ieee80211StatusCode::Success),
-        parse_event(&raw).expect("parse event")
-    );
+    match parse_event(&raw).expect("parse event") {
+        Nl80211Event::ConnectResult(event) => {
+            assert_eq!(Ieee80211StatusCode::Success, event.status);
+            // SSID "Test-WIFI", supported rates, RSN, extended
+            // capabilities, extended supported rates.
+            let req_ie = event.req_ie.expect("request IEs");
+            assert_eq!(92, req_ie.len());
+            assert_eq!(
+                &req_ie[0..10],
+                &[0x00, 0x09, 0x54, 0x65, 0x73, 0x74, 0x2d, 0x57, 0x49, 0x46]
+            );
+            assert_eq!(&req_ie[90..92], &[0x82, 0x80]);
+            // Supported rates IE starts the response IEs.
+            let resp_ie = event.resp_ie.expect("response IEs");
+            assert_eq!(26, resp_ie.len());
+            assert_eq!(&resp_ie[0..3], &[0x01, 0x08, 0x82]);
+        }
+        other => panic!("unexpected event: {other:?}"),
+    }
 }
 
 // NL80211_CMD_DISCONNECT event: reason code 3 (STA leaving).
