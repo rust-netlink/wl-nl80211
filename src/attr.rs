@@ -260,8 +260,8 @@ const NL80211_ATTR_CIPHER_SUITES_PAIRWISE: u16 = 73;
 const NL80211_ATTR_CIPHER_SUITE_GROUP: u16 = 74;
 const NL80211_ATTR_WPA_VERSIONS: u16 = 75;
 const NL80211_ATTR_AKM_SUITES: u16 = 76;
-// const NL80211_ATTR_REQ_IE:u16 = 77;
-// const NL80211_ATTR_RESP_IE:u16 = 78;
+const NL80211_ATTR_REQ_IE: u16 = 77;
+const NL80211_ATTR_RESP_IE: u16 = 78;
 const NL80211_ATTR_PREV_BSSID: u16 = 79;
 const NL80211_ATTR_KEY: u16 = 80;
 // const NL80211_ATTR_KEYS:u16 = 81;
@@ -705,6 +705,16 @@ pub enum Nl80211Attr {
     /// Raw information element(s) (e.g. an RSN element) to be added to the
     /// (re)association request.
     Ie(Vec<u8>),
+    /// (Re)association request information elements as sent out by the card,
+    /// reported by the kernel for roam and successful `NL80211_CMD_CONNECT`
+    /// events. Use [`crate::Ieee80211Elements::parse()`] to parse the raw
+    /// octets.
+    ReqIe(Vec<u8>),
+    /// (Re)association response information elements as sent by the peer,
+    /// reported by the kernel for roam and successful `NL80211_CMD_CONNECT`
+    /// events. Use [`crate::Ieee80211Elements::parse()`] to parse the raw
+    /// octets.
+    RespIe(Vec<u8>),
     /// A full IEEE 802.11 management frame (e.g. an SAE Authentication frame)
     /// to transmit with `NL80211_CMD_FRAME`, or as received from the kernel.
     Frame(Vec<u8>),
@@ -918,6 +928,8 @@ impl Nla for Nl80211Attr {
             Self::AkmSuites(s) => 4 * s.len(),
             Self::Bssid(_) | Self::PrevBssid(_) => ETH_ALEN,
             Self::Ie(v)
+            | Self::ReqIe(v)
+            | Self::RespIe(v)
             | Self::Frame(v)
             | Self::FrameMatch(v)
             | Self::Pmkid(v)
@@ -1058,6 +1070,8 @@ impl Nla for Nl80211Attr {
             Self::CipherGroup(_) => NL80211_ATTR_CIPHER_SUITE_GROUP,
             Self::AkmSuites(_) => NL80211_ATTR_AKM_SUITES,
             Self::Ie(_) => NL80211_ATTR_IE,
+            Self::ReqIe(_) => NL80211_ATTR_REQ_IE,
+            Self::RespIe(_) => NL80211_ATTR_RESP_IE,
             Self::Frame(_) => NL80211_ATTR_FRAME,
             Self::FrameMatch(_) => NL80211_ATTR_FRAME_MATCH,
             Self::AuthData(_) => NL80211_ATTR_AUTH_DATA,
@@ -1265,6 +1279,8 @@ impl Nla for Nl80211Attr {
                 buffer[..ETH_ALEN].copy_from_slice(d)
             }
             Self::Ie(v)
+            | Self::ReqIe(v)
+            | Self::RespIe(v)
             | Self::Frame(v)
             | Self::FrameMatch(v)
             | Self::Pmkid(v)
@@ -1933,6 +1949,8 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 Self::AkmSuites(parse_akm_suites(payload)?)
             }
             NL80211_ATTR_IE => Self::Ie(payload.to_vec()),
+            NL80211_ATTR_REQ_IE => Self::ReqIe(payload.to_vec()),
+            NL80211_ATTR_RESP_IE => Self::RespIe(payload.to_vec()),
             NL80211_ATTR_FRAME => Self::Frame(payload.to_vec()),
             NL80211_ATTR_FRAME_MATCH => Self::FrameMatch(payload.to_vec()),
             NL80211_ATTR_AUTH_DATA => Self::AuthData(payload.to_vec()),
