@@ -1,4 +1,44 @@
 # Changelog
+## [0.8.0] - 2026-10-01
+### Breaking changes
+ - event: `Nl80211Event` payloads are reorganized into dedicated structs
+   (`Nl80211EventAuthenticated`, `Nl80211EventAssociated`,
+   `Nl80211EventConnectResult`, ...), the status/reason/command payloads are
+   tuple variants now, `Frame` carries a parsed `Ieee80211Frame` and
+   `ControlPortFrame` an `Ieee80211EapolFrame`. `ConnectResult` also carries
+   the request and response IEs. (db3e5aa, 832d952)
+ - frame: `Ieee80211AuthFrame` changed from struct to enum with a typed variant
+   per authentication algorithm; `Nl80211ExternalAuth::status_code()` takes
+   `Ieee80211StatusCode` instead of `u16`. (8dd748c)
+ - frame: `Nl80211Event::Frame` now carries a parsed `Ieee80211Frame` instead
+   of raw bytes; `Ieee80211ActionFrame` is a typed enum with BTM and 802.11k
+   Neighbor Report variants; the frame type code moved to `src/frame.rs` and
+   the authentication codecs to `src/frame/auth/`. (b1188cd)
+ - frame: Simplify `Ieee80211ActionFrame` construction, the direct
+   constructors and `is_*`/typed accessor methods are replaced by `From`
+   conversions. (e4353e3)
+ - frame: `Ieee80211Frame::Other` is now a tuple variant wrapping
+   `Ieee80211FrameOther` instead of a struct variant. (ff61f9f)
+
+### New features
+ - element: Add IEEE 802.11 IE helpers: zerocopy element header decoder, IE
+   lookup, RSN/Extended Capabilities queries, MDIE/RSNXE/FTIE codecs and
+   SAE/OWE/WPA2/FT RSNE builders. (f5f1aaf)
+ - eapol: Add OCI and EAPOL-Key key-data KDE codecs. (59fb8d4)
+ - scan: Add `socket_owner()` to the `Nl80211Scan` builder. (9dbb678)
+ - event: Model `NL80211_CMD_SET_REKEY_OFFLOAD` as
+   `Nl80211Event::RekeyOffload`. (bfc46b4)
+ - attr: Parse `NL80211_ATTR_REQ_IE` and `NL80211_ATTR_RESP_IE`. (141d5d3)
+ - wiphy: Add interface/wiphy/wdev filter to `NL80211_CMD_GET_WIPHY`.
+   (c874ad5)
+
+### Bug fixes
+ - ssid: Store SSIDs as raw octets and do best-effort UTF-8 parsing so a
+   non-UTF-8 SSID no longer fails the whole message parse. (77fd4a2)
+ - Disable tests on big-endian targets as the test data is hard-coded
+   little-endian. (32ccce3)
+ - LICENSE: Fix LICENSE-MIT content, the old file was MITNFA. (3839f33)
+
 ## [0.7.0] - 2026-08-18
 ### Breaking changes
  - Use latest rust-netlink crates. (69931a9)
