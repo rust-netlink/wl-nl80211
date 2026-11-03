@@ -4,10 +4,9 @@ name = "wl-nl80211"
 version = "0.8.0"
 authors = ["Gris Ge <cnfourt@gmail.com>"]
 license = "MIT"
-edition = "2021"
-rust-version = "1.77"
+edition = "2024"
+rust-version = "1.85"
 description = "Linux kernel wireless(802.11) netlink Library"
-homepage = "https://github.com/rust-netlink/wl-nl80211"
 repository = "https://github.com/rust-netlink/wl-nl80211"
 keywords = ["network"]
 categories = ["network-programming", "os"]
@@ -30,10 +29,10 @@ futures = "0.3.17"
 log = "0.4.14"
 thiserror = "2.0.19"
 tokio = { version = "1.0.1", features = ["rt"], optional = true}
-genetlink = { default-features = false, version = "0.3.0" }
+genetlink = { default-features = false, version = "0.3.1" }
 netlink-packet-core = { version = "0.9" }
 netlink-packet-generic = { version = "0.5.0" }
-netlink-proto = { default-features = false, version = "0.13" }
+netlink-proto = { default-features = false, version = "0.14.1" }
 netlink-sys = { version = "0.9" }
 zerocopy = { version = "0.8", features = ["derive"] }
 

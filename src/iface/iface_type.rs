@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    parse_u32, DecodeError, ErrorContext, Nla, NlasIterator,
+    DecodeError, ErrorContext, Nla, NlasIterator, parse_u32,
 };
 
 #[derive(Debug, PartialEq, Eq, Clone)]

@@ -3,8 +3,8 @@
 use netlink_packet_core::{DecodeError, Emitable};
 
 use super::buffer::{
-    action_frame_buffer_len, emit_action_frame, parse_action_frame,
-    Ieee80211ActionFrameFixed,
+    Ieee80211ActionFrameFixed, action_frame_buffer_len, emit_action_frame,
+    parse_action_frame,
 };
 
 /// A Neighbor Report Request action frame body (category, action, and

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 
 use futures::TryStream;
-use netlink_packet_core::{Nla, NLM_F_ACK, NLM_F_REQUEST};
+use netlink_packet_core::{NLM_F_ACK, NLM_F_REQUEST, Nla};
 use netlink_packet_generic::GenlMessage;
 
 use crate::{
-    nl80211_execute, Ieee80211AkmSuite, Ieee80211CipherSuite, Nl80211Attr,
-    Nl80211AttrsBuilder, Nl80211AuthType, Nl80211Command, Nl80211Error,
-    Nl80211Handle, Nl80211Message, Nl80211UseMfp, Nl80211WpaVersions,
+    Ieee80211AkmSuite, Ieee80211CipherSuite, Nl80211Attr, Nl80211AttrsBuilder,
+    Nl80211AuthType, Nl80211Command, Nl80211Error, Nl80211Handle,
+    Nl80211Message, Nl80211UseMfp, Nl80211WpaVersions, nl80211_execute,
 };
 
 /// Helper to build the attribute list for a `NL80211_CMD_CONNECT` request.

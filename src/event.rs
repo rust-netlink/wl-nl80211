@@ -5,10 +5,10 @@ use netlink_packet_core::{NetlinkMessage, NetlinkPayload};
 
 use crate::event_status::{Ieee80211ReasonCode, Ieee80211StatusCode};
 use crate::{
-    Ieee80211AssocRespFrame, Ieee80211AuthFrame, Ieee80211EapolFrame,
+    ETH_ALEN, Ieee80211AssocRespFrame, Ieee80211AuthFrame, Ieee80211EapolFrame,
     Ieee80211Frame, Nl80211Attr, Nl80211Command, Nl80211CqmRssiEvent,
     Nl80211Message, Nl80211RekeyData, Nl80211WowlanTriggersSupport,
-    Nl80211WowlanWakeup, ETH_ALEN,
+    Nl80211WowlanWakeup,
 };
 
 /// `NL80211_CMD_AUTHENTICATE` event.

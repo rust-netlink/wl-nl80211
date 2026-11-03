@@ -30,18 +30,18 @@
  */
 
 use netlink_packet_core::{
-    parse_u16, parse_u32, parse_u8, DecodeError, DefaultNla, Emitable,
-    ErrorContext, Nla, NlaBuffer, NlasIterator, Parseable,
-    ParseableParametrized,
+    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
+    NlasIterator, Parseable, ParseableParametrized, parse_u8, parse_u16,
+    parse_u32,
 };
 
 use crate::{
-    bytes::{write_u16, write_u32},
     Ieee80211EhtMacCapInfo, Ieee80211EhtMcsNssSupp, Ieee80211EhtPhyCapInfo,
     Ieee80211EhtPpeThres, Ieee80211He6GhzCapa, Ieee80211HeMacCapInfo,
     Ieee80211HeMcsNssSupp, Ieee80211HePhyCapInfo, Ieee80211HePpeThreshold,
     Ieee80211HtCaps, Ieee80211HtMcsInfo, Ieee80211VhtCapInfo,
     Ieee80211VhtMcsInfo,
+    bytes::{write_u16, write_u32},
 };
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -869,7 +869,7 @@ impl Nla for Nl80211FrequencyInfo {
             Self::IrConcurrent => 0,
             Self::No20Mhz => 0,
             Self::No10Mhz => 0,
-            Self::Wmm(ref v) => {
+            Self::Wmm(v) => {
                 Nl80211WmmRuleAttrsList::from(v).as_slice().buffer_len()
             }
             Self::NoHe => 0,
@@ -961,10 +961,10 @@ impl Nla for Nl80211FrequencyInfo {
             | Self::CanMonitor => (),
             Self::Psd(d) => buffer[0] = *d as u8,
             Self::Offset(d) => write_u32(buffer, *d),
-            Self::Wmm(ref v) => {
+            Self::Wmm(v) => {
                 Nl80211WmmRuleAttrsList::from(v).as_slice().emit(buffer)
             }
-            Self::Other(ref attr) => attr.emit(buffer),
+            Self::Other(attr) => attr.emit(buffer),
         }
     }
 }
@@ -1169,7 +1169,7 @@ impl Nla for Nl80211Rate {
         match self {
             Self::Rate(d) => write_u32(buffer, *d),
             Self::Support2GhzShortpreamble => (),
-            Self::Other(ref attr) => attr.emit(buffer),
+            Self::Other(attr) => attr.emit(buffer),
         }
     }
 }
@@ -1348,7 +1348,7 @@ impl Nla for Nl80211WmmRule {
                 write_u16(buffer, *d)
             }
             Self::Aifsn(d) => buffer[0] = *d,
-            Self::Other(ref attr) => attr.emit(buffer),
+            Self::Other(attr) => attr.emit(buffer),
         }
     }
 }

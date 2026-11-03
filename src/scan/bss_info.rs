@@ -33,13 +33,13 @@ use std::convert::TryInto;
 use std::fmt::Debug;
 
 use netlink_packet_core::{
-    parse_u16, parse_u32, parse_u64, parse_u8, DecodeError, DefaultNla,
-    Emitable, ErrorContext, Nla, NlaBuffer, Parseable,
+    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer, Parseable,
+    parse_u8, parse_u16, parse_u32, parse_u64,
 };
 
+use crate::Ieee80211CapabilityInfo;
 use crate::bytes::{write_i32, write_u16, write_u32, write_u64};
 use crate::mac::ETH_ALEN;
-use crate::Ieee80211CapabilityInfo;
 
 bitflags::bitflags! {
     #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
@@ -209,7 +209,7 @@ impl Nla for Nl80211BssInfo {
             }
             Self::Capability(v) => v.emit(buffer),
             Self::UseFor(v) => v.emit(buffer),
-            Self::Other(ref attr) => attr.emit(buffer),
+            Self::Other(attr) => attr.emit(buffer),
         }
     }
 }

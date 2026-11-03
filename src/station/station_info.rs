@@ -3,9 +3,9 @@
 use std::convert::TryInto;
 
 use netlink_packet_core::{
-    emit_i64, emit_u16, emit_u32, emit_u64, parse_u16, parse_u32, parse_u64,
-    parse_u8, DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
-    NlasIterator, Parseable,
+    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
+    NlasIterator, Parseable, emit_i64, emit_u16, emit_u32, emit_u64, parse_u8,
+    parse_u16, parse_u32, parse_u64,
 };
 
 use std::fmt::Debug;
@@ -342,8 +342,7 @@ impl Nla for Nl80211StationInfo {
             }
             Nl80211StationInfo::ChainSignal(d)
             | Nl80211StationInfo::ChainSignalAvg(d) => {
-                let data: Vec<u8> =
-                    d.as_slice().iter().map(|d| *d as u8).collect();
+                let data: Vec<u8> = d.iter().map(|d| *d as u8).collect();
                 buffer.copy_from_slice(data.as_slice());
             }
             Nl80211StationInfo::TidStats(nlas) => nlas.as_slice().emit(buffer),

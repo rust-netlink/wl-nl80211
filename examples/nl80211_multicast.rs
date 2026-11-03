@@ -9,7 +9,7 @@
 use futures::StreamExt;
 use tokio::time::Duration;
 use wl_nl80211::{
-    new_multicast_connection, Nl80211Event, Nl80211MulticastGroup,
+    Nl80211Event, Nl80211MulticastGroup, new_multicast_connection,
 };
 
 #[tokio::main]

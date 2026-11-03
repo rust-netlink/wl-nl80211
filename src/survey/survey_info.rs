@@ -31,8 +31,8 @@
 use std::fmt::Debug;
 
 use netlink_packet_core::{
-    parse_i8, parse_u32, parse_u64, DecodeError, DefaultNla, Emitable,
-    ErrorContext, Nla, NlaBuffer, Parseable,
+    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer, Parseable,
+    parse_i8, parse_u32, parse_u64,
 };
 
 use crate::bytes::{write_u32, write_u64};
@@ -110,7 +110,7 @@ impl Nla for Nl80211SurveyInfo {
             | Self::ExtensionBusyTime(d)
             | Self::TimeRx(d)
             | Self::TimeTx(d) => write_u64(buffer, *d),
-            Self::Other(ref attr) => attr.emit(buffer),
+            Self::Other(attr) => attr.emit(buffer),
         }
     }
 }

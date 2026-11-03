@@ -30,8 +30,8 @@
  */
 
 use netlink_packet_core::{
-    parse_u32, DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
-    NlasIterator, Parseable,
+    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
+    NlasIterator, Parseable, parse_u32,
 };
 
 use crate::bytes::write_u32;

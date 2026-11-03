@@ -20,8 +20,8 @@ fn parse_neighbor_report_response_entries() {
     body.extend_from_slice(&[0x02, 0, 0, 0, 0x03, 0]); // BSSID
     body.extend_from_slice(&[1, 0, 0, 0]); // BSSID info
     body.extend_from_slice(&[81, 6, 7]); // op class, channel, PHY
-                                         // Optional wide-bandwidth subelement:
-                                         // id 6, len 3, payload.
+    // Optional wide-bandwidth subelement:
+    // id 6, len 3, payload.
     body.extend_from_slice(&[6, 3, 1, 2, 3]);
 
     let resp = Ieee80211NeighborReportResponse::parse(&body).expect("parse");

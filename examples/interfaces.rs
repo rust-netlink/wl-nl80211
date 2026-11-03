@@ -24,7 +24,7 @@
 //! [data hex]`, except that this doesn't use `0x` prefixes, and that the data
 //! is one hex string instead of individual bytes as arguments.
 
-use anyhow::{anyhow, bail, Context};
+use anyhow::{Context, anyhow, bail};
 use futures::stream::TryStreamExt;
 use log::{debug, info};
 use std::env;
@@ -193,7 +193,9 @@ async fn send_vendor_cmd(
 ) -> anyhow::Result<()> {
     let if_index = find_interface_index(&handle, if_name).await?;
 
-    info!("Sending cmd to {if_name} (idx {if_index}) vendor {vendor_oui:#X} subcmd {vendor_subcmd:#X}");
+    info!(
+        "Sending cmd to {if_name} (idx {if_index}) vendor {vendor_oui:#X} subcmd {vendor_subcmd:#X}"
+    );
 
     let mut vendor_stream = handle
         .interface()

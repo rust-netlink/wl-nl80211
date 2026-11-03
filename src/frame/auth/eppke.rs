@@ -5,8 +5,8 @@ use netlink_packet_core::{DecodeError, Emitable};
 use crate::Ieee80211StatusCode;
 
 use super::buffer::{
-    auth_frame_buffer_len, emit_auth_frame, parse_auth_frame,
-    Ieee80211AuthFrameFixed,
+    Ieee80211AuthFrameFixed, auth_frame_buffer_len, emit_auth_frame,
+    parse_auth_frame,
 };
 
 /// `WLAN_AUTH_EPPKE` (9): EPPKE authentication.

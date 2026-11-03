@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    parse_u16, DecodeError, Emitable, ErrorContext, Parseable,
+    DecodeError, Emitable, ErrorContext, Parseable, parse_u16,
 };
 
 bitflags::bitflags! {

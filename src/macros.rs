@@ -12,12 +12,12 @@ macro_rules! try_nl80211 {
                 match payload {
                     NetlinkPayload::InnerMessage(msg) => msg,
                     NetlinkPayload::Error(err) => {
-                        return Err(Nl80211Error::NetlinkError(err))
+                        return Err(Nl80211Error::NetlinkError(err));
                     }
                     _ => {
                         return Err(Nl80211Error::UnexpectedMessage(
                             NetlinkMessage::new(header, payload),
-                        ))
+                        ));
                     }
                 }
             }
@@ -25,7 +25,7 @@ macro_rules! try_nl80211 {
                 return Err(Nl80211Error::Bug(format!(
                     "BUG: decode error {:?}",
                     e
-                )))
+                )));
             }
         }
     }};

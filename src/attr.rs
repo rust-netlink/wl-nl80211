@@ -30,16 +30,14 @@
  */
 
 use netlink_packet_core::{
-    parse_string, parse_u16, parse_u32, parse_u64, parse_u8, DecodeError,
-    DefaultNla, Emitable, ErrorContext, EthernetProtocol, Nla, NlaBuffer,
-    NlasIterator, Parseable, ParseableParametrized, NLA_F_NESTED,
+    DecodeError, DefaultNla, Emitable, ErrorContext, EthernetProtocol,
+    NLA_F_NESTED, Nla, NlaBuffer, NlasIterator, Parseable,
+    ParseableParametrized, parse_string, parse_u8, parse_u16, parse_u32,
+    parse_u64,
 };
 
 use crate::mac::ETH_ALEN;
 use crate::{
-    bytes::{write_u16, write_u32, write_u64},
-    scan::{NestedIndexedNlaList, Nla80211ScanFreqNlas, Nla80211ScanSsidNlas},
-    wiphy::Nl80211Commands,
     Ieee80211AkmSuite, Ieee80211CipherSuite, Ieee80211ExtendedCapability,
     Ieee80211HtCapabilityMask, Ieee80211StatusCode, Ieee80211VhtCapability,
     Nl80211AuthType, Nl80211Band, Nl80211BandTypes, Nl80211BssInfo,
@@ -52,6 +50,9 @@ use crate::{
     Nl80211SchedScanPlan, Nl80211StationInfo, Nl80211SurveyInfo,
     Nl80211TransmitQueueStat, Nl80211UseMfp, Nl80211WowlanTriggersSupport,
     Nl80211WpaVersions,
+    bytes::{write_u16, write_u32, write_u64},
+    scan::{NestedIndexedNlaList, Nla80211ScanFreqNlas, Nla80211ScanSsidNlas},
+    wiphy::Nl80211Commands,
 };
 
 fn parse_cipher_suites(

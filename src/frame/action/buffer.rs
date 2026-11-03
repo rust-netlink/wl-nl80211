@@ -4,8 +4,8 @@ use std::mem::size_of;
 
 use netlink_packet_core::DecodeError;
 use zerocopy::{
-    byteorder::little_endian::U16, FromBytes, Immutable, IntoBytes,
-    KnownLayout, Unaligned,
+    FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned,
+    byteorder::little_endian::U16,
 };
 
 /// Frame Control type/subtype mask (802.11-2020 §9.2.4.1.3, bits 2-7).

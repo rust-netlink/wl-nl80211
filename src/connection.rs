@@ -6,18 +6,18 @@ use std::io;
 use futures::channel::mpsc::UnboundedReceiver;
 use genetlink::message::RawGenlMessage;
 use netlink_packet_core::{
-    Emitable, NetlinkMessage, NetlinkPayload, NLM_F_REQUEST,
+    Emitable, NLM_F_REQUEST, NetlinkMessage, NetlinkPayload,
 };
 use netlink_packet_generic::{
-    ctrl::{
-        nlas::{GenlCtrlAttrs, McastGrpAttrs},
-        GenlCtrl, GenlCtrlCmd,
-    },
     GenlMessage,
+    ctrl::{
+        GenlCtrl, GenlCtrlCmd,
+        nlas::{GenlCtrlAttrs, McastGrpAttrs},
+    },
 };
 use netlink_proto::Connection;
 use netlink_sys::{
-    protocols::NETLINK_GENERIC, AsyncSocket, Socket, SocketAddr,
+    AsyncSocket, Socket, SocketAddr, protocols::NETLINK_GENERIC,
 };
 
 use crate::Nl80211Handle;

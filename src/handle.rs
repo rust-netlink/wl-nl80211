@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 
-use futures::{future::Either, FutureExt, Stream, StreamExt, TryStream};
+use futures::{FutureExt, Stream, StreamExt, TryStream, future::Either};
 use genetlink::GenetlinkHandle;
 use netlink_packet_core::DecodeError;
 use netlink_packet_core::NetlinkMessage;
 use netlink_packet_generic::GenlMessage;
 
 use crate::{
-    try_nl80211, Nl80211ConnectionHandle, Nl80211Error, Nl80211InterfaceHandle,
+    Nl80211ConnectionHandle, Nl80211Error, Nl80211InterfaceHandle,
     Nl80211Message, Nl80211ScanHandle, Nl80211StationHandle,
-    Nl80211SurveyHandle, Nl80211WiphyHandle,
+    Nl80211SurveyHandle, Nl80211WiphyHandle, try_nl80211,
 };
 
 #[derive(Clone, Debug)]
@@ -61,7 +61,7 @@ impl Nl80211Handle {
                 NetlinkMessage<GenlMessage<Nl80211Message>>,
                 DecodeError,
             >,
-        >,
+        > + use<>,
         Nl80211Error,
     > {
         self.handle.request(message).await.map_err(|e| {
@@ -74,7 +74,8 @@ pub(crate) async fn nl80211_execute(
     handle: &mut Nl80211Handle,
     nl80211_msg: Nl80211Message,
     header_flags: u16,
-) -> impl TryStream<Ok = GenlMessage<Nl80211Message>, Error = Nl80211Error> {
+) -> impl TryStream<Ok = GenlMessage<Nl80211Message>, Error = Nl80211Error> + use<>
+{
     let mut nl_msg =
         NetlinkMessage::from(GenlMessage::from_payload(nl80211_msg));
 

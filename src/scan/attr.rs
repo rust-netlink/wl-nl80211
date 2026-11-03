@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    parse_u32, DecodeError, Emitable, ErrorContext, Nla, NlasIterator,
-    Parseable,
+    DecodeError, Emitable, ErrorContext, Nla, NlasIterator, Parseable,
+    parse_u32,
 };
 
-use crate::bytes::write_u32;
 #[cfg(doc)]
 use crate::Nl80211Attr;
+use crate::bytes::write_u32;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Nla80211ScanSsidNla {
