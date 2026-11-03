@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-use thiserror::Error;
+use std::fmt::{self, Display};
 
 use netlink_packet_core::DecodeError;
 use netlink_packet_core::{ErrorMessage, NetlinkMessage};
@@ -8,20 +8,31 @@ use netlink_packet_generic::GenlMessage;
 
 use crate::Nl80211Message;
 
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum Nl80211Error {
-    #[error("Received an unexpected message {0:?}")]
     UnexpectedMessage(NetlinkMessage<GenlMessage<Nl80211Message>>),
-
-    #[error("Received a netlink error message {0}")]
     NetlinkError(ErrorMessage),
-
-    #[error("A netlink request failed")]
     RequestFailed(String),
-
-    #[error("Failed to decode netlink package: {0}")]
     DecodeFailed(DecodeError),
-
-    #[error("A bug in this crate")]
     Bug(String),
 }
+
+impl Display for Nl80211Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnexpectedMessage(msg) => {
+                write!(f, "Received an unexpected message {msg:?}")
+            }
+            Self::NetlinkError(msg) => {
+                write!(f, "Received a netlink error message {msg}")
+            }
+            Self::RequestFailed(_) => write!(f, "A netlink request failed"),
+            Self::DecodeFailed(e) => {
+                write!(f, "Failed to decode netlink package: {e}")
+            }
+            Self::Bug(_) => write!(f, "A bug in this crate"),
+        }
+    }
+}
+
+impl std::error::Error for Nl80211Error {}
