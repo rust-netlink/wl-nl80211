@@ -445,10 +445,12 @@ fn test_sched_scan_builder_message_round_trip() {
         GenlMessage::<Nl80211Message>::deserialize(&netlink_header, &buf)
             .unwrap();
 
-    assert!(parsed
-        .payload
-        .attributes
-        .contains(&Nl80211Attr::SocketOwner));
+    assert!(
+        parsed
+            .payload
+            .attributes
+            .contains(&Nl80211Attr::SocketOwner)
+    );
 
     let mut re_emitted = vec![0; parsed.buffer_len()];
     parsed.emit(&mut re_emitted);

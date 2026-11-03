@@ -65,44 +65,44 @@ pub use self::connect::{
     Nl80211SetPmkRequest, Nl80211SetPmksaRequest, Nl80211UseMfp,
     Nl80211WpaVersions,
 };
+pub use self::connection::Nl80211MulticastGroup;
 #[cfg(feature = "tokio_socket")]
 pub use self::connection::new_connection;
 pub use self::connection::new_connection_with_socket;
 #[cfg(feature = "tokio_socket")]
 pub use self::connection::new_multicast_connection;
 pub use self::connection::new_multicast_connection_with_socket;
-pub use self::connection::Nl80211MulticastGroup;
 pub use self::cqm::{
     Nl80211Cqm, Nl80211CqmAttr, Nl80211CqmRequest, Nl80211CqmRssiEvent,
     Nl80211CqmRssiThresholdEvent,
 };
 pub use self::eapol::{
-    build_oci_kde, parse_gtk_kde, parse_key_data_kdes, parse_oci_kde,
     Ieee80211EapolEapFrame, Ieee80211EapolFrame, Ieee80211EapolKeyFrame,
     Ieee80211KeyDataKdes, Ieee80211MgmtKeyKde, Ieee80211Oci,
-    Ieee80211OciBuffer, Ieee80211OciKeyDataElemBuffer,
+    Ieee80211OciBuffer, Ieee80211OciKeyDataElemBuffer, build_oci_kde,
+    parse_gtk_kde, parse_key_data_kdes, parse_oci_kde,
 };
 pub use self::element::{
-    ap_rsne_supports_ext_key_id, ap_rsne_supports_ocv,
-    ap_rsnxe_supports_sae_h2e, ap_supports_btm, ap_supports_rm_neighbor_report,
-    find_ie, find_ie_pos, ft_psk_ie_cipher, ft_psk_rsne_cipher,
-    ft_sae_ext_key_ie_cipher, ft_sae_ext_key_rsne_cipher, ft_sae_ie_cipher,
-    ft_sae_rsne_cipher, ftie_auth_request, ie_at, mdie, owe_ie_cipher,
-    parse_ftie, parse_group_mgmt_cipher, parse_mdie, rsne_first_pmkid,
-    rsne_match_ignore_pmkid, rsne_set_ext_key_id, rsne_set_ocvc,
-    sae_ext_key_ie_cipher, sae_ext_key_ie_with_pmkid_cipher, sae_ie_cipher,
-    sae_ie_with_pmkid_cipher, sae_rsnxe, wpa2_ent_ie_cipher,
-    wpa2_ent_sha256_ie_cipher, wpa2_psk_ie_cipher,
-    wpa2_psk_ie_with_pmkid_cipher, wpa2_psk_sha256_ie_cipher,
-    wpa2_psk_sha256_ie_with_pmkid_cipher, Ieee80211AkmSuite,
-    Ieee80211CipherSuite, Ieee80211Element, Ieee80211ElementBuffer,
+    ELEMENT_ID_EXT_CAPAB, ELEMENT_ID_EXTENSION, ELEMENT_ID_FTIE,
+    ELEMENT_ID_MDIE, ELEMENT_ID_RM_ENABLED_CAPAB, ELEMENT_ID_RSN,
+    ELEMENT_ID_RSN_EXT, Ieee80211AkmSuite, Ieee80211CipherSuite,
+    Ieee80211Element, Ieee80211ElementBuffer,
     Ieee80211ElementCountryEnvironment, Ieee80211ElementCountryTriplet,
     Ieee80211ElementRsn, Ieee80211ElementRsnExt, Ieee80211Elements,
     Ieee80211FtIe, Ieee80211FtKeySubelem, Ieee80211Pmkid,
     Ieee80211RateAndSelector, Ieee80211RsnCapbilities,
-    Ieee80211RsnExtCapbilities, ELEMENT_ID_EXTENSION, ELEMENT_ID_EXT_CAPAB,
-    ELEMENT_ID_FTIE, ELEMENT_ID_MDIE, ELEMENT_ID_RM_ENABLED_CAPAB,
-    ELEMENT_ID_RSN, ELEMENT_ID_RSN_EXT,
+    Ieee80211RsnExtCapbilities, ap_rsne_supports_ext_key_id,
+    ap_rsne_supports_ocv, ap_rsnxe_supports_sae_h2e, ap_supports_btm,
+    ap_supports_rm_neighbor_report, find_ie, find_ie_pos, ft_psk_ie_cipher,
+    ft_psk_rsne_cipher, ft_sae_ext_key_ie_cipher, ft_sae_ext_key_rsne_cipher,
+    ft_sae_ie_cipher, ft_sae_rsne_cipher, ftie_auth_request, ie_at, mdie,
+    owe_ie_cipher, parse_ftie, parse_group_mgmt_cipher, parse_mdie,
+    rsne_first_pmkid, rsne_match_ignore_pmkid, rsne_set_ext_key_id,
+    rsne_set_ocvc, sae_ext_key_ie_cipher, sae_ext_key_ie_with_pmkid_cipher,
+    sae_ie_cipher, sae_ie_with_pmkid_cipher, sae_rsnxe, wpa2_ent_ie_cipher,
+    wpa2_ent_sha256_ie_cipher, wpa2_psk_ie_cipher,
+    wpa2_psk_ie_with_pmkid_cipher, wpa2_psk_sha256_ie_cipher,
+    wpa2_psk_sha256_ie_with_pmkid_cipher,
 };
 pub use self::error::Nl80211Error;
 pub use self::event::{

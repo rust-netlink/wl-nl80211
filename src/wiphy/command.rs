@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    parse_u32, DecodeError, ErrorContext, Nla, NlasIterator,
+    DecodeError, ErrorContext, Nla, NlasIterator, parse_u32,
 };
 
-use crate::{bytes::write_u32, Nl80211Command};
+use crate::{Nl80211Command, bytes::write_u32};
 
 pub(crate) struct Nl80211CommandNla {
     index: u16,

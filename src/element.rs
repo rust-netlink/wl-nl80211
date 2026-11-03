@@ -3,13 +3,13 @@
 use std::mem::size_of;
 
 use netlink_packet_core::{
-    parse_u8, DecodeError, Emitable, ErrorContext, Parseable,
+    DecodeError, Emitable, ErrorContext, Parseable, parse_u8,
 };
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned};
 
 use crate::{
-    bytes::{parse_u16_le, write_u16_le, write_u32_le},
     Ieee80211ElementHeCap, Ieee80211ElementHtCap, Ieee80211ElementVhtCap,
+    bytes::{parse_u16_le, write_u16_le, write_u32_le},
 };
 
 /// [Ieee80211Elements] Vec
@@ -365,8 +365,7 @@ impl Emitable for Ieee80211Element {
                 buffer.copy_from_slice(s.as_slice());
             }
             Self::SupportedRatesAndSelectors(v) => {
-                let raw: Vec<u8> =
-                    v.as_slice().iter().map(|v| u8::from(*v)).collect();
+                let raw: Vec<u8> = v.iter().map(|v| u8::from(*v)).collect();
                 buffer.copy_from_slice(raw.as_slice());
             }
             Self::Channel(v) => buffer[0] = *v,
@@ -533,7 +532,7 @@ impl Emitable for Ieee80211ElementCountry {
             buffer[1] = self.country.as_bytes()[1];
         }
         buffer[2] = self.environment.into();
-        for (i, triplet) in self.triplets.as_slice().iter().enumerate() {
+        for (i, triplet) in self.triplets.iter().enumerate() {
             triplet.emit(&mut buffer[(i + 1) * 3..(i + 2) * 3]);
         }
         // IEEE 802.11-2024 9.4.2.7: a single zero padding octet is added when
@@ -891,7 +890,7 @@ impl Emitable for Ieee80211ElementRsn {
             );
             offset += 2;
         }
-        for cipher in self.pairwise_ciphers.as_slice().iter() {
+        for cipher in self.pairwise_ciphers.iter() {
             write_u32_le(&mut buffer[offset..offset + 4], u32::from(*cipher));
             offset += 4;
         }

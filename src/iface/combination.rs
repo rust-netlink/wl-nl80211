@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    parse_u32, DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
-    NlasIterator, Parseable, ParseableParametrized,
+    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
+    NlasIterator, Parseable, ParseableParametrized, parse_u32,
 };
 
-use crate::{bytes::write_u32, Nl80211InterfaceType, Nl80211InterfaceTypes};
+use crate::{Nl80211InterfaceType, Nl80211InterfaceTypes, bytes::write_u32};
 
 const NL80211_IFACE_COMB_LIMITS: u16 = 1;
 const NL80211_IFACE_COMB_MAXNUM: u16 = 2;

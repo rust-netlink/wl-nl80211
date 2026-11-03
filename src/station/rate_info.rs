@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    emit_u16, emit_u32, parse_u16, parse_u32, parse_u8, DecodeError,
-    DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer, Parseable,
+    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer, Parseable,
+    emit_u16, emit_u32, parse_u8, parse_u16, parse_u32,
 };
 
 const NL80211_RATE_INFO_BITRATE: u16 = 1;

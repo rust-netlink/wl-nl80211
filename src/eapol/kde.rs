@@ -18,8 +18,8 @@ use netlink_packet_core::DecodeError;
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned};
 
 use crate::element::{
-    Ieee80211ElementBuffer, ELEMENT_ID_RSN, ELEMENT_ID_RSN_EXT,
-    ELEMENT_ID_VENDOR,
+    ELEMENT_ID_RSN, ELEMENT_ID_RSN_EXT, ELEMENT_ID_VENDOR,
+    Ieee80211ElementBuffer,
 };
 
 /// The IEEE (802.11) OUI carried by the KDEs defined in IEEE

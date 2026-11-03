@@ -6,12 +6,12 @@ mod auth;
 mod capability;
 
 use netlink_packet_core::{
-    parse_u16, DecodeError, Emitable, ErrorContext, Nla, NlaBuffer,
-    NlasIterator, Parseable,
+    DecodeError, Emitable, ErrorContext, Nla, NlaBuffer, NlasIterator,
+    Parseable, parse_u16,
 };
 
 use crate::{
-    attr::NL80211_ATTR_FRAME_TYPE, bytes::write_u16, Nl80211InterfaceType,
+    Nl80211InterfaceType, attr::NL80211_ATTR_FRAME_TYPE, bytes::write_u16,
 };
 
 pub use self::action::{

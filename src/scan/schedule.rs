@@ -4,16 +4,17 @@ use std::ops::Deref;
 
 use futures::TryStream;
 use netlink_packet_core::{
-    parse_i32, parse_u32, DecodeError, DefaultNla, Emitable, ErrorContext, Nla,
-    NlaBuffer, NlasIterator, Parseable, NLA_F_NESTED, NLM_F_ACK, NLM_F_REQUEST,
+    DecodeError, DefaultNla, Emitable, ErrorContext, NLA_F_NESTED, NLM_F_ACK,
+    NLM_F_REQUEST, Nla, NlaBuffer, NlasIterator, Parseable, parse_i32,
+    parse_u32,
 };
 use netlink_packet_generic::GenlMessage;
 
 use crate::mac::ETH_ALEN;
 use crate::{
+    Nl80211Attr, Nl80211Command, Nl80211Error, Nl80211Handle, Nl80211Message,
     bytes::{write_i32, write_u32},
-    nl80211_execute, Nl80211Attr, Nl80211Command, Nl80211Error, Nl80211Handle,
-    Nl80211Message,
+    nl80211_execute,
 };
 
 #[derive(Debug, Clone)]

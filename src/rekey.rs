@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    emit_u32, parse_u32, DecodeError, DefaultNla, ErrorContext, Nla, NlaBuffer,
-    Parseable,
+    DecodeError, DefaultNla, ErrorContext, Nla, NlaBuffer, Parseable, emit_u32,
+    parse_u32,
 };
 
 const NL80211_REKEY_DATA_KEK: u16 = 1;

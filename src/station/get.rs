@@ -6,8 +6,8 @@ use netlink_packet_generic::GenlMessage;
 
 use crate::mac::ETH_ALEN;
 use crate::{
-    nl80211_execute, Nl80211Attr, Nl80211Command, Nl80211Error, Nl80211Handle,
-    Nl80211Message,
+    Nl80211Attr, Nl80211Command, Nl80211Error, Nl80211Handle, Nl80211Message,
+    nl80211_execute,
 };
 
 pub struct Nl80211StationGetRequest {

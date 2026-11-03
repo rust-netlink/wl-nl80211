@@ -42,7 +42,9 @@ fn test_prev_bssid_roundtrip() {
 #[test]
 fn test_prev_bssid_invalid_len() {
     let raw = vec![0x08, 0x00, 0x4f, 0x00, 0x02, 0x00, 0x00, 0x00];
-    assert!(Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).is_err());
+    assert!(
+        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).is_err()
+    );
 }
 
 // NL80211_ATTR_PMKID (85): a 16-octet PMKID.
@@ -58,7 +60,9 @@ fn test_pmkid_roundtrip() {
 fn test_pmkid_invalid_len() {
     let mut raw = vec![0x0c, 0x00, 0x55, 0x00];
     raw.extend_from_slice(&[0x42; 8]);
-    assert!(Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).is_err());
+    assert!(
+        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).is_err()
+    );
 }
 
 // NL80211_ATTR_PMK (254): the PMK material (32 octets for the PSK/SAE

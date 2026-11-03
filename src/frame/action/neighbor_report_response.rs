@@ -5,8 +5,8 @@ use netlink_packet_core::{DecodeError, Emitable};
 use crate::{element::Ieee80211ElementBuffer, mac::ETH_ALEN};
 
 use super::buffer::{
-    action_frame_buffer_len, emit_action_frame, parse_action_frame,
-    Ieee80211ActionFrameFixed,
+    Ieee80211ActionFrameFixed, action_frame_buffer_len, emit_action_frame,
+    parse_action_frame,
 };
 
 /// Neighbor Report element ID.

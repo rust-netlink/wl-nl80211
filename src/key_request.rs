@@ -5,9 +5,9 @@ use netlink_packet_core::{NLM_F_ACK, NLM_F_REQUEST};
 use netlink_packet_generic::GenlMessage;
 
 use crate::{
-    nl80211_execute, Ieee80211CipherSuite, Nl80211Attr, Nl80211Command,
-    Nl80211Error, Nl80211Handle, Nl80211KeyAttr, Nl80211KeyDefaultType,
-    Nl80211KeyType, Nl80211Message,
+    Ieee80211CipherSuite, Nl80211Attr, Nl80211Command, Nl80211Error,
+    Nl80211Handle, Nl80211KeyAttr, Nl80211KeyDefaultType, Nl80211KeyType,
+    Nl80211Message, nl80211_execute,
 };
 
 /// Helper to build the attribute list for a `NL80211_CMD_NEW_KEY` request
