@@ -208,6 +208,7 @@ fn test_captured_authenticate_event() {
     match parse_event(&raw).expect("parse event") {
         Nl80211Event::Authenticated(event) => {
             assert_eq!(Ieee80211StatusCode::Success, event.status);
+            assert!(!event.timed_out);
             let Ieee80211AuthFrame::Sae(frame) =
                 event.frame.expect("auth frame")
             else {
@@ -273,6 +274,7 @@ fn test_captured_associate_event() {
     match parse_event(&raw).expect("parse event") {
         Nl80211Event::Associated(event) => {
             assert_eq!(Ieee80211StatusCode::Success, event.status);
+            assert!(!event.timed_out);
             // Supported rates IE starts the response IEs.
             let ies = event.ies.expect("assoc IEs");
             assert_eq!(26, ies.len());
@@ -763,4 +765,52 @@ fn test_rekey_offload_without_replay_counter() {
         Nl80211Event::Unknown(Nl80211Command::SetRekeyOffload),
         Nl80211Event::parse(wrap_event(msg)).expect("parse event")
     );
+}
+
+// NL80211_CMD_ASSOCIATE event reporting an association timeout: cfg80211
+// sends NL80211_CMD_ASSOCIATE with NL80211_ATTR_TIMED_OUT in place of the
+// association response frame (`nl80211_send_mlme_timeout()`).
+//
+// Captured on the `nl0` nlmon monitor (mac80211_hwsim + hostapd) by stopping
+// hostapd after the authentication response and then associating: the AP
+// never answers the association request.
+#[test]
+fn test_captured_associate_timeout_event() {
+    let raw = vec![
+        0x34, 0x00, 0x00, 0x00, 0x33, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x26, 0x01, 0x00, 0x00, 0x08, 0x00, 0x01, 0x00,
+        0xea, 0x01, 0x00, 0x00, 0x08, 0x00, 0x03, 0x00, 0xdc, 0x02, 0x00, 0x00,
+        0x04, 0x00, 0x41, 0x00, 0x0a, 0x00, 0x06, 0x00, 0x02, 0x00, 0x00, 0x00,
+        0x01, 0x00, 0x00, 0x00,
+    ];
+    match parse_event(&raw).expect("parse event") {
+        Nl80211Event::Associated(event) => {
+            assert!(event.timed_out);
+            assert_eq!(Ieee80211StatusCode::UnspecifiedFailure, event.status);
+            assert_eq!(None, event.ies);
+        }
+        other => panic!("unexpected event: {other:?}"),
+    }
+}
+
+// NL80211_CMD_AUTHENTICATE event reporting an authentication timeout: same
+// NL80211_ATTR_TIMED_OUT encoding, captured on `nl0` by stopping hostapd
+// before the station authenticates.
+#[test]
+fn test_captured_authenticate_timeout_event() {
+    let raw = vec![
+        0x34, 0x00, 0x00, 0x00, 0x33, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x25, 0x01, 0x00, 0x00, 0x08, 0x00, 0x01, 0x00,
+        0xea, 0x01, 0x00, 0x00, 0x08, 0x00, 0x03, 0x00, 0xdc, 0x02, 0x00, 0x00,
+        0x04, 0x00, 0x41, 0x00, 0x0a, 0x00, 0x06, 0x00, 0x02, 0x00, 0x00, 0x00,
+        0x01, 0x00, 0x00, 0x00,
+    ];
+    match parse_event(&raw).expect("parse event") {
+        Nl80211Event::Authenticated(event) => {
+            assert!(event.timed_out);
+            assert_eq!(Ieee80211StatusCode::UnspecifiedFailure, event.status);
+            assert!(event.frame.is_none());
+        }
+        other => panic!("unexpected event: {other:?}"),
+    }
 }

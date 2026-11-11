@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use genetlink::message::RawGenlMessage;
-use netlink_packet_core::{NetlinkMessage, NetlinkPayload};
+use netlink_packet_core::{NetlinkMessage, NetlinkPayload, Nla};
 
 use crate::event_status::{Ieee80211ReasonCode, Ieee80211StatusCode};
 use crate::{
@@ -20,6 +20,14 @@ pub struct Nl80211EventAuthenticated {
     /// The full 802.11 authentication frame, parsed, when the kernel
     /// delivered one (SAE exchanges).
     pub frame: Option<Ieee80211AuthFrame>,
+    /// Whether the kernel reported that the authentication attempt timed
+    /// out (`NL80211_ATTR_TIMED_OUT`).
+    ///
+    /// On a timeout there is no `NL80211_ATTR_FRAME` and no
+    /// `NL80211_ATTR_STATUS_CODE`; `status` is then set to
+    /// [`Ieee80211StatusCode::UnspecifiedFailure`]. Consumers must check
+    /// this flag before treating `status` as an AP result.
+    pub timed_out: bool,
 }
 
 /// `NL80211_CMD_ASSOCIATE` event.
@@ -30,6 +38,14 @@ pub struct Nl80211EventAssociated {
     pub status: Ieee80211StatusCode,
     /// Information elements from the Association Response frame.
     pub ies: Option<Vec<u8>>,
+    /// Whether the kernel reported that the association attempt timed out
+    /// (`NL80211_ATTR_TIMED_OUT`).
+    ///
+    /// On a timeout there is no `NL80211_ATTR_FRAME` and no
+    /// `NL80211_ATTR_STATUS_CODE`; `status` is then set to
+    /// [`Ieee80211StatusCode::UnspecifiedFailure`]. Consumers must check
+    /// this flag before treating `status` as an AP result.
+    pub timed_out: bool,
 }
 
 /// `NL80211_CMD_CONNECT` event.
@@ -223,6 +239,20 @@ fn attr_status(msg: &Nl80211Message) -> Ieee80211StatusCode {
         .unwrap_or(Ieee80211StatusCode::Success)
 }
 
+/// Whether the event carries the `NL80211_ATTR_TIMED_OUT` flag.
+///
+/// cfg80211 uses this flag in place of `NL80211_ATTR_FRAME` on a
+/// `NL80211_CMD_AUTHENTICATE`/`NL80211_CMD_ASSOCIATE` MLME timeout
+/// (`nl80211_send_mlme_timeout()`); there is no status code attached.
+fn attr_timed_out(msg: &Nl80211Message) -> bool {
+    msg.attributes.iter().any(|attr| match attr {
+        Nl80211Attr::Other(nla) => {
+            nla.kind() == crate::attr::NL80211_ATTR_TIMED_OUT
+        }
+        _ => false,
+    })
+}
+
 fn attr_reason(msg: &Nl80211Message) -> u16 {
     msg.attributes
         .iter()
@@ -384,6 +414,7 @@ fn parse_connect(msg: &Nl80211Message) -> Nl80211Event {
 }
 
 fn parse_authenticate(msg: &Nl80211Message) -> Nl80211Event {
+    let timed_out = attr_timed_out(msg);
     let mut status = attr_status(msg);
     let frame = attr_frame(msg)
         .and_then(|frame| Ieee80211AuthFrame::parse(&frame).ok());
@@ -396,11 +427,21 @@ fn parse_authenticate(msg: &Nl80211Message) -> Nl80211Event {
             status = frame.status_code();
         }
     }
+    // A timeout carries only NL80211_ATTR_TIMED_OUT (in place of the
+    // frame), so the status must not be mistaken for a success.
+    if timed_out {
+        status = Ieee80211StatusCode::UnspecifiedFailure;
+    }
 
-    Nl80211Event::Authenticated(Nl80211EventAuthenticated { status, frame })
+    Nl80211Event::Authenticated(Nl80211EventAuthenticated {
+        status,
+        frame,
+        timed_out,
+    })
 }
 
 fn parse_associate(msg: &Nl80211Message) -> Nl80211Event {
+    let timed_out = attr_timed_out(msg);
     // mac80211/cfg80211 deliver the (Re)Association Response as a full
     // management frame in NL80211_ATTR_FRAME, without
     // NL80211_ATTR_STATUS_CODE. Parse the standard frame layout for the
@@ -408,7 +449,7 @@ fn parse_associate(msg: &Nl80211Message) -> Nl80211Event {
     let assoc_frame = attr_frame(msg)
         .and_then(|frame| Ieee80211AssocRespFrame::parse(&frame).ok());
 
-    let status = assoc_frame
+    let mut status = assoc_frame
         .as_ref()
         .map(|frame| frame.status_code)
         .or_else(|| {
@@ -418,6 +459,11 @@ fn parse_associate(msg: &Nl80211Message) -> Nl80211Event {
             })
         })
         .unwrap_or(Ieee80211StatusCode::Success);
+    // A timeout carries only NL80211_ATTR_TIMED_OUT (in place of the
+    // frame), so the status must not be mistaken for a success.
+    if timed_out {
+        status = Ieee80211StatusCode::UnspecifiedFailure;
+    }
     // The parsed frame body keeps AID(2) + IEs as `remains`; the event's
     // IEs start after the AID.
     let ies = attr_ie(msg).or_else(|| {
@@ -426,5 +472,9 @@ fn parse_associate(msg: &Nl80211Message) -> Nl80211Event {
             .map(|frame| frame.remains.get(2..).unwrap_or_default().to_vec())
     });
 
-    Nl80211Event::Associated(Nl80211EventAssociated { status, ies })
+    Nl80211Event::Associated(Nl80211EventAssociated {
+        status,
+        ies,
+        timed_out,
+    })
 }
