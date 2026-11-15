@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    DecodeError, Emitable, ErrorContext, NlasIterator, Parseable,
-    ParseableParametrized,
+    DecodeError, Emitable, EncodeError, ErrorContext, Nla, NlasIterator,
+    Parseable, ParseableParametrized,
 };
 use netlink_packet_generic::{GenlFamily, GenlHeader};
 
@@ -35,24 +35,15 @@ impl GenlFamily for Nl80211Message {
 }
 
 impl Emitable for Nl80211Message {
-    fn buffer_len(&self) -> usize {
-        self.attributes
-            .iter()
-            .filter(|attr| !ssid_string_is_overridden(attr, &self.attributes))
-            .map(|attr| attr.buffer_len())
-            .sum()
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        let mut offset = 0;
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         for attr in self
             .attributes
             .iter()
             .filter(|attr| !ssid_string_is_overridden(attr, &self.attributes))
         {
-            attr.emit(&mut buffer[offset..offset + attr.buffer_len()]);
-            offset += attr.buffer_len();
+            attr.emit(out)?;
         }
+        Ok(())
     }
 }
 
@@ -91,10 +82,9 @@ fn ssid_string_is_overridden(
 
 fn parse_nlas(buffer: &[u8]) -> Result<Vec<Nl80211Attr>, DecodeError> {
     let mut ret = Vec::new();
-    for nla in NlasIterator::new(buffer) {
+    for nla in NlasIterator::new(buffer)? {
         let error_msg = "Failed to parse nl80211 message attribute".to_string();
-        let nla = &nla.context(error_msg.clone())?;
-        let attr = Nl80211Attr::parse(nla).context(error_msg)?;
+        let attr = Nl80211Attr::parse(&nla).context(error_msg)?;
         let view = ssid_string_view(&attr);
         ret.push(attr);
         // A received SSID is always stored raw, the `Ssid` string view of it

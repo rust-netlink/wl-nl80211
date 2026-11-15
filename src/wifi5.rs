@@ -2,9 +2,9 @@
 
 // Hold WIFI 5(802.11ac) specific data types
 
-use netlink_packet_core::{DecodeError, Emitable, Parseable};
+use netlink_packet_core::{DecodeError, Emitable, EncodeError, Parseable};
 
-use crate::bytes::write_u16_le;
+use crate::bytes::{append_u16_le, append_u32_le};
 
 const NL80211_BAND_VHT_MCS_INFO_LEN: usize = 8;
 
@@ -26,22 +26,12 @@ impl Ieee80211VhtMcsInfo {
 }
 
 impl Emitable for Ieee80211VhtMcsInfo {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < NL80211_BAND_VHT_MCS_INFO_LEN {
-            log::error!(
-                "Buffer size is smaller than NL80211_BAND_VHT_MCS_INFO_LEN \
-                {NL80211_BAND_VHT_MCS_INFO_LEN}"
-            );
-            return;
-        }
-        write_u16_le(&mut buffer[0..2], self.rx_mcs_map);
-        write_u16_le(&mut buffer[2..4], self.rx_highest);
-        write_u16_le(&mut buffer[4..6], self.tx_mcs_map);
-        write_u16_le(&mut buffer[6..8], self.tx_highest);
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u16_le(out, self.rx_mcs_map);
+        append_u16_le(out, self.rx_highest);
+        append_u16_le(out, self.tx_mcs_map);
+        append_u16_le(out, self.tx_highest);
+        Ok(())
     }
 }
 
@@ -165,12 +155,9 @@ impl Ieee80211VhtCapInfo {
 }
 
 impl Emitable for Ieee80211VhtCapInfo {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&self.bits().to_le_bytes())
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u32_le(out, self.bits());
+        Ok(())
     }
 }
 
@@ -187,23 +174,10 @@ impl Ieee80211VhtCapability {
 }
 
 impl Emitable for Ieee80211VhtCapability {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < Self::LENGTH {
-            log::error!(
-                "Buffer size {} is smaller than desired size {}",
-                buffer.len(),
-                Self::LENGTH,
-            );
-            return;
-        }
-        self.cap_info
-            .emit(&mut buffer[..Ieee80211VhtCapInfo::LENGTH]);
-        self.mcs_info
-            .emit(&mut buffer[Ieee80211VhtCapInfo::LENGTH..]);
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        self.cap_info.emit(out)?;
+        self.mcs_info.emit(out)?;
+        Ok(())
     }
 }
 
@@ -265,22 +239,9 @@ impl Ieee80211ElementVhtCap {
 }
 
 impl Emitable for Ieee80211ElementVhtCap {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < Self::LENGTH {
-            log::error!(
-                "Ieee80211ElementVhtCap buffer size is smaller than \
-                required size {}: {buffer:?}",
-                Self::LENGTH
-            );
-            return;
-        }
-        let mut offset = 0;
-        self.caps.emit(&mut buffer[offset..]);
-        offset += Ieee80211VhtCapInfo::LENGTH;
-        self.mcs_nss_set.emit(&mut buffer[offset..]);
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        self.caps.emit(out)?;
+        self.mcs_nss_set.emit(out)?;
+        Ok(())
     }
 }

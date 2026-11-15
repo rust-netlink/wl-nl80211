@@ -9,7 +9,7 @@
 // single netlink attribute (length, type, value) padded to the netlink 4-byte
 // alignment.
 
-use netlink_packet_core::{Emitable, NlaBuffer, Parseable};
+use netlink_packet_core::{Nla, NlaBuffer, Parseable};
 
 use crate::Nl80211Attr;
 
@@ -21,10 +21,10 @@ fn test_captured_frame_type() {
     let expected = Nl80211Attr::FrameType(0x00d0);
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -36,10 +36,10 @@ fn test_captured_frame_match() {
     let expected = Nl80211Attr::FrameMatch(vec![0x01, 0x04]);
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -51,9 +51,9 @@ fn test_captured_privacy() {
     let expected = Nl80211Attr::Privacy;
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }

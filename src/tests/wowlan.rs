@@ -10,7 +10,7 @@
 // nlmon capture for the wake *event* itself (mac80211_hwsim has no
 // WoWLAN support).
 
-use netlink_packet_core::{DefaultNla, Emitable, NlaBuffer, Parseable};
+use netlink_packet_core::{DefaultNla, Nla, NlaBuffer, Parseable};
 
 use crate::{
     Nl80211Attr, Nl80211Wowlan, Nl80211WowlanTriggersSupport,
@@ -33,10 +33,10 @@ fn test_wowlan_triggers_round_trip() {
     ]);
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -48,11 +48,10 @@ fn test_wowlan_wakeup_reason_round_trip() {
     let expected = Nl80211WowlanWakeup::GtkRekeyFailure;
     assert_eq!(
         expected,
-        Nl80211WowlanWakeup::parse(&NlaBuffer::new_checked(&raw).unwrap())
-            .unwrap()
+        Nl80211WowlanWakeup::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -70,10 +69,10 @@ fn test_wowlan_triggers_unmodeled_payload_is_lenient() {
         )]);
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 

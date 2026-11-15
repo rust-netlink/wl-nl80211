@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    DecodeError, Emitable, ErrorContext, Parseable, parse_u16,
+    DecodeError, Emitable, EncodeError, ErrorContext, Parseable, append_u16,
+    parse_u16,
 };
 
 bitflags::bitflags! {
@@ -42,11 +43,8 @@ impl Ieee80211CapabilityInfo {
 }
 
 impl Emitable for Ieee80211CapabilityInfo {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&self.bits().to_ne_bytes())
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u16(out, self.bits());
+        Ok(())
     }
 }

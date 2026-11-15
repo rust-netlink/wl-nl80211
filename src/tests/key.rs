@@ -9,7 +9,7 @@
 // exchange.
 
 use netlink_packet_core::{
-    Emitable, EthernetProtocol, NlaBuffer, NlasIterator, Parseable,
+    Emitable, EthernetProtocol, Nla, NlaBuffer, NlasIterator, Parseable,
 };
 
 use crate::{
@@ -20,10 +20,10 @@ use crate::{
 fn assert_roundtrip(expected: Nl80211Attr, raw: Vec<u8>) {
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -160,14 +160,15 @@ fn emit_new_key_attributes(attributes: Vec<Nl80211Attr>) -> Vec<u8> {
         cmd: Nl80211Command::NewKey,
         attributes,
     };
-    let mut buf = vec![0u8; msg.buffer_len()];
-    msg.emit(&mut buf);
+    let mut buf = Vec::new();
+    msg.emit(&mut buf).unwrap();
     buf
 }
 
 fn parse_message_attributes(raw: &[u8]) -> Vec<Nl80211Attr> {
     NlasIterator::new(raw)
-        .map(|nla| Nl80211Attr::parse(&nla.unwrap()).unwrap())
+        .unwrap()
+        .map(|nla| Nl80211Attr::parse(&nla).unwrap())
         .collect()
 }
 

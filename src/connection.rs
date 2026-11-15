@@ -4,25 +4,20 @@ use std::collections::HashMap;
 use std::io;
 
 use futures::channel::mpsc::UnboundedReceiver;
-use genetlink::message::RawGenlMessage;
+use genetlink::{GenetlinkError, RawGenlMessage};
 use netlink_packet_core::{
     Emitable, NLM_F_REQUEST, NetlinkMessage, NetlinkPayload,
 };
 use netlink_packet_generic::{
-    GenlMessage,
-    ctrl::{
-        GenlCtrl, GenlCtrlCmd,
-        nlas::{GenlCtrlAttrs, McastGrpAttrs},
-    },
+    GenlCtrlAttr, GenlCtrlCmd, GenlCtrlMcastGroup, GenlCtrlMessage, GenlMessage,
 };
 use netlink_proto::Connection;
-use netlink_sys::{
-    AsyncSocket, Socket, SocketAddr, protocols::NETLINK_GENERIC,
-};
+use netlink_sys::{AsyncSocket, Socket, SocketAddr};
 
 use crate::Nl80211Handle;
 
 const NL80211_FAMILY_NAME: &str = "nl80211";
+const NETLINK_GENERIC: isize = libc::NETLINK_GENERIC as isize;
 const GENL_ID_CTRL: u16 = 0x10;
 
 /// Multicast groups of the nl80211 family.
@@ -66,11 +61,14 @@ impl Nl80211MulticastGroup {
 
 #[cfg(feature = "tokio_socket")]
 #[allow(clippy::type_complexity)]
-pub fn new_connection() -> io::Result<(
-    Connection<RawGenlMessage>,
-    Nl80211Handle,
-    UnboundedReceiver<(NetlinkMessage<RawGenlMessage>, SocketAddr)>,
-)> {
+pub fn new_connection() -> Result<
+    (
+        Connection<RawGenlMessage>,
+        Nl80211Handle,
+        UnboundedReceiver<(NetlinkMessage<RawGenlMessage>, SocketAddr)>,
+    ),
+    GenetlinkError,
+> {
     new_connection_with_socket()
 }
 
@@ -85,20 +83,26 @@ pub fn new_connection() -> io::Result<(
 #[allow(clippy::type_complexity)]
 pub fn new_multicast_connection(
     groups: &[Nl80211MulticastGroup],
-) -> io::Result<(
-    Connection<RawGenlMessage>,
-    Nl80211Handle,
-    UnboundedReceiver<(NetlinkMessage<RawGenlMessage>, SocketAddr)>,
-)> {
+) -> Result<
+    (
+        Connection<RawGenlMessage>,
+        Nl80211Handle,
+        UnboundedReceiver<(NetlinkMessage<RawGenlMessage>, SocketAddr)>,
+    ),
+    GenetlinkError,
+> {
     new_multicast_connection_with_socket(groups)
 }
 
 #[allow(clippy::type_complexity)]
-pub fn new_connection_with_socket<S>() -> io::Result<(
-    Connection<RawGenlMessage, S>,
-    Nl80211Handle,
-    UnboundedReceiver<(NetlinkMessage<RawGenlMessage>, SocketAddr)>,
-)>
+pub fn new_connection_with_socket<S>() -> Result<
+    (
+        Connection<RawGenlMessage, S>,
+        Nl80211Handle,
+        UnboundedReceiver<(NetlinkMessage<RawGenlMessage>, SocketAddr)>,
+    ),
+    GenetlinkError,
+>
 where
     S: AsyncSocket,
 {
@@ -111,15 +115,18 @@ where
 #[allow(clippy::type_complexity)]
 pub fn new_multicast_connection_with_socket<S>(
     groups: &[Nl80211MulticastGroup],
-) -> io::Result<(
-    Connection<RawGenlMessage, S>,
-    Nl80211Handle,
-    UnboundedReceiver<(NetlinkMessage<RawGenlMessage>, SocketAddr)>,
-)>
+) -> Result<
+    (
+        Connection<RawGenlMessage, S>,
+        Nl80211Handle,
+        UnboundedReceiver<(NetlinkMessage<RawGenlMessage>, SocketAddr)>,
+    ),
+    GenetlinkError,
+>
 where
     S: AsyncSocket,
 {
-    let (mut conn, handle, messages): (Connection<RawGenlMessage, S>, _, _) =
+    let (conn, handle, messages): (Connection<RawGenlMessage, S>, _, _) =
         genetlink::new_connection_with_socket()?;
     let group_ids = query_multicast_group_ids()?;
 
@@ -127,8 +134,8 @@ where
     // socket unbound until the first request is sent, and the kernel skips
     // unbound sockets (portid 0, same as the multicast sender) when
     // delivering broadcasts.
-    conn.socket_mut()
-        .socket_mut()
+    conn.socket_ref()
+        .socket_ref()
         .bind(&SocketAddr::new(0, 0))?;
 
     // The nl80211 multicast group ids are dynamic and can exceed the 32
@@ -138,7 +145,7 @@ where
     for group in groups {
         match group_ids.get(group.name()) {
             Some(id) => {
-                conn.socket_mut().socket_mut().add_membership(*id)?;
+                conn.socket_ref().socket_ref().add_membership(*id)?;
             }
             None => {
                 log::warn!("nl80211 multicast group {:?} not found", group);
@@ -155,44 +162,45 @@ where
 /// resolved via a blocking `GENL_CMD_GETFAMILY` query on the generic netlink
 /// control socket before joining the groups.
 fn query_multicast_group_ids() -> io::Result<HashMap<String, u32>> {
-    let mut sock = Socket::new(NETLINK_GENERIC)?;
+    let sock = Socket::new(NETLINK_GENERIC)?;
     sock.bind(&SocketAddr::new(0, 0))?;
     sock.connect(&SocketAddr::new(0, 0))?;
 
-    let genl_ctrl = GenlCtrl {
-        cmd: GenlCtrlCmd::GetFamily,
-        nlas: vec![GenlCtrlAttrs::FamilyName(NL80211_FAMILY_NAME.to_string())],
-    };
-    let mut genl_msg: GenlMessage<GenlCtrl> =
+    let genl_ctrl = GenlCtrlMessage::new(
+        GenlCtrlCmd::GetFamily,
+        vec![GenlCtrlAttr::FamilyName(NL80211_FAMILY_NAME.to_string())],
+    );
+    let mut genl_msg: GenlMessage<GenlCtrlMessage> =
         GenlMessage::from_payload(genl_ctrl);
     genl_msg.finalize();
     // The control family has a static family id (0x10).
     genl_msg.set_resolved_family_id(GENL_ID_CTRL);
     let mut nl_msg = NetlinkMessage::from(genl_msg);
     nl_msg.header.flags = NLM_F_REQUEST;
-    nl_msg.finalize();
 
-    let mut buf = vec![0u8; nl_msg.buffer_len()];
-    nl_msg.emit(&mut buf);
+    let mut buf = Vec::new();
+    nl_msg.emit(&mut buf).map_err(io::Error::other)?;
     sock.send(&buf, 0)?;
 
     let (recv_buf, _) = sock.recv_from_full()?;
 
     let rx_packet =
-        NetlinkMessage::<GenlMessage<GenlCtrl>>::deserialize(&recv_buf)
+        NetlinkMessage::<GenlMessage<GenlCtrlMessage>>::deserialize(&recv_buf)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
     let mut groups = HashMap::new();
     if let NetlinkPayload::InnerMessage(genlmsg) = rx_packet.payload {
         for nla in &genlmsg.payload.nlas {
-            if let GenlCtrlAttrs::McastGroups(mcast_groups) = nla {
-                for grp_attrs in mcast_groups {
+            if let GenlCtrlAttr::McastGroups(mcast_groups) = nla {
+                for grp in mcast_groups {
                     let mut name = String::new();
                     let mut id = 0;
-                    for attr in grp_attrs {
+                    for attr in &grp.attrs {
                         match attr {
-                            McastGrpAttrs::Name(n) => name = n.clone(),
-                            McastGrpAttrs::Id(gid) => id = *gid,
+                            GenlCtrlMcastGroup::Name(n) => name = n.clone(),
+                            GenlCtrlMcastGroup::Id(gid) => id = *gid,
+                            GenlCtrlMcastGroup::Unknown(_) => (),
+                            _ => (),
                         }
                     }
                     if !name.is_empty() {

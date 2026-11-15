@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    DecodeError, ErrorContext, Nla, NlasIterator, parse_u32,
+    DecodeError, EncodeError, ErrorContext, Nla, NlasIterator, parse_u32,
 };
+
+use crate::bytes::append_u32;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) struct Nl80211InterfaceTypes(pub(crate) Vec<Nl80211InterfaceType>);
@@ -30,9 +32,9 @@ impl From<Nl80211InterfaceTypes> for Vec<Nl80211InterfaceType> {
 impl Nl80211InterfaceTypes {
     pub fn parse(payload: &[u8], kind: &str) -> Result<Self, DecodeError> {
         let mut iface_types: Vec<Nl80211InterfaceType> = Vec::new();
-        for nla in NlasIterator::new(payload) {
-            let error_msg = format!("Invalid {kind}: {nla:?}");
-            let nla = &nla.context(error_msg.clone())?;
+        for nla in
+            NlasIterator::new(payload).context(format!("Invalid {kind}"))?
+        {
             iface_types.push(Nl80211InterfaceType::from(nla.kind() as u32));
         }
         Ok(Self(iface_types))
@@ -99,11 +101,10 @@ impl Nl80211InterfaceType {
 }
 
 impl Nla for Nl80211InterfaceType {
-    fn value_len(&self) -> usize {
-        Self::LENGTH
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u32(out, 0);
+        Ok(())
     }
-
-    fn emit_value(&self, _buffer: &mut [u8]) {}
 
     fn kind(&self) -> u16 {
         u32::from(*self) as u16

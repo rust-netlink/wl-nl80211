@@ -87,21 +87,15 @@ pub(crate) fn parse_action_frame(
     ))
 }
 
-/// Total buffer length of an Action frame with `body_len` bytes of body
-/// data after the category and action octets.
-pub(crate) fn action_frame_buffer_len(body_len: usize) -> usize {
-    ACTION_FRAME_FIXED_LEN + body_len
-}
-
-/// Emit the fixed part plus `body` into `buffer`.
+/// Emit the fixed part plus `body` into `out`.
 pub(crate) fn emit_action_frame(
     fixed: &Ieee80211ActionFrameFixed,
     body: &[u8],
-    buffer: &mut [u8],
+    out: &mut Vec<u8>,
 ) {
     let raw = Ieee80211ActionFrameBuffer::from(fixed);
-    buffer[..ACTION_FRAME_FIXED_LEN].copy_from_slice(raw.as_bytes());
-    buffer[ACTION_FRAME_FIXED_LEN..].copy_from_slice(body);
+    out.extend_from_slice(raw.as_bytes());
+    out.extend_from_slice(body);
 }
 
 impl From<&Ieee80211ActionFrameFixed> for Ieee80211ActionFrameBuffer {

@@ -42,8 +42,7 @@ const ASSOC_MODELED_KINDS: &[u16] =
 
 fn parse_attrs(raw: &[u8]) -> Vec<Nl80211Attr> {
     let mut attrs = Vec::new();
-    for nla in NlasIterator::new(raw) {
-        let nla = nla.unwrap();
+    for nla in NlasIterator::new(raw).unwrap() {
         attrs.push(Nl80211Attr::parse(&nla).unwrap());
     }
     attrs

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer, Parseable,
-    emit_u16, emit_u32, parse_u8, parse_u16, parse_u32,
+    DecodeError, DefaultNla, EncodeError, ErrorContext, Nla, NlaBuffer,
+    Parseable, append_bytes, append_u8, append_u16, append_u32, parse_u8,
+    parse_u16, parse_u32,
 };
 
 const NL80211_RATE_INFO_BITRATE: u16 = 1;
@@ -81,29 +82,6 @@ pub enum Nl80211RateInfo {
 }
 
 impl Nla for Nl80211RateInfo {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::MhzWidth(_) | Self::ShortGi | Self::MhzWidth80Plus80 => 0,
-            Self::Mcs(_)
-            | Self::VhtMcs(_)
-            | Self::VhtNss(_)
-            | Self::HeMcs(_)
-            | Self::HeNss(_)
-            | Self::HeGi(_)
-            | Self::HeDcm(_)
-            | Self::HeRuAlloc(_)
-            | Self::S1gMcs(_)
-            | Self::S1gNss(_)
-            | Self::EhtMcs(_)
-            | Self::EhtNss(_)
-            | Self::EhtGi(_)
-            | Self::EhtRuAlloc(_) => 1,
-            Self::Bitrate(_) => 2,
-            Self::Bitrate32(_) => 4,
-            Self::Other(nlas) => nlas.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::Bitrate(_) => NL80211_RATE_INFO_BITRATE,
@@ -143,9 +121,9 @@ impl Nla for Nl80211RateInfo {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
-            Self::Bitrate(bitrate) => emit_u16(buffer, *bitrate).unwrap(),
+            Self::Bitrate(bitrate) => append_u16(out, *bitrate),
             Self::Mcs(d)
             | Self::VhtMcs(d)
             | Self::VhtNss(d)
@@ -155,22 +133,21 @@ impl Nla for Nl80211RateInfo {
             | Self::S1gMcs(d)
             | Self::S1gNss(d)
             | Self::EhtMcs(d)
-            | Self::EhtNss(d) => buffer[0] = *d,
+            | Self::EhtNss(d) => append_u8(out, *d),
             Self::MhzWidth(_) | Self::ShortGi | Self::MhzWidth80Plus80 => (),
-            Self::Bitrate32(bitrate) => emit_u32(buffer, *bitrate).unwrap(),
-            Self::HeGi(d) => buffer[0] = (*d).into(),
-            Self::HeRuAlloc(d) => buffer[0] = (*d).into(),
-            Self::EhtGi(d) => buffer[0] = (*d).into(),
-            Self::EhtRuAlloc(d) => buffer[0] = (*d).into(),
-            Self::Other(nlas) => nlas.emit(buffer),
+            Self::Bitrate32(bitrate) => append_u32(out, *bitrate),
+            Self::HeGi(d) => append_u8(out, (*d).into()),
+            Self::HeRuAlloc(d) => append_u8(out, (*d).into()),
+            Self::EhtGi(d) => append_u8(out, (*d).into()),
+            Self::EhtRuAlloc(d) => append_u8(out, (*d).into()),
+            Self::Other(nlas) => append_bytes(out, nlas.value()),
         }
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211RateInfo
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211RateInfo {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_RATE_INFO_BITRATE => {

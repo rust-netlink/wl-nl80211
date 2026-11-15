@@ -3,9 +3,10 @@
 use std::convert::TryInto;
 
 use netlink_packet_core::{
-    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
-    NlasIterator, Parseable, emit_i64, emit_u16, emit_u32, emit_u64, parse_u8,
-    parse_u16, parse_u32, parse_u64,
+    DecodeError, DefaultNla, Emitable, EncodeError, ErrorContext, Nla,
+    NlaBuffer, NlasIterator, Parseable, append_bytes, append_i64, append_u8,
+    append_u16, append_u32, append_u64, parse_u8, parse_u16, parse_u32,
+    parse_u64,
 };
 
 use std::fmt::Debug;
@@ -162,54 +163,6 @@ pub enum Nl80211StationInfo {
 }
 
 impl Nla for Nl80211StationInfo {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::Signal(_)
-            | Self::SignalAvg(_)
-            | Self::AckSignal(_)
-            | Self::AckSignalAvg(_)
-            | Self::BeaconSignalAvg(_) => 1,
-            Self::PeerLinkState(_)
-            | Self::ConnectedToGate(_)
-            | Self::ConnectedToAuthServer(_) => 1,
-            Self::Llid(_)
-            | Self::Plid(_)
-            | Self::AirtimeWeight(_)
-            | Self::AirtimeLinkMetric(_) => 2,
-            Self::InactiveTime(_)
-            | Self::TxBytes(_)
-            | Self::RxBytes(_)
-            | Self::TxPackets(_)
-            | Self::RxPackets(_)
-            | Self::RxMpdus(_)
-            | Self::TxRetries(_)
-            | Self::TxFailed(_)
-            | Self::FcsErrorCount(_)
-            | Self::ConnectedTime(_)
-            | Self::LocalPowerMode(_)
-            | Self::PeerPowerMode(_)
-            | Self::NonPeerPowerMode(_)
-            | Self::ExpectedThroughput(_)
-            | Self::BeaconLoss(_) => 4,
-            Self::TxBytes64(_)
-            | Self::RxBytes64(_)
-            | Self::RxDropMisc(_)
-            | Self::StationFlags(_)
-            | Self::TimingOffset(_)
-            | Self::BeaconRx(_)
-            | Self::TxDuration(_)
-            | Self::RxDuration(_)
-            | Self::AssociationAtBoottime(_) => 8,
-            Self::TxBitrate(nlas) | Self::RxBitrate(nlas) => {
-                nlas.as_slice().buffer_len()
-            }
-            Self::BssParam(nlas) => nlas.as_slice().buffer_len(),
-            Self::ChainSignal(d) | Self::ChainSignalAvg(d) => d.len(),
-            Self::TidStats(nlas) => nlas.as_slice().buffer_len(),
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Nl80211StationInfo::InactiveTime(_) => {
@@ -286,19 +239,17 @@ impl Nla for Nl80211StationInfo {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
             Nl80211StationInfo::Signal(d)
             | Nl80211StationInfo::SignalAvg(d)
             | Nl80211StationInfo::BeaconSignalAvg(d)
             | Nl80211StationInfo::AckSignal(d)
-            | Nl80211StationInfo::AckSignalAvg(d) => buffer[0] = *d as u8,
+            | Nl80211StationInfo::AckSignalAvg(d) => append_u8(out, *d as u8),
             Nl80211StationInfo::Llid(d)
             | Nl80211StationInfo::Plid(d)
             | Nl80211StationInfo::AirtimeWeight(d)
-            | Nl80211StationInfo::AirtimeLinkMetric(d) => {
-                emit_u16(buffer, *d).unwrap()
-            }
+            | Nl80211StationInfo::AirtimeLinkMetric(d) => append_u16(out, *d),
             Nl80211StationInfo::InactiveTime(d)
             | Nl80211StationInfo::TxBytes(d)
             | Nl80211StationInfo::RxBytes(d)
@@ -310,9 +261,7 @@ impl Nla for Nl80211StationInfo {
             | Nl80211StationInfo::FcsErrorCount(d)
             | Nl80211StationInfo::ConnectedTime(d)
             | Nl80211StationInfo::ExpectedThroughput(d)
-            | Nl80211StationInfo::BeaconLoss(d) => {
-                emit_u32(buffer, *d).unwrap()
-            }
+            | Nl80211StationInfo::BeaconLoss(d) => append_u32(out, *d),
             Nl80211StationInfo::TxBytes64(d)
             | Nl80211StationInfo::RxBytes64(d)
             | Nl80211StationInfo::RxDropMisc(d)
@@ -320,46 +269,44 @@ impl Nla for Nl80211StationInfo {
             | Nl80211StationInfo::TxDuration(d)
             | Nl80211StationInfo::RxDuration(d)
             | Nl80211StationInfo::AssociationAtBoottime(d) => {
-                emit_u64(buffer, *d).unwrap()
+                append_u64(out, *d)
             }
-            Nl80211StationInfo::TimingOffset(d) => {
-                emit_i64(buffer, *d).unwrap()
-            }
+            Nl80211StationInfo::TimingOffset(d) => append_i64(out, *d),
             Nl80211StationInfo::TxBitrate(nlas)
             | Nl80211StationInfo::RxBitrate(nlas) => {
-                nlas.as_slice().emit(buffer)
+                nlas.as_slice().emit(out)?
             }
-            Nl80211StationInfo::PeerLinkState(d) => buffer[0] = (*d).into(),
-            Nl80211StationInfo::BssParam(nlas) => nlas.as_slice().emit(buffer),
+            Nl80211StationInfo::PeerLinkState(d) => append_u8(out, (*d).into()),
+            Nl80211StationInfo::BssParam(nlas) => nlas.as_slice().emit(out)?,
             Nl80211StationInfo::StationFlags(d) => {
-                emit_u32(&mut buffer[0..4], d.mask.bits()).unwrap();
-                emit_u32(&mut buffer[4..8], d.set.bits()).unwrap();
+                append_u32(out, d.mask.bits());
+                append_u32(out, d.set.bits());
             }
             Nl80211StationInfo::LocalPowerMode(d)
             | Nl80211StationInfo::PeerPowerMode(d)
             | Nl80211StationInfo::NonPeerPowerMode(d) => {
-                emit_u32(buffer, (*d).into()).unwrap()
+                append_u32(out, (*d).into())
             }
             Nl80211StationInfo::ChainSignal(d)
             | Nl80211StationInfo::ChainSignalAvg(d) => {
-                let data: Vec<u8> = d.iter().map(|d| *d as u8).collect();
-                buffer.copy_from_slice(data.as_slice());
+                for signal in d {
+                    append_u8(out, *signal as u8);
+                }
             }
-            Nl80211StationInfo::TidStats(nlas) => nlas.as_slice().emit(buffer),
+            Nl80211StationInfo::TidStats(nlas) => nlas.as_slice().emit(out)?,
             Nl80211StationInfo::ConnectedToGate(d)
             | Nl80211StationInfo::ConnectedToAuthServer(d) => {
-                buffer[0] = (*d).into()
+                append_u8(out, (*d).into())
             }
-            Self::Other(attr) => attr.emit(buffer),
+            Self::Other(attr) => append_bytes(out, attr.value()),
         }
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211StationInfo
-{
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211StationInfo {
     fn parse(
-        buf: &NlaBuffer<&'a T>,
+        buf: &NlaBuffer<'a>,
     ) -> Result<Self, netlink_packet_core::DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
@@ -408,10 +355,12 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     "Invalid NL80211_STA_INFO_TX_BITRATE value {payload:?}"
                 );
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
+                for nla in
+                    NlasIterator::new(payload).context(err_msg.clone())?
+                {
                     nlas.push(
-                        Nl80211RateInfo::parse(nla).context(err_msg.clone())?,
+                        Nl80211RateInfo::parse(&nla)
+                            .context(err_msg.clone())?,
                     );
                 }
                 Self::TxBitrate(nlas)
@@ -451,10 +400,12 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     "Invalid NL80211_STA_INFO_RX_BITRATE value {payload:?}"
                 );
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
+                for nla in
+                    NlasIterator::new(payload).context(err_msg.clone())?
+                {
                     nlas.push(
-                        Nl80211RateInfo::parse(nla).context(err_msg.clone())?,
+                        Nl80211RateInfo::parse(&nla)
+                            .context(err_msg.clone())?,
                     );
                 }
                 Self::RxBitrate(nlas)
@@ -464,10 +415,11 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     "Invalid NL80211_STA_INFO_BSS_PARAM value {payload:?}"
                 );
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
+                for nla in
+                    NlasIterator::new(payload).context(err_msg.clone())?
+                {
                     nlas.push(
-                        Nl80211StationBssParam::parse(nla)
+                        Nl80211StationBssParam::parse(&nla)
                             .context(err_msg.clone())?,
                     );
                 }
@@ -587,11 +539,11 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     "Invalid NL80211_STA_INFO_TID_STATS value {payload:?}"
                 );
                 let mut nlas = Vec::new();
-                let _t = NlasIterator::new(payload);
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
+                for nla in
+                    NlasIterator::new(payload).context(err_msg.clone())?
+                {
                     nlas.push(
-                        NestedNl80211TidStats::parse(nla)
+                        NestedNl80211TidStats::parse(&nla)
                             .context(err_msg.clone())?,
                     );
                 }
@@ -759,16 +711,6 @@ pub enum Nl80211StationBssParam {
 }
 
 impl Nla for Nl80211StationBssParam {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::CtsProtection | Self::ShortPreamble | Self::ShortSlotTime => {
-                0
-            }
-            Self::DtimPeriod(_) => 1,
-            Self::BeaconInterval(_) | Self::Other(_) => 2,
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::CtsProtection => NL80211_STA_BSS_PARAM_CTS_PROT,
@@ -780,22 +722,21 @@ impl Nla for Nl80211StationBssParam {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
             Self::CtsProtection | Self::ShortPreamble | Self::ShortSlotTime => {
             }
-            Self::DtimPeriod(d) => buffer[0] = *d,
-            Self::BeaconInterval(d) => emit_u16(buffer, *d).unwrap(),
-            Self::Other(d) => (*d).emit(buffer),
+            Self::DtimPeriod(d) => append_u8(out, *d),
+            Self::BeaconInterval(d) => append_u16(out, *d),
+            Self::Other(d) => append_bytes(out, d.value()),
         }
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211StationBssParam
-{
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211StationBssParam {
     fn parse(
-        buf: &NlaBuffer<&'a T>,
+        buf: &NlaBuffer<'a>,
     ) -> Result<Self, netlink_packet_core::DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {

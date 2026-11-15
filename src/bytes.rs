@@ -2,28 +2,20 @@
 
 use netlink_packet_core::DecodeError;
 
-pub(crate) fn write_u16(buffer: &mut [u8], value: u16) {
-    buffer[..2].copy_from_slice(&value.to_ne_bytes())
+pub(crate) fn append_u16(out: &mut Vec<u8>, value: u16) {
+    out.extend_from_slice(&value.to_ne_bytes());
 }
 
-pub(crate) fn write_u16_le(buffer: &mut [u8], value: u16) {
-    buffer[..2].copy_from_slice(&value.to_le_bytes())
+pub(crate) fn append_u16_le(out: &mut Vec<u8>, value: u16) {
+    out.extend_from_slice(&value.to_le_bytes());
 }
 
-pub(crate) fn write_u32(buffer: &mut [u8], value: u32) {
-    buffer[..4].copy_from_slice(&value.to_ne_bytes())
+pub(crate) fn append_u32(out: &mut Vec<u8>, value: u32) {
+    out.extend_from_slice(&value.to_ne_bytes());
 }
 
-pub(crate) fn write_u32_le(buffer: &mut [u8], value: u32) {
-    buffer[..4].copy_from_slice(&value.to_le_bytes())
-}
-
-pub(crate) fn write_i32(buffer: &mut [u8], value: i32) {
-    buffer[..4].copy_from_slice(&value.to_ne_bytes())
-}
-
-pub(crate) fn write_u64(buffer: &mut [u8], value: u64) {
-    buffer[..8].copy_from_slice(&value.to_ne_bytes())
+pub(crate) fn append_u32_le(out: &mut Vec<u8>, value: u32) {
+    out.extend_from_slice(&value.to_le_bytes());
 }
 
 /// The `pos` is index from bit 0.

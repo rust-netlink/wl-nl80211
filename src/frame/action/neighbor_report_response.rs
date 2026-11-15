@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 
-use netlink_packet_core::{DecodeError, Emitable};
+use netlink_packet_core::{DecodeError, Emitable, EncodeError};
 
 use crate::{element::Ieee80211ElementBuffer, mac::ETH_ALEN};
 
 use super::buffer::{
-    Ieee80211ActionFrameFixed, action_frame_buffer_len, emit_action_frame,
-    parse_action_frame,
+    Ieee80211ActionFrameFixed, emit_action_frame, parse_action_frame,
 };
 
 /// Neighbor Report element ID.
@@ -147,9 +146,10 @@ impl Ieee80211ActionFrameNeighborReportResponse {
 
     /// Serialize this frame into raw 802.11 management frame bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut buffer = vec![0u8; self.buffer_len()];
-        self.emit(&mut buffer);
-        buffer
+        let mut out = Vec::new();
+        self.emit(&mut out)
+            .expect("emitting an action frame cannot fail");
+        out
     }
 
     fn fixed(&self) -> Ieee80211ActionFrameFixed {
@@ -167,11 +167,8 @@ impl Ieee80211ActionFrameNeighborReportResponse {
 }
 
 impl Emitable for Ieee80211ActionFrameNeighborReportResponse {
-    fn buffer_len(&self) -> usize {
-        action_frame_buffer_len(self.body.len())
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        emit_action_frame(&self.fixed(), &self.body, buffer);
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        emit_action_frame(&self.fixed(), &self.body, out);
+        Ok(())
     }
 }

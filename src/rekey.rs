@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    DecodeError, DefaultNla, ErrorContext, Nla, NlaBuffer, Parseable, emit_u32,
-    parse_u32,
+    DecodeError, DefaultNla, EncodeError, ErrorContext, Nla, NlaBuffer,
+    Parseable, append_bytes, append_u32, parse_u32,
 };
 
 const NL80211_REKEY_DATA_KEK: u16 = 1;
@@ -32,14 +32,6 @@ pub enum Nl80211RekeyData {
 }
 
 impl Nla for Nl80211RekeyData {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::Kek(v) | Self::Kck(v) | Self::ReplayCtr(v) => v.len(),
-            Self::Akm(_) => 4,
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::Kek(_) => NL80211_REKEY_DATA_KEK,
@@ -50,21 +42,20 @@ impl Nla for Nl80211RekeyData {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
             Self::Kek(v) | Self::Kck(v) | Self::ReplayCtr(v) => {
-                buffer[..v.len()].copy_from_slice(v)
+                append_bytes(out, v)
             }
-            Self::Akm(d) => emit_u32(buffer, *d).unwrap(),
-            Self::Other(attr) => attr.emit_value(buffer),
+            Self::Akm(d) => append_u32(out, *d),
+            Self::Other(attr) => append_bytes(out, attr.value()),
         }
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211RekeyData
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211RekeyData {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_REKEY_DATA_KEK => Self::Kek(payload.to_vec()),

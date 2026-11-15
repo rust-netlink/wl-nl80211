@@ -2,7 +2,7 @@
 
 use crate::*;
 use netlink_packet_core::{
-    Emitable, NetlinkDeserializable, NetlinkHeader, Parseable,
+    Emitable, NetlinkDeserializable, NetlinkHeader, Nla, Parseable,
 };
 use netlink_packet_generic::{GenlHeader, GenlMessage};
 
@@ -50,9 +50,9 @@ fn test_trigger_scan() {
             .unwrap()
     );
 
-    let mut buf = vec![0; expected.buffer_len()];
+    let mut buf = Vec::new();
 
-    expected.emit(&mut buf);
+    expected.emit(&mut buf).unwrap();
 
     assert_eq!(buf, raw);
 }
@@ -89,9 +89,9 @@ fn test_get_scan() {
             .unwrap()
     );
 
-    let mut buf = vec![0; expected.buffer_len()];
+    let mut buf = Vec::new();
 
-    expected.emit(&mut buf);
+    expected.emit(&mut buf).unwrap();
 
     assert_eq!(buf, raw);
 }
@@ -190,9 +190,9 @@ fn test_get_scan_reply() {
             .unwrap()
     );
 
-    let mut buf = vec![0; expected.buffer_len()];
+    let mut buf = Vec::new();
 
-    expected.emit(&mut buf);
+    expected.emit(&mut buf).unwrap();
 
     assert_eq!(buf, raw);
 }
@@ -244,9 +244,9 @@ fn test_parse_ies() {
 
     assert_eq!(expected, Ieee80211Elements::parse(&raw).unwrap());
 
-    let mut buf = vec![0; expected.buffer_len()];
+    let mut buf = Vec::new();
 
-    expected.emit(&mut buf);
+    expected.emit(&mut buf).unwrap();
 
     assert_eq!(buf, raw);
 }
@@ -309,9 +309,9 @@ fn test_sched_scan_match() {
             .unwrap()
     );
 
-    let mut buf = vec![0; expected.buffer_len()];
+    let mut buf = Vec::new();
 
-    expected.emit(&mut buf);
+    expected.emit(&mut buf).unwrap();
 
     assert_eq!(buf, raw);
 }
@@ -362,9 +362,9 @@ fn test_sched_scan_plans() {
             .unwrap()
     );
 
-    let mut buf = vec![0; expected.buffer_len()];
+    let mut buf = Vec::new();
 
-    expected.emit(&mut buf);
+    expected.emit(&mut buf).unwrap();
 
     assert_eq!(buf, raw);
 }
@@ -405,8 +405,8 @@ fn test_sched_scan_builder_socket_owner() {
         ]
     );
 
-    let mut buf = vec![0; Nl80211Attr::SocketOwner.buffer_len()];
-    Nl80211Attr::SocketOwner.emit(&mut buf);
+    let mut buf = Vec::new();
+    Nl80211Attr::SocketOwner.emit(&mut buf).unwrap();
     assert_eq!(buf, vec![0x04, 0x00, 0xcc, 0x00]);
 }
 
@@ -435,8 +435,8 @@ fn test_sched_scan_builder_message_round_trip() {
         family_id,
     );
 
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
 
     let mut netlink_header = NetlinkHeader::default();
     netlink_header.message_type = family_id;
@@ -452,7 +452,7 @@ fn test_sched_scan_builder_message_round_trip() {
             .contains(&Nl80211Attr::SocketOwner)
     );
 
-    let mut re_emitted = vec![0; parsed.buffer_len()];
-    parsed.emit(&mut re_emitted);
+    let mut re_emitted = Vec::new();
+    parsed.emit(&mut re_emitted).unwrap();
     assert_eq!(buf, re_emitted);
 }

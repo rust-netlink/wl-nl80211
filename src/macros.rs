@@ -22,10 +22,7 @@ macro_rules! try_nl80211 {
                 }
             }
             Err(e) => {
-                return Err(Nl80211Error::Bug(format!(
-                    "BUG: decode error {:?}",
-                    e
-                )));
+                return Err(Nl80211Error::from(e));
             }
         }
     }};

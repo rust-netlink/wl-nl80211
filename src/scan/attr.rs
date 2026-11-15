@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    DecodeError, Emitable, ErrorContext, Nla, NlasIterator, Parseable,
-    parse_u32,
+    DecodeError, Emitable, EncodeError, ErrorContext, Nla, NlasIterator,
+    Parseable, append_bytes, append_u32, parse_u32,
 };
 
 #[cfg(doc)]
 use crate::Nl80211Attr;
-use crate::bytes::write_u32;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Nla80211ScanSsidNla {
@@ -17,12 +16,9 @@ pub(crate) struct Nla80211ScanSsidNla {
 }
 
 impl Nla for Nla80211ScanSsidNla {
-    fn value_len(&self) -> usize {
-        self.ssid.len()
-    }
-
-    fn emit_value(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(self.ssid.as_slice())
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_bytes(out, self.ssid.as_slice());
+        Ok(())
     }
 
     fn kind(&self) -> u16 {
@@ -73,9 +69,10 @@ impl From<&Vec<Vec<u8>>> for Nla80211ScanSsidNlas {
 impl Nla80211ScanSsidNlas {
     pub(crate) fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
         let mut ssids: Vec<Nla80211ScanSsidNla> = Vec::new();
-        for (index, nla) in NlasIterator::new(payload).enumerate() {
-            let error_msg = format!("Invalid NL80211_ATTR_SCAN_SSIDS: {nla:?}");
-            let nla = &nla.context(error_msg)?;
+        for (index, nla) in NlasIterator::new(payload)
+            .context("Invalid NL80211_ATTR_SCAN_SSIDS")?
+            .enumerate()
+        {
             ssids.push(Nla80211ScanSsidNla {
                 index: index as u16,
                 ssid: nla.value().to_vec(),
@@ -185,12 +182,9 @@ impl Nl80211ScanFlags {
 }
 
 impl Emitable for Nl80211ScanFlags {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&self.bits().to_ne_bytes())
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u32(out, self.bits());
+        Ok(())
     }
 }
 
@@ -201,12 +195,9 @@ pub(crate) struct Nla80211ScanFreqNla {
 }
 
 impl Nla for Nla80211ScanFreqNla {
-    fn value_len(&self) -> usize {
-        4
-    }
-
-    fn emit_value(&self, buffer: &mut [u8]) {
-        write_u32(buffer, self.freq)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u32(out, self.freq);
+        Ok(())
     }
 
     fn kind(&self) -> u16 {
@@ -248,10 +239,10 @@ impl From<Nla80211ScanFreqNlas> for Vec<u32> {
 impl Nla80211ScanFreqNlas {
     pub(crate) fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
         let mut freqs: Vec<Nla80211ScanFreqNla> = Vec::new();
-        for (index, nla) in NlasIterator::new(payload).enumerate() {
-            let error_msg =
-                format!("Invalid NL80211_ATTR_SCAN_FREQUENCIES: {nla:?}");
-            let nla = &nla.context(error_msg.clone())?;
+        for (index, nla) in NlasIterator::new(payload)
+            .context("Invalid NL80211_ATTR_SCAN_FREQUENCIES")?
+            .enumerate()
+        {
             let freq = parse_u32(nla.value()).context(format!(
                 "Invalid NL80211_ATTR_SCAN_FREQUENCIES: {nla:?}"
             ))?;

@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 
-use netlink_packet_core::{DecodeError, Emitable};
+use netlink_packet_core::{DecodeError, Emitable, EncodeError};
 
 use crate::Ieee80211StatusCode;
 
 use super::buffer::{
-    Ieee80211AuthFrameFixed, auth_frame_buffer_len, emit_auth_frame,
-    parse_auth_frame,
+    Ieee80211AuthFrameFixed, emit_auth_frame, parse_auth_frame,
 };
 use super::eppke::{Ieee80211AuthFrameEppke, WLAN_AUTH_EPPKE};
 use super::fils_public_key::{
@@ -206,9 +205,10 @@ impl Ieee80211AuthFrameOther {
 
     /// Serialize this frame into raw 802.11 management frame bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut buffer = vec![0u8; self.buffer_len()];
-        self.emit(&mut buffer);
-        buffer
+        let mut out = Vec::new();
+        self.emit(&mut out)
+            .expect("emitting an authentication frame cannot fail");
+        out
     }
 
     fn fixed(&self) -> Ieee80211AuthFrameFixed {
@@ -227,12 +227,9 @@ impl Ieee80211AuthFrameOther {
 }
 
 impl Emitable for Ieee80211AuthFrameOther {
-    fn buffer_len(&self) -> usize {
-        auth_frame_buffer_len(self.payload.len())
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        emit_auth_frame(&self.fixed(), &self.payload, buffer);
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        emit_auth_frame(&self.fixed(), &self.payload, out);
+        Ok(())
     }
 }
 

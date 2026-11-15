@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-use netlink_packet_core::{DecodeError, Nla, NlaBuffer, Parseable};
+use netlink_packet_core::{
+    DecodeError, EncodeError, Nla, NlaBuffer, Parseable,
+};
 
 const NL80211_IFTYPE_ADHOC: u16 = 1;
 const NL80211_IFTYPE_STATION: u16 = 2;
@@ -73,10 +75,6 @@ impl From<Nl80211IfMode> for u16 {
 }
 
 impl Nla for Nl80211IfMode {
-    fn value_len(&self) -> usize {
-        0
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Nl80211IfMode::Adhoc => NL80211_IFTYPE_ADHOC,
@@ -95,13 +93,13 @@ impl Nla for Nl80211IfMode {
         }
     }
 
-    fn emit_value(&self, _buffer: &mut [u8]) {}
+    fn emit_value(&self, _out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        Ok(())
+    }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211IfMode
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211IfMode {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         Ok(buf.kind().into())
     }
 }

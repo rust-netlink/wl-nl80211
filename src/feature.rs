@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-use netlink_packet_core::{DecodeError, Emitable};
+use netlink_packet_core::{DecodeError, Emitable, EncodeError};
 
 const NL80211_FEATURE_SK_TX_STATUS: u32 = 1 << 0;
 const NL80211_FEATURE_HT_IBSS: u32 = 1 << 1;
@@ -106,16 +106,17 @@ impl Nl80211ExtFeatures {
 }
 
 impl Emitable for Nl80211ExtFeatures {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        let mut buffer = [0u8; Self::LENGTH];
         for feature in self.0.as_slice() {
             let index = *feature as usize / 8;
             let pos = *feature as usize % 8;
-            buffer[index] |= 1 << pos;
+            if index < Self::LENGTH {
+                buffer[index] |= 1 << pos;
+            }
         }
+        out.extend_from_slice(&buffer);
+        Ok(())
     }
 }
 

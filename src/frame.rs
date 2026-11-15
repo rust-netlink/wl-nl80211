@@ -6,13 +6,11 @@ mod auth;
 mod capability;
 
 use netlink_packet_core::{
-    DecodeError, Emitable, ErrorContext, Nla, NlaBuffer, NlasIterator,
-    Parseable, parse_u16,
+    DecodeError, Emitable, EncodeError, ErrorContext, Nla, NlaBuffer,
+    NlasIterator, Parseable, append_u16, parse_u16,
 };
 
-use crate::{
-    Nl80211InterfaceType, attr::NL80211_ATTR_FRAME_TYPE, bytes::write_u16,
-};
+use crate::{Nl80211InterfaceType, attr::NL80211_ATTR_FRAME_TYPE};
 
 pub use self::action::{
     Ieee80211ActionFrame, Ieee80211ActionFrameBtmRequest,
@@ -112,29 +110,22 @@ pub struct Nl80211IfaceFrameType {
 }
 
 impl Nla for Nl80211IfaceFrameType {
-    fn value_len(&self) -> usize {
-        self.attributes.as_slice().buffer_len()
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        self.attributes.as_slice().emit(out)?;
+        Ok(())
     }
 
     fn kind(&self) -> u16 {
         u32::from(self.iface_type) as u16
     }
-
-    fn emit_value(&self, buffer: &mut [u8]) {
-        self.attributes.as_slice().emit(buffer)
-    }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211IfaceFrameType
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211IfaceFrameType {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         let iface_type = Nl80211InterfaceType::from(buf.kind() as u32);
-        let err_msg = format!("Invalid NL80211_IFACE_COMB_LIMITS {payload:?}");
         let mut attributes = Vec::new();
-        for nla in NlasIterator::new(payload) {
-            let nla = &nla.context(err_msg.clone())?;
+        for nla in NlasIterator::new(payload)? {
             // We are discarding other kind of NLA, but linux kernel
             // most likely will not add new NLA type for
             // NL80211_ATTR_TX_FRAME_TYPES.
@@ -170,16 +161,13 @@ pub enum Ieee80211FrameType {
 }
 
 impl Nla for Ieee80211FrameType {
-    fn value_len(&self) -> usize {
-        2
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u16(out, u16::from(*self));
+        Ok(())
     }
 
     fn kind(&self) -> u16 {
         NL80211_ATTR_FRAME_TYPE
-    }
-
-    fn emit_value(&self, buffer: &mut [u8]) {
-        write_u16(buffer, u16::from(*self))
     }
 }
 

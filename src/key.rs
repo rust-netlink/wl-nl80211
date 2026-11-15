@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
-    NlasIterator, Parseable, emit_u32, parse_u8, parse_u32,
+    DecodeError, DefaultNla, Emitable, EncodeError, ErrorContext, Nla,
+    NlaBuffer, NlasIterator, Parseable, append_bytes, append_u8, append_u32,
+    parse_u8, parse_u32,
 };
 
 const NL80211_KEYTYPE_GROUP: u32 = 0;
@@ -98,21 +99,17 @@ impl From<Nl80211KeyDefaultType> for u8 {
 }
 
 impl Nla for Nl80211KeyDefaultType {
-    fn value_len(&self) -> usize {
-        0
-    }
-
     fn kind(&self) -> u16 {
         u8::from(*self) as u16
     }
 
-    fn emit_value(&self, _buffer: &mut [u8]) {}
+    fn emit_value(&self, _out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        Ok(())
+    }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211KeyDefaultType
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211KeyDefaultType {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         Ok(Nl80211KeyDefaultType::from(buf.kind() as u8))
     }
 }
@@ -149,17 +146,6 @@ pub enum Nl80211KeyAttr {
 }
 
 impl Nla for Nl80211KeyAttr {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::Data(v) | Self::Seq(v) => v.len(),
-            Self::Idx(_) | Self::Mode(_) => 1,
-            Self::Cipher(_) | Self::Type(_) => 4,
-            Self::Default | Self::DefaultMgmt => 0,
-            Self::DefaultTypes(types) => types.as_slice().buffer_len(),
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::Data(_) => NL80211_KEY_DATA,
@@ -175,25 +161,22 @@ impl Nla for Nl80211KeyAttr {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
-            Self::Data(v) | Self::Seq(v) => {
-                buffer[..v.len()].copy_from_slice(v)
-            }
-            Self::Idx(d) | Self::Mode(d) => buffer[0] = *d,
-            Self::Cipher(d) => emit_u32(buffer, *d).unwrap(),
-            Self::Type(d) => emit_u32(buffer, u32::from(*d)).unwrap(),
+            Self::Data(v) | Self::Seq(v) => append_bytes(out, v),
+            Self::Idx(d) | Self::Mode(d) => append_u8(out, *d),
+            Self::Cipher(d) => append_u32(out, *d),
+            Self::Type(d) => append_u32(out, u32::from(*d)),
             Self::Default | Self::DefaultMgmt => (),
-            Self::DefaultTypes(types) => types.as_slice().emit(buffer),
-            Self::Other(attr) => attr.emit_value(buffer),
+            Self::DefaultTypes(types) => types.as_slice().emit(out)?,
+            Self::Other(attr) => append_bytes(out, attr.value()),
         }
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211KeyAttr
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211KeyAttr {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_KEY_DATA => Self::Data(payload.to_vec()),
@@ -221,10 +204,11 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     "Invalid NL80211_KEY_DEFAULT_TYPES value {payload:?}"
                 );
                 let mut types = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
+                for nla in
+                    NlasIterator::new(payload).context(err_msg.clone())?
+                {
                     types.push(
-                        Nl80211KeyDefaultType::parse(nla)
+                        Nl80211KeyDefaultType::parse(&nla)
                             .context(err_msg.clone())?,
                     );
                 }

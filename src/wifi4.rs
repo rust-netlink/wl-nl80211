@@ -3,10 +3,11 @@
 // Hold WIFI 4(802.11n) specific data types
 
 use netlink_packet_core::{
-    DecodeError, Emitable, ErrorContext, Parseable, parse_u8,
+    DecodeError, Emitable, EncodeError, ErrorContext, Parseable, append_bytes,
+    append_u8, parse_u8,
 };
 
-use crate::bytes::{get_bit, get_bits_as_u8, write_u16_le};
+use crate::bytes::{append_u16_le, append_u32_le, get_bit, get_bits_as_u8};
 
 const NL80211_CHAN_NO_HT: u32 = 0;
 const NL80211_CHAN_HT20: u32 = 1;
@@ -120,12 +121,9 @@ impl Ieee80211HtCaps {
 }
 
 impl Emitable for Ieee80211HtCaps {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        buffer[0..self.buffer_len()].copy_from_slice(&self.bits().to_le_bytes())
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u16_le(out, self.bits());
+        Ok(())
     }
 }
 
@@ -143,26 +141,12 @@ pub struct Ieee80211HtMcsInfo {
 }
 
 impl Emitable for Ieee80211HtMcsInfo {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < NL80211_BAND_MCS_INFO_LEN {
-            log::error!(
-                "Buffer size is smaller than NL80211_BAND_MCS_INFO_LEN \
-                {NL80211_BAND_MCS_INFO_LEN}"
-            );
-            return;
-        }
-        buffer.iter_mut().for_each(|m| *m = 0);
-        buffer[..IEEE80211_HT_MCS_MASK_LEN].copy_from_slice(&self.rx_mask);
-        write_u16_le(
-            &mut buffer
-                [IEEE80211_HT_MCS_MASK_LEN..IEEE80211_HT_MCS_MASK_LEN + 2],
-            self.rx_highest,
-        );
-        buffer[IEEE80211_HT_MCS_MASK_LEN + 2] = self.tx_params.into();
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_bytes(out, &self.rx_mask);
+        append_u16_le(out, self.rx_highest);
+        append_u8(out, self.tx_params.into());
+        append_bytes(out, &[0u8; 3]);
+        Ok(())
     }
 }
 
@@ -217,20 +201,9 @@ impl Ieee80211HtCapabilityMask {
 }
 
 impl Emitable for Ieee80211HtCapabilityMask {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < Self::LENGTH {
-            log::error!(
-                "Ieee80211HtCapabilityMask buffer size is smaller than \
-                required size {}",
-                Self::LENGTH
-            );
-            return;
-        }
-        buffer[..Self::LENGTH].copy_from_slice(&self.0)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_bytes(out, &self.0);
+        Ok(())
     }
 }
 
@@ -304,31 +277,14 @@ impl Ieee80211ElementHtCap {
 }
 
 impl Emitable for Ieee80211ElementHtCap {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < Self::LENGTH {
-            log::error!(
-                "Ieee80211ElementHtCap buffer size is smaller than \
-                required size {}: {buffer:?}",
-                Self::LENGTH
-            );
-            return;
-        }
-        let mut offset = 0;
-        self.caps.emit(buffer);
-        offset += self.caps.buffer_len();
-        self.a_mpdu_para.emit(&mut buffer[offset..]);
-        offset += self.a_mpdu_para.buffer_len();
-        self.mcs_set.emit(&mut buffer[offset..]);
-        offset += self.mcs_set.buffer_len();
-        self.ht_ext_cap.emit(&mut buffer[offset..]);
-        offset += self.ht_ext_cap.buffer_len();
-        self.transmit_beamforming_cap.emit(&mut buffer[offset..]);
-        offset += self.transmit_beamforming_cap.buffer_len();
-        self.asel_cap.emit(&mut buffer[offset..]);
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        self.caps.emit(out)?;
+        self.a_mpdu_para.emit(out)?;
+        self.mcs_set.emit(out)?;
+        self.ht_ext_cap.emit(out)?;
+        self.transmit_beamforming_cap.emit(out)?;
+        self.asel_cap.emit(out)?;
+        Ok(())
     }
 }
 
@@ -366,12 +322,9 @@ impl From<Ieee80211HtAMpduPara> for u8 {
 }
 
 impl Emitable for Ieee80211HtAMpduPara {
-    fn buffer_len(&self) -> usize {
-        1
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        buffer[0] = (*self).into()
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u8(out, (*self).into());
+        Ok(())
     }
 }
 
@@ -446,14 +399,10 @@ impl Ieee80211HtExtendedCap {
 }
 
 impl Emitable for Ieee80211HtExtendedCap {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         let data: [u8; 2] = (*self).into();
-        buffer[0] = data[0];
-        buffer[1] = data[1];
+        append_bytes(out, &data);
+        Ok(())
     }
 }
 
@@ -631,12 +580,9 @@ impl Ieee80211HtTransmitBeamformingCaps {
 }
 
 impl Emitable for Ieee80211HtTransmitBeamformingCaps {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        buffer[0..self.buffer_len()].copy_from_slice(&self.bits().to_le_bytes())
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u32_le(out, self.bits());
+        Ok(())
     }
 }
 
@@ -679,11 +625,8 @@ impl Ieee80211HtAselCaps {
 }
 
 impl Emitable for Ieee80211HtAselCaps {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        buffer[0..self.buffer_len()].copy_from_slice(&self.bits().to_ne_bytes())
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u8(out, self.bits());
+        Ok(())
     }
 }

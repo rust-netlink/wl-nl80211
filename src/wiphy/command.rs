@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    DecodeError, ErrorContext, Nla, NlasIterator, parse_u32,
+    DecodeError, EncodeError, ErrorContext, Nla, NlasIterator, parse_u32,
 };
 
-use crate::{Nl80211Command, bytes::write_u32};
+use crate::{Nl80211Command, bytes::append_u32};
 
 pub(crate) struct Nl80211CommandNla {
     index: u16,
@@ -12,12 +12,9 @@ pub(crate) struct Nl80211CommandNla {
 }
 
 impl Nla for Nl80211CommandNla {
-    fn value_len(&self) -> usize {
-        4
-    }
-
-    fn emit_value(&self, buffer: &mut [u8]) {
-        write_u32(buffer, u8::from(self.cmd) as u32)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u32(out, u8::from(self.cmd) as u32);
+        Ok(())
     }
 
     fn kind(&self) -> u16 {
@@ -60,13 +57,12 @@ impl From<Nl80211Commands> for Vec<Nl80211Command> {
 impl Nl80211Commands {
     pub(crate) fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
         let mut cmds: Vec<Nl80211CommandNla> = Vec::new();
-        for (index, nla) in NlasIterator::new(payload).enumerate() {
+        for (index, nla) in NlasIterator::new(payload)?.enumerate() {
             let error_msg =
                 format!("Invalid NL80211_ATTR_SUPPORTED_COMMANDS: {nla:?}");
-            let nla = &nla.context(error_msg.clone())?;
-            let cmd = Nl80211Command::from(parse_u32(nla.value()).context(
-                format!("Invalid NL80211_ATTR_SUPPORTED_COMMANDS: {nla:?}"),
-            )? as u8);
+            let cmd = Nl80211Command::from(
+                parse_u32(nla.value()).context(error_msg.clone())? as u8,
+            );
             cmds.push(Nl80211CommandNla {
                 index: index as u16,
                 cmd,

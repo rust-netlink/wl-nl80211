@@ -109,21 +109,15 @@ pub(crate) fn parse_auth_frame(
     ))
 }
 
-/// Total buffer length of an Authentication frame with `payload_len` bytes
-/// of body data.
-pub(crate) fn auth_frame_buffer_len(payload_len: usize) -> usize {
-    AUTH_FRAME_FIXED_LEN + payload_len
-}
-
-/// Emit the fixed part plus `payload` into `buffer`.
+/// Emit the fixed part plus `payload` into `out`.
 pub(crate) fn emit_auth_frame(
     fixed: &Ieee80211AuthFrameFixed,
     payload: &[u8],
-    buffer: &mut [u8],
+    out: &mut Vec<u8>,
 ) {
     let raw = Ieee80211AuthFrameBuffer::from(fixed);
-    buffer[..AUTH_FRAME_FIXED_LEN].copy_from_slice(raw.as_bytes());
-    buffer[AUTH_FRAME_FIXED_LEN..].copy_from_slice(payload);
+    out.extend_from_slice(raw.as_bytes());
+    out.extend_from_slice(payload);
 }
 
 impl From<&Ieee80211AuthFrameFixed> for Ieee80211AuthFrameBuffer {

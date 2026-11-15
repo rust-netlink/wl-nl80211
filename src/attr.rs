@@ -30,10 +30,10 @@
  */
 
 use netlink_packet_core::{
-    DecodeError, DefaultNla, Emitable, ErrorContext, EthernetProtocol,
-    NLA_F_NESTED, Nla, NlaBuffer, NlasIterator, Parseable,
-    ParseableParametrized, parse_string, parse_u8, parse_u16, parse_u32,
-    parse_u64,
+    DecodeError, DefaultNla, Emitable, EncodeError, ErrorContext,
+    EthernetProtocol, NLA_F_NESTED, Nla, NlaBuffer, NlasIterator, Parseable,
+    ParseableParametrized, append_u16, append_u32, append_u64, parse_string,
+    parse_u8, parse_u16, parse_u32, parse_u64,
 };
 
 use crate::mac::ETH_ALEN;
@@ -50,7 +50,6 @@ use crate::{
     Nl80211SchedScanPlan, Nl80211StationInfo, Nl80211SurveyInfo,
     Nl80211TransmitQueueStat, Nl80211UseMfp, Nl80211WowlanTriggersSupport,
     Nl80211WpaVersions,
-    bytes::{write_u16, write_u32, write_u64},
     scan::{NestedIndexedNlaList, Nla80211ScanFreqNlas, Nla80211ScanSsidNlas},
     wiphy::Nl80211Commands,
 };
@@ -150,9 +149,7 @@ impl From<MacAddressNlas> for Vec<[u8; ETH_ALEN]> {
 impl MacAddressNlas {
     pub fn parse(payload: &[u8]) -> Result<Self, DecodeError> {
         let mut macs: Vec<MacAddressNla> = Vec::new();
-        for (index, nla) in NlasIterator::new(payload).enumerate() {
-            let error_msg = format!("Invalid NL80211_ATTR_MAC_ADDRS: {nla:?}");
-            let nla = &nla.context(error_msg.clone())?;
+        for (index, nla) in NlasIterator::new(payload)?.enumerate() {
             let mut mac = [0u8; ETH_ALEN];
             mac.copy_from_slice(&nla.value()[..ETH_ALEN]);
             macs.push(MacAddressNla {
@@ -170,12 +167,9 @@ struct MacAddressNla {
 }
 
 impl Nla for MacAddressNla {
-    fn value_len(&self) -> usize {
-        ETH_ALEN
-    }
-
-    fn emit_value(&self, buffer: &mut [u8]) {
-        buffer[..ETH_ALEN].copy_from_slice(&self.mac)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        out.extend_from_slice(&self.mac);
+        Ok(())
     }
 
     fn kind(&self) -> u16 {
@@ -797,154 +791,6 @@ pub enum Nl80211Attr {
 }
 
 impl Nla for Nl80211Attr {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::IfIndex(_)
-            | Self::Wiphy(_)
-            | Self::IfType(_)
-            | Self::Generation(_)
-            | Self::WiphyFreq(_)
-            | Self::WiphyFreqOffset(_)
-            | Self::WiphyChannelType(_)
-            | Self::CenterFreq1(_)
-            | Self::CenterFreq2(_)
-            | Self::WiphyTxPowerLevel(_)
-            | Self::ChannelWidth(_)
-            | Self::WiphyFragThreshold(_)
-            | Self::WiphyRtsThreshold(_)
-            | Self::WiphyAntennaAvailTx(_)
-            | Self::WiphyAntennaAvailRx(_)
-            | Self::ApProbeRespOffload(_)
-            | Self::WiphyAntennaTx(_)
-            | Self::WiphyAntennaRx(_)
-            | Self::MaxNumSchedScanPlans(_)
-            | Self::MaxScanPlanInterval(_)
-            | Self::MaxScanPlanIterations(_)
-            | Self::SchedScanMaxReqs(_)
-            | Self::TransmitQueueLimit(_)
-            | Self::TransmitQueueMemoryLimit(_)
-            | Self::TransmitQueueQuantum(_)
-            | Self::SchedScanInterval(_)
-            | Self::SchedScanDelay(_)
-            | Self::PmkLifetime(_)
-            | Self::VendorId(_)
-            | Self::VendorSubcmd(_) => 4,
-            Self::Wdev(_) => 8,
-            Self::IfName(s) | Self::WiphyName(s) => s.len() + 1,
-            // NL80211_ATTR_SSID is a binary attribute (0..32 octets) and must
-            // not be NUL-terminated, otherwise the kernel's SSID matching
-            // (e.g. cfg80211_get_bss) fails.
-            Self::Ssid(s) => s.len(),
-            Self::SsidRaw(s) => s.len(),
-            Self::Mac(_) | Self::MacMask(_) => ETH_ALEN,
-            Self::MacAddrs(s) => {
-                MacAddressNlas::from(s).as_slice().buffer_len()
-            }
-            Self::Use4Addr(_) => 1,
-            Self::WiphyRetryShort(_)
-            | Self::WiphyRetryLong(_)
-            | Self::WiphyCoverageClass(_)
-            | Self::MaxNumScanSsids(_)
-            | Self::MaxNumSchedScanSsids(_)
-            | Self::MaxMatchSets(_)
-            | Self::MaxNumPmkids(_)
-            | Self::PmkReauthThreshold(_) => 1,
-            Self::TransmitQueueStats(nlas) => nlas.as_slice().buffer_len(),
-            Self::StationInfo(nlas) => nlas.as_slice().buffer_len(),
-            Self::SurveyInfo(nlas) => nlas.as_slice().buffer_len(),
-            Self::MloLinks(links) => links.as_slice().buffer_len(),
-            Self::MaxScanIeLen(_) | Self::MaxSchedScanIeLen(_) => 2,
-            Self::ControlPortEthertype(_) => 2,
-            Self::ControlPortEthertypeSupported => 0,
-            Self::SupportIbssRsn
-            | Self::SupportMeshAuth
-            | Self::SupportApUapsd
-            | Self::RoamSupport
-            | Self::TdlsSupport
-            | Self::TdlsExternalSetup
-            | Self::OffchannelTxOk
-            | Self::SurveyRadioStats
-            | Self::WiphySelfManagedReg => 0,
-            Self::CipherSuites(s) => 4 * s.len(),
-            Self::SupportedIftypes(s) => s.as_slice().buffer_len(),
-            Self::WiphyBands(s) => s.as_slice().buffer_len(),
-            Self::SplitWiphyDump => 0,
-            Self::SupportedCommand(s) => {
-                Nl80211Commands::from(s).as_slice().buffer_len()
-            }
-            Self::MaxRemainOnChannelDuration(_) => 4,
-            Self::WowlanTriggersSupport(s) => s.as_slice().buffer_len(),
-            Self::SoftwareIftypes(s) => {
-                Nl80211InterfaceTypes::from(s).as_slice().buffer_len()
-            }
-            Self::Features(_) => 4,
-            Self::ExtFeatures(_) => Nl80211ExtFeatures::LENGTH,
-            Self::InterfaceCombination(s) => s.as_slice().buffer_len(),
-            Self::HtCapabilityMask(_) => Ieee80211HtCapabilityMask::LENGTH,
-            Self::TxFrameTypes(s) => s.as_slice().buffer_len(),
-            Self::RxFrameTypes(s) => s.as_slice().buffer_len(),
-            Self::ExtCap(v) => v.len(),
-            Self::ExtCapMask(v) => v.len(),
-            Self::VhtCap(v) => v.buffer_len(),
-            Self::VhtCapMask(v) => v.buffer_len(),
-            Self::MaxCsaCounters(_) => 1,
-            Self::IfTypeExtCap(s) => {
-                Nl80211IfTypeExtCapas::from(s).as_slice().buffer_len()
-            }
-            Self::EmlCapability(_)
-            | Self::MldCapaAndOps(_)
-            | Self::MaxNumAkmSuites(_)
-            | Self::MaxHwTimestampPeers(_)
-            | Self::MeasurementDuration(_) => 2,
-            Self::Bands(_) => Nl80211BandTypes::LENGTH,
-            Self::Bss(v) => v.as_slice().buffer_len(),
-            Self::ScanSsids(v) => {
-                Nla80211ScanSsidNlas::from(v).as_slice().buffer_len()
-            }
-            Self::ScanSsidsRaw(v) => {
-                Nla80211ScanSsidNlas::from(v).as_slice().buffer_len()
-            }
-            Self::ScanFlags(v) => v.buffer_len(),
-            Self::ScanFrequencies(v) => {
-                Nla80211ScanFreqNlas::from(v).as_slice().buffer_len()
-            }
-            Self::SchedScanMatch(v) => {
-                NestedIndexedNlaList::from(v).as_slice().buffer_len()
-            }
-            Self::SchedScanPlans(v) => {
-                NestedIndexedNlaList::from(v).as_slice().buffer_len()
-            }
-            Self::AuthType(_) | Self::UseMfp(_) | Self::WpaVersions(_) => 4,
-            Self::ExternalAuthAction(_) => 4,
-            Self::ReasonCode(_) | Self::StatusCode(_) | Self::FrameType(_) => 2,
-            Self::Cookie(_) => 8,
-            Self::Privacy
-            | Self::ControlPortOverNl80211
-            | Self::ExternalAuthSupport
-            | Self::Ack
-            | Self::SocketOwner
-            | Self::ControlPortNoEncrypt => 0,
-            Self::CiphersPairwise(s) => 4 * s.len(),
-            Self::CipherGroup(_) => 4,
-            Self::AkmSuites(s) => 4 * s.len(),
-            Self::Bssid(_) | Self::PrevBssid(_) => ETH_ALEN,
-            Self::Ie(v)
-            | Self::ReqIe(v)
-            | Self::RespIe(v)
-            | Self::Frame(v)
-            | Self::FrameMatch(v)
-            | Self::Pmkid(v)
-            | Self::Pmk(v) => v.len(),
-            Self::AuthData(v) => v.len(),
-            Self::Key(nlas) => nlas.as_slice().buffer_len(),
-            Self::RekeyData(nlas) => nlas.as_slice().buffer_len(),
-            Self::WowlanTriggers(nlas) => nlas.as_slice().buffer_len(),
-            Self::Cqm(nlas) => nlas.as_slice().buffer_len(),
-            Self::Other(attr) => attr.value_len(),
-            Self::VendorData(d) => d.len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::Wiphy(_) => NL80211_ATTR_WIPHY,
@@ -1100,7 +946,7 @@ impl Nla for Nl80211Attr {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
             Self::IfIndex(d)
             | Self::Wiphy(d)
@@ -1128,29 +974,29 @@ impl Nla for Nl80211Attr {
             | Self::SchedScanDelay(d)
             | Self::PmkLifetime(d)
             | Self::VendorId(d)
-            | Self::VendorSubcmd(d) => write_u32(buffer, *d),
+            | Self::VendorSubcmd(d) => append_u32(out, *d),
             Self::MaxScanIeLen(d) | Self::MaxSchedScanIeLen(d) => {
-                write_u16(buffer, *d)
+                append_u16(out, *d)
             }
-            Self::Wdev(d) => write_u64(buffer, *d),
-            Self::IfType(d) => write_u32(buffer, (*d).into()),
-            Self::Mac(s) | Self::MacMask(s) => buffer.copy_from_slice(s),
+            Self::Wdev(d) => append_u64(out, *d),
+            Self::IfType(d) => append_u32(out, (*d).into()),
+            Self::Mac(s) | Self::MacMask(s) => out.extend_from_slice(s),
             Self::MacAddrs(s) => {
-                MacAddressNlas::from(s).as_slice().emit(buffer)
+                MacAddressNlas::from(s).as_slice().emit(out)?
             }
             Self::IfName(s) | Self::WiphyName(s) => {
-                buffer[..s.len()].copy_from_slice(s.as_bytes());
-                buffer[s.len()] = 0;
+                out.extend_from_slice(s.as_bytes());
+                out.push(0);
             }
             // NL80211_ATTR_SSID: binary, not NUL-terminated.
             Self::Ssid(s) => {
-                buffer[..s.len()].copy_from_slice(s.as_bytes());
+                out.extend_from_slice(s.as_bytes());
             }
             Self::SsidRaw(s) => {
-                buffer[..s.len()].copy_from_slice(s);
+                out.extend_from_slice(s);
             }
-            Self::Use4Addr(d) => buffer[0] = *d as u8,
-            Self::ControlPortEthertype(d) => write_u16(buffer, d.value()),
+            Self::Use4Addr(d) => out.push(*d as u8),
+            Self::ControlPortEthertype(d) => append_u16(out, d.value()),
             Self::SupportIbssRsn
             | Self::SupportMeshAuth
             | Self::SupportApUapsd
@@ -1161,12 +1007,12 @@ impl Nla for Nl80211Attr {
             | Self::SurveyRadioStats
             | Self::WiphySelfManagedReg
             | Self::ControlPortEthertypeSupported => (),
-            Self::WiphyChannelType(d) => write_u32(buffer, (*d).into()),
-            Self::ChannelWidth(d) => write_u32(buffer, (*d).into()),
-            Self::StationInfo(nlas) => nlas.as_slice().emit(buffer),
-            Self::SurveyInfo(nlas) => nlas.as_slice().emit(buffer),
-            Self::TransmitQueueStats(nlas) => nlas.as_slice().emit(buffer),
-            Self::MloLinks(links) => links.as_slice().emit(buffer),
+            Self::WiphyChannelType(d) => append_u32(out, (*d).into()),
+            Self::ChannelWidth(d) => append_u32(out, (*d).into()),
+            Self::StationInfo(nlas) => nlas.as_slice().emit(out)?,
+            Self::SurveyInfo(nlas) => nlas.as_slice().emit(out)?,
+            Self::TransmitQueueStats(nlas) => nlas.as_slice().emit(out)?,
+            Self::MloLinks(links) => links.as_slice().emit(out)?,
             Self::WiphyRetryShort(d)
             | Self::WiphyRetryLong(d)
             | Self::WiphyCoverageClass(d)
@@ -1174,7 +1020,7 @@ impl Nla for Nl80211Attr {
             | Self::MaxNumSchedScanSsids(d)
             | Self::MaxMatchSets(d)
             | Self::MaxNumPmkids(d)
-            | Self::PmkReauthThreshold(d) => buffer[0] = *d,
+            | Self::PmkReauthThreshold(d) => out.push(*d),
             Self::CipherSuites(suits) => {
                 // `.swap_bytes()` converts our byte-reversed internal value
                 // (`0x04ac0f00` for CCMP-128) back to the kernel's OUI
@@ -1182,71 +1028,69 @@ impl Nla for Nl80211Attr {
                 // native order to match the kernel's `nla_put_u32` wire format
                 // on any host. See `parse_cipher_suites` for the full
                 // rationale.
-                for (i, c) in suits.iter().enumerate() {
-                    buffer[i * 4..(i + 1) * 4].copy_from_slice(
+                for c in suits.iter() {
+                    out.extend_from_slice(
                         &u32::from(*c).swap_bytes().to_ne_bytes(),
                     );
                 }
             }
-            Self::SupportedIftypes(s) => s.as_slice().emit(buffer),
-            Self::WiphyBands(s) => s.as_slice().emit(buffer),
+            Self::SupportedIftypes(s) => s.as_slice().emit(out)?,
+            Self::WiphyBands(s) => s.as_slice().emit(out)?,
             Self::SplitWiphyDump => (),
             Self::SupportedCommand(s) => {
-                Nl80211Commands::from(s).as_slice().emit(buffer)
+                Nl80211Commands::from(s).as_slice().emit(out)?
             }
-            Self::MaxRemainOnChannelDuration(d) => write_u32(buffer, *d),
-            Self::WowlanTriggersSupport(s) => s.as_slice().emit(buffer),
+            Self::MaxRemainOnChannelDuration(d) => append_u32(out, *d),
+            Self::WowlanTriggersSupport(s) => s.as_slice().emit(out)?,
             Self::SoftwareIftypes(s) => {
-                Nl80211InterfaceTypes::from(s).as_slice().emit(buffer)
+                Nl80211InterfaceTypes::from(s).as_slice().emit(out)?
             }
-            Self::Features(d) => {
-                buffer.copy_from_slice(&d.bits().to_ne_bytes())
-            }
-            Self::ExtFeatures(s) => Nl80211ExtFeatures::from(s).emit(buffer),
-            Self::InterfaceCombination(s) => s.as_slice().emit(buffer),
-            Self::HtCapabilityMask(s) => s.emit(buffer),
-            Self::TxFrameTypes(s) => s.as_slice().emit(buffer),
-            Self::RxFrameTypes(s) => s.as_slice().emit(buffer),
-            Self::ExtCap(v) => v.emit(buffer),
-            Self::ExtCapMask(v) => v.emit(buffer),
-            Self::VhtCap(v) => v.emit(buffer),
-            Self::VhtCapMask(v) => v.emit(buffer),
-            Self::MaxCsaCounters(v) => buffer[0] = *v,
+            Self::Features(d) => out.extend_from_slice(&d.bits().to_ne_bytes()),
+            Self::ExtFeatures(s) => Nl80211ExtFeatures::from(s).emit(out)?,
+            Self::InterfaceCombination(s) => s.as_slice().emit(out)?,
+            Self::HtCapabilityMask(s) => s.emit(out)?,
+            Self::TxFrameTypes(s) => s.as_slice().emit(out)?,
+            Self::RxFrameTypes(s) => s.as_slice().emit(out)?,
+            Self::ExtCap(v) => v.emit(out)?,
+            Self::ExtCapMask(v) => v.emit(out)?,
+            Self::VhtCap(v) => v.emit(out)?,
+            Self::VhtCapMask(v) => v.emit(out)?,
+            Self::MaxCsaCounters(v) => out.push(*v),
             Self::IfTypeExtCap(s) => {
-                Nl80211IfTypeExtCapas::from(s).as_slice().emit(buffer)
+                Nl80211IfTypeExtCapas::from(s).as_slice().emit(out)?
             }
             Self::EmlCapability(d)
             | Self::MldCapaAndOps(d)
             | Self::MaxNumAkmSuites(d)
             | Self::MaxHwTimestampPeers(d)
-            | Self::MeasurementDuration(d) => write_u16(buffer, *d),
-            Self::Bands(v) => v.emit(buffer),
-            Self::Bss(v) => v.as_slice().emit(buffer),
+            | Self::MeasurementDuration(d) => append_u16(out, *d),
+            Self::Bands(v) => v.emit(out)?,
+            Self::Bss(v) => v.as_slice().emit(out)?,
             Self::ScanSsids(v) => {
-                Nla80211ScanSsidNlas::from(v).as_slice().emit(buffer)
+                Nla80211ScanSsidNlas::from(v).as_slice().emit(out)?
             }
             Self::ScanSsidsRaw(v) => {
-                Nla80211ScanSsidNlas::from(v).as_slice().emit(buffer)
+                Nla80211ScanSsidNlas::from(v).as_slice().emit(out)?
             }
-            Self::ScanFlags(v) => v.emit(buffer),
+            Self::ScanFlags(v) => v.emit(out)?,
             Self::ScanFrequencies(v) => {
-                Nla80211ScanFreqNlas::from(v).as_slice().emit(buffer)
+                Nla80211ScanFreqNlas::from(v).as_slice().emit(out)?
             }
             Self::SchedScanMatch(v) => {
-                NestedIndexedNlaList::from(v).as_slice().emit(buffer)
+                NestedIndexedNlaList::from(v).as_slice().emit(out)?
             }
             Self::SchedScanPlans(v) => {
-                NestedIndexedNlaList::from(v).as_slice().emit(buffer)
+                NestedIndexedNlaList::from(v).as_slice().emit(out)?
             }
-            Self::VendorData(v) => buffer.copy_from_slice(v),
-            Self::AuthType(d) => write_u32(buffer, u32::from(*d)),
-            Self::UseMfp(d) => write_u32(buffer, u32::from(*d)),
-            Self::WpaVersions(d) => write_u32(buffer, d.bits()),
-            Self::ReasonCode(d) => write_u16(buffer, *d),
-            Self::StatusCode(d) => write_u16(buffer, u16::from(*d)),
-            Self::FrameType(d) => write_u16(buffer, *d),
-            Self::Cookie(d) => write_u64(buffer, *d),
-            Self::ExternalAuthAction(d) => write_u32(buffer, u32::from(*d)),
+            Self::VendorData(v) => out.extend_from_slice(v),
+            Self::AuthType(d) => append_u32(out, u32::from(*d)),
+            Self::UseMfp(d) => append_u32(out, u32::from(*d)),
+            Self::WpaVersions(d) => append_u32(out, d.bits()),
+            Self::ReasonCode(d) => append_u16(out, *d),
+            Self::StatusCode(d) => append_u16(out, u16::from(*d)),
+            Self::FrameType(d) => append_u16(out, *d),
+            Self::Cookie(d) => append_u64(out, *d),
+            Self::ExternalAuthAction(d) => append_u32(out, u32::from(*d)),
             Self::Privacy
             | Self::ControlPortOverNl80211
             | Self::ExternalAuthSupport
@@ -1259,45 +1103,45 @@ impl Nla for Nl80211Attr {
                 // (`0x000fac04`); `to_ne_bytes` then lays it out in native
                 // order to match the kernel's `nla_put_u32` wire format on any
                 // host. See `parse_cipher_suites` for the full rationale.
-                for (i, c) in suits.iter().enumerate() {
-                    buffer[i * 4..(i + 1) * 4].copy_from_slice(
+                for c in suits.iter() {
+                    out.extend_from_slice(
                         &u32::from(*c).swap_bytes().to_ne_bytes(),
                     );
                 }
             }
             // Same byte-swap + native-order encoding as the pairwise ciphers.
-            Self::CipherGroup(c) => buffer[..4]
-                .copy_from_slice(&u32::from(*c).swap_bytes().to_ne_bytes()),
+            Self::CipherGroup(c) => {
+                out.extend_from_slice(&u32::from(*c).swap_bytes().to_ne_bytes())
+            }
             Self::AkmSuites(suits) => {
                 // Same byte-swap + native-order encoding as cipher suites.
-                for (i, a) in suits.iter().enumerate() {
-                    buffer[i * 4..(i + 1) * 4].copy_from_slice(
+                for a in suits.iter() {
+                    out.extend_from_slice(
                         &u32::from(*a).swap_bytes().to_ne_bytes(),
                     );
                 }
             }
-            Self::Bssid(d) | Self::PrevBssid(d) => {
-                buffer[..ETH_ALEN].copy_from_slice(d)
-            }
+            Self::Bssid(d) | Self::PrevBssid(d) => out.extend_from_slice(d),
             Self::Ie(v)
             | Self::ReqIe(v)
             | Self::RespIe(v)
             | Self::Frame(v)
             | Self::FrameMatch(v)
             | Self::Pmkid(v)
-            | Self::Pmk(v) => buffer[..v.len()].copy_from_slice(v),
-            Self::AuthData(v) => buffer[..v.len()].copy_from_slice(v),
-            Self::Key(nlas) => nlas.as_slice().emit(buffer),
-            Self::RekeyData(nlas) => nlas.as_slice().emit(buffer),
-            Self::WowlanTriggers(nlas) => nlas.as_slice().emit(buffer),
-            Self::Cqm(nlas) => nlas.as_slice().emit(buffer),
-            Self::Other(attr) => attr.emit_value(buffer),
+            | Self::Pmk(v) => out.extend_from_slice(v),
+            Self::AuthData(v) => out.extend_from_slice(v),
+            Self::Key(nlas) => nlas.as_slice().emit(out)?,
+            Self::RekeyData(nlas) => nlas.as_slice().emit(out)?,
+            Self::WowlanTriggers(nlas) => nlas.as_slice().emit(out)?,
+            Self::Cqm(nlas) => nlas.as_slice().emit(out)?,
+            Self::Other(attr) => attr.emit_value(out)?,
         }
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211Attr {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_ATTR_IFINDEX => {
@@ -1363,12 +1207,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 Self::Generation(parse_u32(payload).context(err_msg)?)
             }
             NL80211_ATTR_BSS => {
-                let err_msg =
-                    format!("Invalid NL80211_ATTR_BSS value {payload:?}");
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
-                    nlas.push(Nl80211BssInfo::parse(nla)?);
+                for nla in NlasIterator::new(payload)? {
+                    nlas.push(Nl80211BssInfo::parse(&nla)?);
                 }
                 Self::Bss(nlas)
             }
@@ -1432,10 +1273,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 let err_msg =
                     format!("Invalid NL80211_ATTR_STA_INFO value {payload:?}");
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
+                for nla in NlasIterator::new(payload)? {
                     nlas.push(
-                        Nl80211StationInfo::parse(nla)
+                        Nl80211StationInfo::parse(&nla)
                             .context(err_msg.clone())?,
                     );
                 }
@@ -1446,10 +1286,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                     "Invalid NL80211_ATTR_SURVEY_INFO value {payload:?}"
                 );
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
+                for nla in NlasIterator::new(payload)? {
                     nlas.push(
-                        Nl80211SurveyInfo::parse(nla)
+                        Nl80211SurveyInfo::parse(&nla)
                             .context(err_msg.clone())?,
                     );
                 }
@@ -1460,10 +1299,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 let err_msg =
                     format!("Invalid NL80211_ATTR_TXQ_STATS value {payload:?}");
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
+                for nla in NlasIterator::new(payload)? {
                     nlas.push(
-                        Nl80211TransmitQueueStat::parse(nla)
+                        Nl80211TransmitQueueStat::parse(&nla)
                             .context(err_msg.clone())?,
                     );
                 }
@@ -1488,10 +1326,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 let err_msg =
                     format!("Invalid NL80211_ATTR_MLO_LINKS value {payload:?}");
                 let mut links = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
+                for nla in NlasIterator::new(payload)? {
                     links.push(
-                        Nl80211MloLink::parse(nla).context(err_msg.clone())?,
+                        Nl80211MloLink::parse(&nla).context(err_msg.clone())?,
                     );
                 }
                 Self::MloLinks(links)
@@ -1624,22 +1461,17 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                     "Invalid NL80211_ATTR_SUPPORTED_IFTYPES value {payload:?}"
                 );
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
+                for nla in NlasIterator::new(payload)? {
                     nlas.push(
-                        Nl80211IfMode::parse(nla).context(err_msg.clone())?,
+                        Nl80211IfMode::parse(&nla).context(err_msg.clone())?,
                     );
                 }
                 Self::SupportedIftypes(nlas)
             }
             NL80211_ATTR_WIPHY_BANDS => {
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let err_msg = format!(
-                        "Invalid NL80211_ATTR_WIPHY_BANDS value {nla:?}"
-                    );
-                    let nla = &nla.context(err_msg.clone())?;
-                    nlas.push(Nl80211Band::parse(nla)?);
+                for nla in NlasIterator::new(payload)? {
+                    nlas.push(Nl80211Band::parse(&nla)?);
                 }
                 Self::WiphyBands(nlas)
             }
@@ -1658,23 +1490,14 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             }
             NL80211_ATTR_WOWLAN_TRIGGERS_SUPPORTED => {
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let err_msg = format!(
-                        "Invalid NL80211_ATTR_WOWLAN_TRIGGERS_SUPPORTED \
-                        value {nla:?}"
-                    );
-                    let nla = &nla.context(err_msg.clone())?;
-                    nlas.push(Nl80211WowlanTriggersSupport::parse(nla)?);
+                for nla in NlasIterator::new(payload)? {
+                    nlas.push(Nl80211WowlanTriggersSupport::parse(&nla)?);
                 }
                 Self::WowlanTriggersSupport(nlas)
             }
             NL80211_ATTR_WOWLAN_TRIGGERS => {
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let err_msg = format!(
-                        "Invalid NL80211_ATTR_WOWLAN_TRIGGERS value {nla:?}"
-                    );
-                    let nla = &nla.context(err_msg.clone())?;
+                for nla in NlasIterator::new(payload)? {
                     // `NL80211_ATTR_WOWLAN_TRIGGERS` carries different
                     // payload shapes for the same kinds depending on the
                     // context: the 16-byte pattern support struct (wiphy
@@ -1684,7 +1507,7 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                     // `Nl80211WowlanTriggersSupport` must not fail the
                     // whole message decode, so fall back to `Other`.
                     nlas.push(
-                        Nl80211WowlanTriggersSupport::parse(nla)
+                        Nl80211WowlanTriggersSupport::parse(&nla)
                             .unwrap_or_else(|_| {
                                 Nl80211WowlanTriggersSupport::Other(
                                     DefaultNla::new(
@@ -1715,14 +1538,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             }
             NL80211_ATTR_INTERFACE_COMBINATIONS => {
                 let mut nlas = Vec::new();
-                for (index, nla) in NlasIterator::new(payload).enumerate() {
-                    let err_msg = format!(
-                        "Invalid NL80211_ATTR_INTERFACE_COMBINATIONS \
-                        value {nla:?}"
-                    );
-                    let nla = &nla.context(err_msg.clone())?;
+                for (index, nla) in NlasIterator::new(payload)?.enumerate() {
                     nlas.push(Nl80211IfaceComb::parse_with_param(
-                        nla,
+                        &nla,
                         index as u16,
                     )?);
                 }
@@ -1733,23 +1551,15 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
             }
             NL80211_ATTR_RX_FRAME_TYPES => {
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let err_msg = format!(
-                        "Invalid NL80211_ATTR_RX_FRAME_TYPES value {nla:?}"
-                    );
-                    let nla = &nla.context(err_msg.clone())?;
-                    nlas.push(Nl80211IfaceFrameType::parse(nla)?);
+                for nla in NlasIterator::new(payload)? {
+                    nlas.push(Nl80211IfaceFrameType::parse(&nla)?);
                 }
                 Self::RxFrameTypes(nlas)
             }
             NL80211_ATTR_TX_FRAME_TYPES => {
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let err_msg = format!(
-                        "Invalid NL80211_ATTR_RX_FRAME_TYPES value {nla:?}"
-                    );
-                    let nla = &nla.context(err_msg.clone())?;
-                    nlas.push(Nl80211IfaceFrameType::parse(nla)?);
+                for nla in NlasIterator::new(payload)? {
+                    nlas.push(Nl80211IfaceFrameType::parse(&nla)?);
                 }
                 Self::TxFrameTypes(nlas)
             }
@@ -1857,24 +1667,16 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 Nla80211ScanFreqNlas::parse(payload)?.into(),
             ),
             NL80211_ATTR_SCHED_SCAN_MATCH => {
-                let err_msg = format!(
-                    "Invalid NL80211_ATTR_SCHED_SCAN_MATCH value {payload:?}"
-                );
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
-                    nlas.push(Nl80211SchedScanMatch::parse(nla)?);
+                for nla in NlasIterator::new(payload)? {
+                    nlas.push(Nl80211SchedScanMatch::parse(&nla)?);
                 }
                 Self::SchedScanMatch(nlas)
             }
             NL80211_ATTR_SCHED_SCAN_PLANS => {
-                let err_msg = format!(
-                    "Invalid NL80211_ATTR_SCHED_SCAN_PLANS value {payload:?}"
-                );
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
-                    nlas.push(Nl80211SchedScanPlan::parse(nla)?);
+                for nla in NlasIterator::new(payload)? {
+                    nlas.push(Nl80211SchedScanPlan::parse(&nla)?);
                 }
                 Self::SchedScanPlans(nlas)
             }
@@ -1959,10 +1761,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                 let err_msg =
                     format!("Invalid NL80211_ATTR_KEY value {payload:?}");
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
+                for nla in NlasIterator::new(payload)? {
                     nlas.push(
-                        Nl80211KeyAttr::parse(nla).context(err_msg.clone())?,
+                        Nl80211KeyAttr::parse(&nla).context(err_msg.clone())?,
                     );
                 }
                 Self::Key(nlas)
@@ -1972,10 +1773,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Attr {
                     "Invalid NL80211_ATTR_REKEY_DATA value {payload:?}"
                 );
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
+                for nla in NlasIterator::new(payload)? {
                     nlas.push(
-                        Nl80211RekeyData::parse(nla)
+                        Nl80211RekeyData::parse(&nla)
                             .context(err_msg.clone())?,
                     );
                 }
