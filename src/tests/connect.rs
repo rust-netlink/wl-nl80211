@@ -7,7 +7,7 @@
 // `NL80211_CMD_AUTHENTICATE` / `NL80211_CMD_ASSOCIATE` messages. They validate
 // our parsing and emitting against what the kernel and userspace exchange.
 
-use netlink_packet_core::{Emitable, NlaBuffer, Parseable};
+use netlink_packet_core::{Emitable, Nla, NlaBuffer, Parseable};
 
 use crate::{
     Ieee80211AkmSuite, Ieee80211CipherSuite, Ieee80211Element,
@@ -23,10 +23,10 @@ fn test_captured_auth_type_sae() {
     let expected = Nl80211Attr::AuthType(Nl80211AuthType::Sae);
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -37,10 +37,10 @@ fn test_captured_wpa_versions() {
     let expected = Nl80211Attr::WpaVersions(Nl80211WpaVersions::WPA3);
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -52,10 +52,10 @@ fn test_captured_ciphers_pairwise() {
         Nl80211Attr::CiphersPairwise(vec![Ieee80211CipherSuite::Ccmp128]);
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -66,10 +66,10 @@ fn test_captured_cipher_group() {
     let expected = Nl80211Attr::CipherGroup(Ieee80211CipherSuite::Ccmp128);
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -80,10 +80,10 @@ fn test_captured_akm_suites() {
     let expected = Nl80211Attr::AkmSuites(vec![Ieee80211AkmSuite::Sae]);
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -94,10 +94,10 @@ fn test_captured_use_mfp() {
     let expected = Nl80211Attr::UseMfp(Nl80211UseMfp::Required);
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -108,10 +108,10 @@ fn test_captured_socket_owner() {
     let expected = Nl80211Attr::SocketOwner;
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -122,10 +122,10 @@ fn test_captured_control_port_over_nl80211() {
     let expected = Nl80211Attr::ControlPortOverNl80211;
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -136,10 +136,10 @@ fn test_captured_status_code() {
     let expected = Nl80211Attr::StatusCode(Ieee80211StatusCode::Success);
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -162,10 +162,10 @@ fn test_captured_req_ie() {
     let expected = Nl80211Attr::ReqIe(raw[4..].to_vec());
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -182,10 +182,10 @@ fn test_captured_resp_ie() {
     let expected = Nl80211Attr::RespIe(raw[4..30].to_vec());
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -224,8 +224,8 @@ fn test_captured_ie_rsn() {
         ),
     ]);
     assert_eq!(expected, Ieee80211Elements::parse(&raw).unwrap());
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -249,9 +249,9 @@ fn test_captured_frame() {
     ]);
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }

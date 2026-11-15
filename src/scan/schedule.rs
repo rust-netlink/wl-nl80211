@@ -4,16 +4,15 @@ use std::ops::Deref;
 
 use futures::TryStream;
 use netlink_packet_core::{
-    DecodeError, DefaultNla, Emitable, ErrorContext, NLA_F_NESTED, NLM_F_ACK,
-    NLM_F_REQUEST, Nla, NlaBuffer, NlasIterator, Parseable, parse_i32,
-    parse_u32,
+    DecodeError, DefaultNla, EncodeError, ErrorContext, NLA_F_NESTED,
+    NLM_F_ACK, NLM_F_REQUEST, Nla, NlaBuffer, NlasIterator, Parseable,
+    append_bytes, append_i32, append_u32, parse_i32, parse_u32,
 };
 use netlink_packet_generic::GenlMessage;
 
 use crate::mac::ETH_ALEN;
 use crate::{
     Nl80211Attr, Nl80211Command, Nl80211Error, Nl80211Handle, Nl80211Message,
-    bytes::{write_i32, write_u32},
     nl80211_execute,
 };
 
@@ -131,24 +130,15 @@ pub(crate) trait NestedAttr: Nla {
 }
 
 impl<T: NestedAttr> Nla for NestedIndexedNla<T> {
-    fn value_len(&self) -> usize {
-        self.attrs
-            .iter()
-            .filter(|attr| !attr.is_derived_view(&self.attrs))
-            .map(|attr| attr.buffer_len())
-            .sum()
-    }
-
-    fn emit_value(&self, buffer: &mut [u8]) {
-        let mut offset = 0;
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         for attr in self
             .attrs
             .iter()
             .filter(|attr| !attr.is_derived_view(&self.attrs))
         {
-            attr.emit(&mut buffer[offset..offset + attr.buffer_len()]);
-            offset += attr.buffer_len();
+            attr.emit(out)?;
         }
+        Ok(())
     }
 
     fn kind(&self) -> u16 {
@@ -181,15 +171,12 @@ impl<T: Nla + Clone, S: Deref<Target = Vec<T>>> From<&Vec<S>>
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211SchedScanMatch
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211SchedScanMatch {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let err = "Invalid NLA for NL80211_SCHED_SCAN_MATCH";
         let mut attrs = Vec::new();
-        for nla in NlasIterator::new(buf.value()) {
-            let nla = &nla.context(err)?;
-            let attr = Nl80211SchedScanMatchAttr::parse(nla).context(err)?;
+        for nla in NlasIterator::new(buf.value()).context(err)? {
+            let attr = Nl80211SchedScanMatchAttr::parse(&nla).context(err)?;
             let view = ssid_string_view(&attr);
             attrs.push(attr);
             // A received SSID is always stored raw, the `Ssid` string view
@@ -244,24 +231,15 @@ pub enum Nl80211SchedScanMatchAttr {
 }
 
 impl Nla for Nl80211SchedScanMatchAttr {
-    fn value_len(&self) -> usize {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
-            Self::Ssid(v) => v.len(),
-            Self::SsidRaw(v) => v.len(),
-            Self::Bssid(_) => ETH_ALEN,
-            Self::Rssi(_) => 4,
-            Self::Other(v) => v.value_len(),
+            Self::Ssid(v) => append_bytes(out, v.as_bytes()),
+            Self::SsidRaw(v) => append_bytes(out, v.as_slice()),
+            Self::Bssid(v) => append_bytes(out, v),
+            Self::Rssi(d) => append_i32(out, *d),
+            Self::Other(attr) => append_bytes(out, attr.value()),
         }
-    }
-
-    fn emit_value(&self, buffer: &mut [u8]) {
-        match self {
-            Self::Ssid(v) => buffer.copy_from_slice(v.as_bytes()),
-            Self::SsidRaw(v) => buffer.copy_from_slice(v.as_slice()),
-            Self::Bssid(v) => buffer.copy_from_slice(v),
-            Self::Rssi(d) => write_i32(buffer, *d),
-            Self::Other(attr) => attr.emit(buffer),
-        }
+        Ok(())
     }
 
     fn kind(&self) -> u16 {
@@ -287,10 +265,8 @@ impl NestedAttr for Nl80211SchedScanMatchAttr {
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211SchedScanMatchAttr
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211SchedScanMatchAttr {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_SCHED_SCAN_MATCH_ATTR_SSID => {
@@ -342,15 +318,12 @@ impl Deref for Nl80211SchedScanPlan {
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211SchedScanPlan
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211SchedScanPlan {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let err = "Invalid NLA for NL80211_SCHED_SCAN_PLANS";
         let mut attrs = Vec::new();
-        for nla in NlasIterator::new(buf.value()) {
-            let nla = &nla.context(err)?;
-            attrs.push(Nl80211SchedScanPlanAttr::parse(nla).context(err)?);
+        for nla in NlasIterator::new(buf.value()).context(err)? {
+            attrs.push(Nl80211SchedScanPlanAttr::parse(&nla).context(err)?);
         }
         Ok(Self(attrs))
     }
@@ -368,19 +341,12 @@ pub enum Nl80211SchedScanPlanAttr {
 }
 
 impl Nla for Nl80211SchedScanPlanAttr {
-    fn value_len(&self) -> usize {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
-            Self::Interval(_) => 4,
-            Self::Iterations(_) => 4,
-            Self::Other(v) => v.value_len(),
+            Self::Interval(d) | Self::Iterations(d) => append_u32(out, *d),
+            Self::Other(attr) => append_bytes(out, attr.value()),
         }
-    }
-
-    fn emit_value(&self, buffer: &mut [u8]) {
-        match self {
-            Self::Interval(d) | Self::Iterations(d) => write_u32(buffer, *d),
-            Self::Other(attr) => attr.emit(buffer),
-        }
+        Ok(())
     }
 
     fn kind(&self) -> u16 {
@@ -394,10 +360,8 @@ impl Nla for Nl80211SchedScanPlanAttr {
 
 impl NestedAttr for Nl80211SchedScanPlanAttr {}
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211SchedScanPlanAttr
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211SchedScanPlanAttr {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_SCHED_SCAN_PLAN_INTERVAL => {

@@ -2,6 +2,7 @@
 
 use std::fmt::{self, Display};
 
+use genetlink::GenetlinkError;
 use netlink_packet_core::DecodeError;
 use netlink_packet_core::{ErrorMessage, NetlinkMessage};
 use netlink_packet_generic::GenlMessage;
@@ -36,3 +37,12 @@ impl Display for Nl80211Error {
 }
 
 impl std::error::Error for Nl80211Error {}
+impl From<GenetlinkError> for Nl80211Error {
+    fn from(err: GenetlinkError) -> Self {
+        match err {
+            GenetlinkError::NetlinkError(err) => Self::NetlinkError(err),
+            GenetlinkError::DecodeError(err) => Self::DecodeFailed(err),
+            err => Self::RequestFailed(err.to_string()),
+        }
+    }
+}

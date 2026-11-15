@@ -2,7 +2,9 @@
 
 // WIFI 7(802.11be) specific data types
 
-use netlink_packet_core::{DecodeError, Emitable};
+use netlink_packet_core::{
+    DecodeError, Emitable, EncodeError, append_bytes, append_u8,
+};
 
 const EHT_MAC_CAP_INFO_LEN: usize = 2;
 
@@ -25,19 +27,9 @@ impl Ieee80211EhtMacCapInfo {
 }
 
 impl Emitable for Ieee80211EhtMacCapInfo {
-    fn buffer_len(&self) -> usize {
-        EHT_MAC_CAP_INFO_LEN
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < EHT_MAC_CAP_INFO_LEN {
-            log::error!(
-                "Buffer size is smaller than EHT_MAC_CAP_INFO_LEN \
-                {EHT_MAC_CAP_INFO_LEN}"
-            );
-            return;
-        }
-        buffer[..EHT_MAC_CAP_INFO_LEN].copy_from_slice(&self.0)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_bytes(out, &self.0);
+        Ok(())
     }
 }
 
@@ -61,19 +53,9 @@ impl Ieee80211EhtPhyCapInfo {
 }
 
 impl Emitable for Ieee80211EhtPhyCapInfo {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < EHT_PHY_CAP_INFO_LEN {
-            log::error!(
-                "Buffer size is smaller than EHT_PHY_CAP_INFO_LEN \
-                {EHT_PHY_CAP_INFO_LEN}"
-            );
-            return;
-        }
-        buffer[..EHT_PHY_CAP_INFO_LEN].copy_from_slice(&self.0)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_bytes(out, &self.0);
+        Ok(())
     }
 }
 
@@ -105,22 +87,12 @@ impl Ieee80211EhtMcsNssSuppOnly20Mhz {
 }
 
 impl Emitable for Ieee80211EhtMcsNssSuppOnly20Mhz {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < Self::LENGTH {
-            log::error!(
-                "Buffer size is smaller than required length {}",
-                Self::LENGTH
-            );
-            return;
-        }
-        buffer[0] = self.rx_tx_mcs7_max_nss;
-        buffer[1] = self.rx_tx_mcs9_max_nss;
-        buffer[2] = self.rx_tx_mcs11_max_nss;
-        buffer[3] = self.rx_tx_mcs13_max_nss;
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u8(out, self.rx_tx_mcs7_max_nss);
+        append_u8(out, self.rx_tx_mcs9_max_nss);
+        append_u8(out, self.rx_tx_mcs11_max_nss);
+        append_u8(out, self.rx_tx_mcs13_max_nss);
+        Ok(())
     }
 }
 
@@ -148,21 +120,11 @@ impl Ieee80211EhtMcsNssSuppBw {
 }
 
 impl Emitable for Ieee80211EhtMcsNssSuppBw {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < Self::LENGTH {
-            log::error!(
-                "Buffer size is smaller than required length {}",
-                Self::LENGTH
-            );
-            return;
-        }
-        buffer[0] = self.rx_tx_mcs9_max_nss;
-        buffer[1] = self.rx_tx_mcs11_max_nss;
-        buffer[2] = self.rx_tx_mcs13_max_nss;
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u8(out, self.rx_tx_mcs9_max_nss);
+        append_u8(out, self.rx_tx_mcs11_max_nss);
+        append_u8(out, self.rx_tx_mcs13_max_nss);
+        Ok(())
     }
 }
 
@@ -190,23 +152,11 @@ impl Ieee80211EhtMcsNssSuppMoreThan20Mhz {
 }
 
 impl Emitable for Ieee80211EhtMcsNssSuppMoreThan20Mhz {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < Self::LENGTH {
-            log::error!(
-                "Buffer size is smaller than required length {}",
-                Self::LENGTH
-            );
-            return;
-        }
-        self.mhz_80.emit(buffer);
-        self.mhz_160
-            .emit(&mut buffer[Ieee80211EhtMcsNssSuppBw::LENGTH..]);
-        self.mhz_320
-            .emit(&mut buffer[Ieee80211EhtMcsNssSuppBw::LENGTH * 2..]);
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        self.mhz_80.emit(out)?;
+        self.mhz_160.emit(out)?;
+        self.mhz_320.emit(out)?;
+        Ok(())
     }
 }
 
@@ -221,21 +171,14 @@ pub enum Ieee80211EhtMcsNssSupp {
 }
 
 impl Emitable for Ieee80211EhtMcsNssSupp {
-    fn buffer_len(&self) -> usize {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
-            Self::Only20Mhz(_) => Ieee80211EhtMcsNssSuppOnly20Mhz::LENGTH,
-            Self::MoreThan20Mhz(_) => {
-                Ieee80211EhtMcsNssSuppMoreThan20Mhz::LENGTH
+            Self::Only20Mhz(v) => v.emit(out),
+            Self::MoreThan20Mhz(v) => v.emit(out),
+            Self::Other(v) => {
+                append_bytes(out, v);
+                Ok(())
             }
-            Self::Other(v) => v.len(),
-        }
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        match self {
-            Self::Only20Mhz(v) => v.emit(buffer),
-            Self::MoreThan20Mhz(v) => v.emit(buffer),
-            Self::Other(v) => buffer.copy_from_slice(&v[..buffer.len()]),
         }
     }
 }
@@ -285,18 +228,8 @@ impl Ieee80211EhtPpeThres {
 }
 
 impl Emitable for Ieee80211EhtPpeThres {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < Self::LENGTH {
-            log::error!(
-                "Buffer size is smaller than required length {}",
-                Self::LENGTH
-            );
-            return;
-        }
-        buffer[..Self::LENGTH].copy_from_slice(&self.0)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_bytes(out, &self.0);
+        Ok(())
     }
 }

@@ -25,10 +25,10 @@ fn ssid() {
     // The string variant is only for building, the parser stores the SSID
     // octets raw.
     let val: Ieee80211Element = Ieee80211Element::Ssid("test-ssid".to_owned());
-    let mut buffer = vec![0; val.buffer_len() + 1];
-    val.emit(buffer.as_mut_slice());
+    let mut buffer = Vec::new();
+    val.emit(&mut buffer).unwrap();
     assert_eq!(
-        <Ieee80211Element>::parse(&buffer[0..val.buffer_len()]).unwrap(),
+        <Ieee80211Element>::parse(&buffer).unwrap(),
         Ieee80211Element::SsidRaw(b"test-ssid".to_vec()),
     );
 }
@@ -44,23 +44,17 @@ fn rates_and_selectors() {
             Ieee80211RateAndSelector::SelectorGlk,
             Ieee80211RateAndSelector::SelectorEht,
         ]);
-    let mut buffer = vec![0; val.buffer_len() + 1];
-    val.emit(buffer.as_mut_slice());
-    assert_eq!(
-        <Ieee80211Element>::parse(&buffer[0..val.buffer_len()]).unwrap(),
-        val,
-    );
+    let mut buffer = Vec::new();
+    val.emit(&mut buffer).unwrap();
+    assert_eq!(<Ieee80211Element>::parse(&buffer).unwrap(), val,);
 }
 
 #[test]
 fn channel() {
     let val: Ieee80211Element = Ieee80211Element::Channel(7);
-    let mut buffer = vec![0; val.buffer_len() + 1];
-    val.emit(buffer.as_mut_slice());
-    assert_eq!(
-        <Ieee80211Element>::parse(&buffer[0..val.buffer_len()]).unwrap(),
-        val,
-    );
+    let mut buffer = Vec::new();
+    val.emit(&mut buffer).unwrap();
+    assert_eq!(<Ieee80211Element>::parse(&buffer).unwrap(), val,);
 }
 
 #[test]
@@ -77,12 +71,9 @@ fn country() {
                 },
             )],
         });
-    let mut buffer = vec![0; val.buffer_len() + 1];
-    val.emit(buffer.as_mut_slice());
-    assert_eq!(
-        <Ieee80211Element>::parse(&buffer[0..val.buffer_len()]).unwrap(),
-        val,
-    );
+    let mut buffer = Vec::new();
+    val.emit(&mut buffer).unwrap();
+    assert_eq!(<Ieee80211Element>::parse(&buffer).unwrap(), val,);
 }
 
 #[test]
@@ -96,12 +87,9 @@ fn rsn() {
         pmkids: Vec::new(),
         group_mgmt_cipher: None,
     });
-    let mut buffer = vec![0; val.buffer_len() + 1];
-    val.emit(buffer.as_mut_slice());
-    assert_eq!(
-        <Ieee80211Element>::parse(&buffer[0..val.buffer_len()]).unwrap(),
-        val,
-    );
+    let mut buffer = Vec::new();
+    val.emit(&mut buffer).unwrap();
+    assert_eq!(<Ieee80211Element>::parse(&buffer).unwrap(), val,);
 }
 
 // Extended RSN Capabilities element (RSNXE) advertising SAE Hash-to-Element.
@@ -113,8 +101,8 @@ fn rsn_ext_sae_h2e_captured() {
     let val = Ieee80211Element::RsnExt(Ieee80211ElementRsnExt {
         capabilities: Ieee80211RsnExtCapbilities::SaeH2e,
     });
-    let mut buffer = vec![0; val.buffer_len()];
-    val.emit(buffer.as_mut_slice());
+    let mut buffer = Vec::new();
+    val.emit(&mut buffer).unwrap();
     assert_eq!(buffer, raw);
     assert_eq!(<Ieee80211Element>::parse(&raw).unwrap(), val);
 }
@@ -130,8 +118,8 @@ fn rsn_ext_multi_octet() {
     // octet1 = 0, octet2 = bit21 = 0x20.
     assert_eq!(
         {
-            let mut b = vec![0; val.buffer_len()];
-            val.emit(b.as_mut_slice());
+            let mut b = Vec::new();
+            val.emit(&mut b).unwrap();
             b
         },
         vec![0xf4, 0x03, 0x22, 0x00, 0x20],
@@ -147,8 +135,8 @@ fn rsn_ext_multi_octet() {
 fn rsn_ext_beyond_u32() {
     let raw = vec![0xf4, 0x05, 0x04, 0x00, 0x00, 0x00, 0x80];
     let val = <Ieee80211Element>::parse(&raw).unwrap();
-    let mut buffer = vec![0; val.buffer_len()];
-    val.emit(buffer.as_mut_slice());
+    let mut buffer = Vec::new();
+    val.emit(&mut buffer).unwrap();
     assert_eq!(buffer, raw);
 }
 

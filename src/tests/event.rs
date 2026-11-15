@@ -13,7 +13,7 @@
 // deserialize the message and verify [`crate::Nl80211Event::parse`]
 // produces the expected typed event.
 
-use genetlink::message::RawGenlMessage;
+use genetlink::RawGenlMessage;
 use netlink_packet_core::{NetlinkHeader, NetlinkMessage, NetlinkPayload};
 use netlink_packet_generic::GenlMessage;
 
@@ -690,7 +690,8 @@ fn test_captured_unknown_event() {
 /// Wrap an `Nl80211Message` the way the kernel sends it: a genl header
 /// carrying the command in front of the attribute list.
 fn wrap_event(msg: Nl80211Message) -> NetlinkMessage<RawGenlMessage> {
-    let raw = RawGenlMessage::from_genlmsg(GenlMessage::from_payload(msg));
+    let raw =
+        RawGenlMessage::from_genlmsg(GenlMessage::from_payload(msg)).unwrap();
     NetlinkMessage::new(
         NetlinkHeader::default(),
         NetlinkPayload::InnerMessage(raw),

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-use genetlink::message::RawGenlMessage;
+use genetlink::RawGenlMessage;
 use netlink_packet_core::{NetlinkMessage, NetlinkPayload, Nla};
 
 use crate::event_status::{Ieee80211ReasonCode, Ieee80211StatusCode};

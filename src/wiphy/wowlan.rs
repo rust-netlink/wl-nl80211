@@ -30,11 +30,11 @@
  */
 
 use netlink_packet_core::{
-    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
-    NlasIterator, Parseable, parse_u32,
+    DecodeError, DefaultNla, Emitable, EncodeError, ErrorContext, Nla,
+    NlaBuffer, NlasIterator, Parseable, parse_u32,
 };
 
-use crate::bytes::write_u32;
+use crate::bytes::append_u32;
 
 const NL80211_WOWLAN_TRIG_ANY: u16 = 1;
 const NL80211_WOWLAN_TRIG_DISCONNECT: u16 = 2;
@@ -88,20 +88,6 @@ pub enum Nl80211WowlanWakeup {
 }
 
 impl Nla for Nl80211WowlanWakeup {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::Any
-            | Self::Disconnect
-            | Self::MagicPkt
-            | Self::GtkRekeyFailure
-            | Self::EapIdentRequest
-            | Self::FourWayHandshake
-            | Self::RfkillRelease => 0,
-            Self::PktPattern(_) => 4,
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::Any => NL80211_WOWLAN_TRIG_ANY,
@@ -116,7 +102,7 @@ impl Nla for Nl80211WowlanWakeup {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
             Self::Any
             | Self::Disconnect
@@ -124,17 +110,18 @@ impl Nla for Nl80211WowlanWakeup {
             | Self::GtkRekeyFailure
             | Self::EapIdentRequest
             | Self::FourWayHandshake
-            | Self::RfkillRelease => (),
-            Self::PktPattern(idx) => write_u32(buffer, *idx),
-            Self::Other(attr) => attr.emit_value(buffer),
+            | Self::RfkillRelease => Ok(()),
+            Self::PktPattern(idx) => {
+                append_u32(out, *idx);
+                Ok(())
+            }
+            Self::Other(attr) => attr.emit_value(out),
         }
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211WowlanWakeup
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211WowlanWakeup {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_WOWLAN_TRIG_ANY => Self::Any,
@@ -197,23 +184,6 @@ pub enum Nl80211WowlanTriggersSupport {
 }
 
 impl Nla for Nl80211WowlanTriggersSupport {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::Any
-            | Self::Disconnect
-            | Self::MagicPkt
-            | Self::GtkRekeySupported
-            | Self::GtkRekeyFailure
-            | Self::EapIdentRequest
-            | Self::FourWayHandshake
-            | Self::RfkillRelease => 0,
-            Self::PktPattern(_) => Nl80211WowlanTriggerPatternSupport::LENGTH,
-            Self::NetDetect(_) => 4,
-            Self::TcpConnection(s) => s.as_slice().buffer_len(),
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::Any => NL80211_WOWLAN_TRIG_ANY,
@@ -231,7 +201,7 @@ impl Nla for Nl80211WowlanTriggersSupport {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
             Self::Any
             | Self::Disconnect
@@ -240,19 +210,20 @@ impl Nla for Nl80211WowlanTriggersSupport {
             | Self::GtkRekeyFailure
             | Self::EapIdentRequest
             | Self::FourWayHandshake
-            | Self::RfkillRelease => (),
-            Self::PktPattern(s) => s.emit(buffer),
-            Self::NetDetect(d) => write_u32(buffer, *d),
-            Self::TcpConnection(s) => s.as_slice().emit(buffer),
-            Self::Other(attr) => attr.emit_value(buffer),
+            | Self::RfkillRelease => Ok(()),
+            Self::PktPattern(s) => s.emit(out),
+            Self::NetDetect(d) => {
+                append_u32(out, *d);
+                Ok(())
+            }
+            Self::TcpConnection(s) => s.as_slice().emit(out),
+            Self::Other(attr) => attr.emit_value(out),
         }
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211WowlanTriggersSupport
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211WowlanTriggersSupport {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_WOWLAN_TRIG_ANY => Self::Any,
@@ -274,12 +245,14 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
             }
             NL80211_WOWLAN_TRIG_TCP_CONNECTION => {
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
+                for nla in NlasIterator::new(payload)? {
                     let err_msg = format!(
                         "Invalid NL80211_WOWLAN_TRIG_TCP_CONNECTION value {nla:?}"
                     );
-                    let nla = &nla.context(err_msg.clone())?;
-                    nlas.push(Nl80211WowlanTcpTriggerSupport::parse(nla)?);
+                    nlas.push(
+                        Nl80211WowlanTcpTriggerSupport::parse(&nla)
+                            .context(err_msg)?,
+                    );
                 }
 
                 Self::TcpConnection(nlas)
@@ -325,15 +298,12 @@ impl Nl80211WowlanTriggerPatternSupport {
 }
 
 impl Emitable for Nl80211WowlanTriggerPatternSupport {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        write_u32(&mut buffer[0..4], self.max_patterns);
-        write_u32(&mut buffer[4..8], self.min_pattern_len);
-        write_u32(&mut buffer[8..12], self.max_pattern_len);
-        write_u32(&mut buffer[12..16], self.max_pkt_offset);
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u32(out, self.max_patterns);
+        append_u32(out, self.min_pattern_len);
+        append_u32(out, self.max_pattern_len);
+        append_u32(out, self.max_pkt_offset);
+        Ok(())
     }
 }
 
@@ -367,23 +337,6 @@ pub enum Nl80211WowlanTcpTriggerSupport {
 }
 
 impl Nla for Nl80211WowlanTcpTriggerSupport {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::SrcIpv4
-            | Self::DstIpv4
-            | Self::DstMac
-            | Self::SrcPort
-            | Self::DstPort
-            | Self::DataPayloadSeq
-            | Self::DataPayloadToken
-            | Self::WakeMask => 0,
-            Self::DataPayload(_)
-            | Self::DataInterval(_)
-            | Self::WakePayload(_) => 4,
-            Self::Other(v) => v.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::SrcIpv4 => NL80211_WOWLAN_TCP_SRC_IPV4,
@@ -401,7 +354,7 @@ impl Nla for Nl80211WowlanTcpTriggerSupport {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
             Self::SrcIpv4
             | Self::DstIpv4
@@ -410,19 +363,20 @@ impl Nla for Nl80211WowlanTcpTriggerSupport {
             | Self::DstPort
             | Self::DataPayloadSeq
             | Self::DataPayloadToken
-            | Self::WakeMask => (),
+            | Self::WakeMask => Ok(()),
             Self::DataPayload(d)
             | Self::DataInterval(d)
-            | Self::WakePayload(d) => write_u32(buffer, *d),
-            Self::Other(v) => v.emit_value(buffer),
+            | Self::WakePayload(d) => {
+                append_u32(out, *d);
+                Ok(())
+            }
+            Self::Other(v) => v.emit_value(out),
         }
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211WowlanTcpTriggerSupport
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211WowlanTcpTriggerSupport {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_WOWLAN_TCP_SRC_IPV4 => Self::SrcIpv4,

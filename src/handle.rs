@@ -2,7 +2,6 @@
 
 use futures::{FutureExt, Stream, StreamExt, TryStream, future::Either};
 use genetlink::GenetlinkHandle;
-use netlink_packet_core::DecodeError;
 use netlink_packet_core::NetlinkMessage;
 use netlink_packet_generic::GenlMessage;
 
@@ -59,14 +58,20 @@ impl Nl80211Handle {
         impl Stream<
             Item = Result<
                 NetlinkMessage<GenlMessage<Nl80211Message>>,
-                DecodeError,
+                Nl80211Error,
             >,
         > + use<>,
         Nl80211Error,
     > {
-        self.handle.request(message).await.map_err(|e| {
-            Nl80211Error::RequestFailed(format!("BUG: Request failed with {e}"))
-        })
+        self.handle
+            .request(message)
+            .await
+            .map(|stream| stream.map(|item| item.map_err(Nl80211Error::from)))
+            .map_err(|e| {
+                Nl80211Error::RequestFailed(format!(
+                    "BUG: Request failed with {e}"
+                ))
+            })
     }
 }
 

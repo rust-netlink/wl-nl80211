@@ -1,39 +1,34 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
-    NlasIterator, Parseable, emit_u32, emit_u64, parse_u32, parse_u64,
+    DecodeError, DefaultNla, Emitable, EncodeError, ErrorContext, Nla,
+    NlaBuffer, NlasIterator, Parseable, append_u32, append_u64, parse_u32,
+    parse_u64,
 };
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct NestedNl80211TidStats(Vec<Nl80211TidStats>);
 
 impl Nla for NestedNl80211TidStats {
-    fn value_len(&self) -> usize {
-        self.0.as_slice().buffer_len()
-    }
-
     fn kind(&self) -> u16 {
         unimplemented!("Variable between 0-16")
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
-        self.0.as_slice().emit(buffer);
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        self.0.as_slice().emit(out)?;
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for NestedNl80211TidStats
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for NestedNl80211TidStats {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         let err_msg =
             format!("Invalid NestedNl80211TidStats value {payload:?}");
         let mut nlas = Vec::new();
 
-        for nla in NlasIterator::new(payload) {
-            let nla = &nla.context(err_msg.clone())?;
-            nlas.push(Nl80211TidStats::parse(nla).context(err_msg.clone())?);
+        for nla in NlasIterator::new(payload)? {
+            nlas.push(Nl80211TidStats::parse(&nla).context(err_msg.clone())?);
         }
         Ok(Self(nlas))
     }
@@ -62,17 +57,6 @@ pub enum Nl80211TidStats {
 }
 
 impl Nla for Nl80211TidStats {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::RxMsdu(_)
-            | Self::TxMsdu(_)
-            | Self::TxMsduRetries(_)
-            | Self::TxMsduFailed(_) => 4,
-            Self::TransmitQueueStats(nlas) => nlas.as_slice().buffer_len(),
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::RxMsdu(_) => NL80211_TID_STATS_RX_MSDU,
@@ -84,22 +68,21 @@ impl Nla for Nl80211TidStats {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
             Self::RxMsdu(d)
             | Self::TxMsdu(d)
             | Self::TxMsduRetries(d)
-            | Self::TxMsduFailed(d) => emit_u64(buffer, *d).unwrap(),
-            Self::TransmitQueueStats(nlas) => nlas.as_slice().emit(buffer),
-            Self::Other(attr) => attr.emit(buffer),
+            | Self::TxMsduFailed(d) => append_u64(out, *d),
+            Self::TransmitQueueStats(nlas) => nlas.as_slice().emit(out)?,
+            Self::Other(attr) => attr.emit_value(out)?,
         }
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211TidStats
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211TidStats {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_TID_STATS_RX_MSDU => {
@@ -131,10 +114,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     "Invalid NL80211_TID_STATS_TXQ_STATS value {payload:?}"
                 );
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
+                for nla in NlasIterator::new(payload)? {
                     nlas.push(
-                        Nl80211TransmitQueueStat::parse(nla)
+                        Nl80211TransmitQueueStat::parse(&nla)
                             .context(err_msg.clone())?,
                     );
                 }
@@ -176,22 +158,6 @@ pub enum Nl80211TransmitQueueStat {
 }
 
 impl Nla for Nl80211TransmitQueueStat {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::BacklogBytes(_)
-            | Self::BacklogPackets(_)
-            | Self::Flows(_)
-            | Self::Drops(_)
-            | Self::EcnMarks(_)
-            | Self::Overlimit(_)
-            | Self::Overmemory(_)
-            | Self::Collisions(_)
-            | Self::TxBytes(_)
-            | Self::TxPackets(_)
-            | Self::MaxFlows(_) => 4,
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
     fn kind(&self) -> u16 {
         match self {
             Self::BacklogBytes(_) => NL80211_TXQ_STATS_BACKLOG_BYTES,
@@ -208,7 +174,7 @@ impl Nla for Nl80211TransmitQueueStat {
             Self::Other(attr) => attr.kind(),
         }
     }
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
             Self::BacklogBytes(d)
             | Self::BacklogPackets(d)
@@ -220,16 +186,15 @@ impl Nla for Nl80211TransmitQueueStat {
             | Self::Collisions(d)
             | Self::TxBytes(d)
             | Self::TxPackets(d)
-            | Self::MaxFlows(d) => emit_u32(buffer, *d).unwrap(),
-            Self::Other(attr) => attr.emit(buffer),
+            | Self::MaxFlows(d) => append_u32(out, *d),
+            Self::Other(attr) => attr.emit_value(out)?,
         }
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211TransmitQueueStat
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211TransmitQueueStat {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_TXQ_STATS_BACKLOG_BYTES => {

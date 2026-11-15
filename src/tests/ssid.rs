@@ -22,16 +22,16 @@ const NON_UTF8_SSID: [u8; 4] = [0xce, 0xde, 0xcf, 0xdf];
 
 /// Emit `attrs` as the attribute region of a nl80211 message.
 fn emit(attrs: &[Nl80211Attr]) -> Vec<u8> {
-    let mut raw = vec![0; attrs.buffer_len()];
-    attrs.emit(&mut raw);
+    let mut raw = Vec::new();
+    attrs.emit(&mut raw).unwrap();
     raw
 }
 
 /// Emit `elements` as the information elements of a frame.
 fn emit_elements(elements: &[Ieee80211Element]) -> Vec<u8> {
     let elements = Ieee80211Elements(elements.to_vec());
-    let mut raw = vec![0; elements.buffer_len()];
-    elements.emit(&mut raw);
+    let mut raw = Vec::new();
+    elements.emit(&mut raw).unwrap();
     raw
 }
 
@@ -52,8 +52,8 @@ fn ie_ssid_keeps_raw_and_string_view() {
     // A single element is stored raw, the string view is added by the list
     // parser.
     let element = Ieee80211Element::SsidRaw(b"Test-WIFI".to_vec());
-    let mut buffer = vec![0; element.buffer_len()];
-    element.emit(&mut buffer);
+    let mut buffer = Vec::new();
+    element.emit(&mut buffer).unwrap();
     assert_eq!(Ieee80211Element::parse(&buffer).unwrap(), element);
 
     for ssid in [b"Test-WIFI".to_vec(), b"Test\0WIFI".to_vec()] {
@@ -147,8 +147,8 @@ fn string_view_is_not_emitted() {
         assert_eq!(msg.cmd, Nl80211Command::GetScan);
         assert_eq!(msg.attributes.len(), 2);
 
-        let mut re_emitted = vec![0; msg.buffer_len()];
-        msg.emit(&mut re_emitted);
+        let mut re_emitted = Vec::new();
+        msg.emit(&mut re_emitted).unwrap();
         assert_eq!(re_emitted, raw);
     }
 }
@@ -163,8 +163,8 @@ fn raw_ssid_is_preferred_over_string() {
             Nl80211Attr::SsidRaw(b"Raw-SSID".to_vec()),
         ],
     };
-    let mut buffer = vec![0; msg.buffer_len()];
-    msg.emit(&mut buffer);
+    let mut buffer = Vec::new();
+    msg.emit(&mut buffer).unwrap();
     assert_eq!(buffer, emit(&[Nl80211Attr::SsidRaw(b"Raw-SSID".to_vec())]));
 
     // Without a raw SSID the string one is emitted.
@@ -172,8 +172,8 @@ fn raw_ssid_is_preferred_over_string() {
         cmd: Nl80211Command::GetScan,
         attributes: vec![Nl80211Attr::Ssid("String-SSID".to_string())],
     };
-    let mut buffer = vec![0; msg.buffer_len()];
-    msg.emit(&mut buffer);
+    let mut buffer = Vec::new();
+    msg.emit(&mut buffer).unwrap();
     assert_eq!(
         buffer,
         emit(&[Nl80211Attr::Ssid("String-SSID".to_string())])
@@ -194,8 +194,8 @@ fn string_variants_emit_octets() {
     );
 
     let element = Ieee80211Element::Ssid("Test-WIFI".to_string());
-    let mut buffer = vec![0; element.buffer_len()];
-    element.emit(&mut buffer);
+    let mut buffer = Vec::new();
+    element.emit(&mut buffer).unwrap();
     assert_eq!(
         Ieee80211Element::parse(&buffer).unwrap(),
         Ieee80211Element::SsidRaw(b"Test-WIFI".to_vec())
@@ -233,8 +233,8 @@ fn sched_scan_match_ssid_keeps_raw_and_string_view() {
         );
 
         // The string view is not emitted.
-        let mut re_emitted = vec![0; msg.buffer_len()];
-        msg.emit(&mut re_emitted);
+        let mut re_emitted = Vec::new();
+        msg.emit(&mut re_emitted).unwrap();
         assert_eq!(re_emitted, raw);
     }
 }

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
-    NlasIterator, Parseable, ParseableParametrized, parse_u32,
+    DecodeError, DefaultNla, Emitable, EncodeError, ErrorContext, Nla,
+    NlaBuffer, NlasIterator, Parseable, ParseableParametrized, append_bytes,
+    parse_u32,
 };
 
-use crate::{Nl80211InterfaceType, Nl80211InterfaceTypes, bytes::write_u32};
+use crate::{Nl80211InterfaceType, Nl80211InterfaceTypes, bytes::append_u32};
 
 const NL80211_IFACE_COMB_LIMITS: u16 = 1;
 const NL80211_IFACE_COMB_MAXNUM: u16 = 2;
@@ -23,25 +24,18 @@ pub struct Nl80211IfaceComb {
 }
 
 impl Nla for Nl80211IfaceComb {
-    fn value_len(&self) -> usize {
-        self.attributes.as_slice().buffer_len()
-    }
-
     fn kind(&self) -> u16 {
         self.index + 1
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
-        self.attributes.as_slice().emit(buffer)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        self.attributes.as_slice().emit(out)
     }
 }
 
-impl<'a, T> ParseableParametrized<NlaBuffer<&'a T>, u16> for Nl80211IfaceComb
-where
-    T: AsRef<[u8]> + ?Sized,
-{
+impl<'a> ParseableParametrized<NlaBuffer<'a>, u16> for Nl80211IfaceComb {
     fn parse_with_param(
-        buf: &NlaBuffer<&'a T>,
+        buf: &NlaBuffer<'a>,
         index: u16,
     ) -> Result<Self, DecodeError> {
         let payload = buf.value();
@@ -49,9 +43,8 @@ where
             "Invalid NL80211_IFACE_COMB_LIMITS {payload:?} index {index}"
         );
         let mut attributes = Vec::new();
-        for nla in NlasIterator::new(payload) {
-            let nla = &nla.context(err_msg.clone())?;
-            attributes.push(Nl80211IfaceCombAttribute::parse(nla)?);
+        for nla in NlasIterator::new(payload).context(err_msg.clone())? {
+            attributes.push(Nl80211IfaceCombAttribute::parse(&nla)?);
         }
         Ok(Self { index, attributes })
     }
@@ -71,19 +64,6 @@ pub enum Nl80211IfaceCombAttribute {
 }
 
 impl Nla for Nl80211IfaceCombAttribute {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::Limits(v) => v.as_slice().buffer_len(),
-            Self::StaApiBiMatch => 0,
-            Self::Maxnum(_)
-            | Self::NumChannels(_)
-            | Self::RadarDetectWidths(_)
-            | Self::RadarDetectRegins(_)
-            | Self::BiMinGcd(_) => 4,
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::Limits(_) => NL80211_IFACE_COMB_LIMITS,
@@ -101,34 +81,35 @@ impl Nla for Nl80211IfaceCombAttribute {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
             Self::Maxnum(d)
             | Self::NumChannels(d)
             | Self::RadarDetectWidths(d)
             | Self::RadarDetectRegins(d)
-            | Self::BiMinGcd(d) => write_u32(buffer, *d),
+            | Self::BiMinGcd(d) => append_u32(out, *d),
             Self::StaApiBiMatch => (),
-            Self::Limits(v) => v.as_slice().emit(buffer),
-            Self::Other(attr) => attr.emit(buffer),
+            Self::Limits(v) => v.as_slice().emit(out)?,
+            Self::Other(attr) => append_bytes(out, attr.value()),
         }
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211IfaceCombAttribute
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211IfaceCombAttribute {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_IFACE_COMB_LIMITS => {
                 let err_msg =
                     format!("Invalid NL80211_IFACE_COMB_LIMITS {payload:?}");
                 let mut nlas = Vec::new();
-                for (index, nla) in NlasIterator::new(payload).enumerate() {
-                    let nla = &nla.context(err_msg.clone())?;
+                for (index, nla) in NlasIterator::new(payload)
+                    .context(err_msg.clone())?
+                    .enumerate()
+                {
                     nlas.push(Nl80211IfaceCombLimit::parse_with_param(
-                        nla,
+                        &nla,
                         index as u16,
                     )?);
                 }
@@ -177,34 +158,25 @@ pub struct Nl80211IfaceCombLimit {
 }
 
 impl Nla for Nl80211IfaceCombLimit {
-    fn value_len(&self) -> usize {
-        self.attributes.as_slice().buffer_len()
-    }
-
     fn kind(&self) -> u16 {
         self.index + 1
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
-        self.attributes.as_slice().emit(buffer)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        self.attributes.as_slice().emit(out)
     }
 }
 
-impl<'a, T> ParseableParametrized<NlaBuffer<&'a T>, u16>
-    for Nl80211IfaceCombLimit
-where
-    T: AsRef<[u8]> + ?Sized,
-{
+impl<'a> ParseableParametrized<NlaBuffer<'a>, u16> for Nl80211IfaceCombLimit {
     fn parse_with_param(
-        buf: &NlaBuffer<&'a T>,
+        buf: &NlaBuffer<'a>,
         index: u16,
     ) -> Result<Self, DecodeError> {
         let payload = buf.value();
         let err_msg = format!("Invalid NL80211_IFACE_COMB_LIMITS {payload:?}");
         let mut attributes = Vec::new();
-        for nla in NlasIterator::new(payload) {
-            let nla = &nla.context(err_msg.clone())?;
-            attributes.push(Nl80211IfaceCombLimitAttribute::parse(nla)?);
+        for nla in NlasIterator::new(payload).context(err_msg.clone())? {
+            attributes.push(Nl80211IfaceCombLimitAttribute::parse(&nla)?);
         }
         Ok(Self { index, attributes })
     }
@@ -222,16 +194,6 @@ pub enum Nl80211IfaceCombLimitAttribute {
 }
 
 impl Nla for Nl80211IfaceCombLimitAttribute {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::Max(_) => 4,
-            Self::Iftypes(v) => {
-                Nl80211InterfaceTypes::from(v).as_slice().buffer_len()
-            }
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::Max(_) => NL80211_IFACE_LIMIT_MAX,
@@ -240,21 +202,20 @@ impl Nla for Nl80211IfaceCombLimitAttribute {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
-            Self::Max(d) => write_u32(buffer, *d),
+            Self::Max(d) => append_u32(out, *d),
             Self::Iftypes(v) => {
-                Nl80211InterfaceTypes::from(v).as_slice().emit(buffer)
+                Nl80211InterfaceTypes::from(v).as_slice().emit(out)?
             }
-            Self::Other(attr) => attr.emit(buffer),
+            Self::Other(attr) => append_bytes(out, attr.value()),
         }
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211IfaceCombLimitAttribute
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211IfaceCombLimitAttribute {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_IFACE_LIMIT_MAX => Self::Max(parse_u32(payload).context(

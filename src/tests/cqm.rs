@@ -14,9 +14,9 @@
 // the 4-byte netlink alignment, mirroring the kernel's `nla_put` wire
 // format.
 
-use genetlink::message::RawGenlMessage;
+use genetlink::RawGenlMessage;
 use netlink_packet_core::{
-    Emitable, NetlinkMessage, NetlinkPayload, NlaBuffer, Parseable,
+    Emitable, NetlinkMessage, NetlinkPayload, Nla, NlaBuffer, Parseable,
 };
 use netlink_packet_generic::GenlMessage;
 
@@ -28,10 +28,10 @@ use crate::{
 fn assert_roundtrip(expected: Nl80211Attr, raw: Vec<u8>) {
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -176,7 +176,7 @@ fn emit_attributes(attributes: Vec<Nl80211Attr>) -> Vec<u8> {
         cmd: Nl80211Command::SetCqm,
         attributes,
     };
-    let mut buf = vec![0u8; msg.buffer_len()];
-    msg.emit(&mut buf);
+    let mut buf = Vec::new();
+    msg.emit(&mut buf).unwrap();
     buf
 }

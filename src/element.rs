@@ -3,13 +3,14 @@
 use std::mem::size_of;
 
 use netlink_packet_core::{
-    DecodeError, Emitable, ErrorContext, Parseable, parse_u8,
+    DecodeError, Emitable, EncodeError, ErrorContext, Parseable, append_bytes,
+    append_u8, parse_u8,
 };
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned};
 
 use crate::{
     Ieee80211ElementHeCap, Ieee80211ElementHtCap, Ieee80211ElementVhtCap,
-    bytes::{parse_u16_le, write_u16_le, write_u32_le},
+    bytes::{append_u16_le, append_u32_le, parse_u16_le},
 };
 
 /// [Ieee80211Elements] Vec
@@ -40,25 +41,26 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211Elements {
     }
 }
 
-impl Emitable for Ieee80211Elements {
-    fn buffer_len(&self) -> usize {
+impl Ieee80211Elements {
+    pub fn buffer_len(&self) -> usize {
         self.0
             .iter()
             .filter(|element| !ssid_string_is_overridden(element, &self.0))
             .map(|element| element.buffer_len())
             .sum()
     }
+}
 
-    fn emit(&self, buffer: &mut [u8]) {
-        let mut offset = 0;
+impl Emitable for Ieee80211Elements {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         for element in self
             .0
             .iter()
             .filter(|element| !ssid_string_is_overridden(element, &self.0))
         {
-            element.emit(&mut buffer[offset..(offset + element.buffer_len())]);
-            offset += element.buffer_len();
+            element.emit(out)?;
         }
+        Ok(())
     }
 }
 
@@ -280,9 +282,9 @@ impl Ieee80211Element {
             Self::Rsn(v) => v.buffer_len() as u8,
             Self::RsnExt(v) => v.buffer_len() as u8,
             Self::Vendor(v) => v.len() as u8,
-            Self::HtCapability(v) => v.buffer_len() as u8,
-            Self::VhtCapability(v) => v.buffer_len() as u8,
-            Self::HeCapability(v) => v.buffer_len() as u8,
+            Self::HtCapability(_) => Ieee80211ElementHtCap::LENGTH as u8,
+            Self::VhtCapability(_) => Ieee80211ElementVhtCap::LENGTH as u8,
+            Self::HeCapability(v) => he_cap_length(v) as u8,
             Self::Other(_, data) => (data.len()) as u8,
         }
     }
@@ -336,6 +338,12 @@ impl Ieee80211Element {
     }
 }
 
+impl Ieee80211Element {
+    pub fn buffer_len(&self) -> usize {
+        Ieee80211ElementBuffer::LEN + self.length() as usize
+    }
+}
+
 impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211Element {
     fn parse(buf: &T) -> Result<Self, DecodeError> {
         let buf = buf.as_ref();
@@ -344,42 +352,46 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211Element {
     }
 }
 
-impl Emitable for Ieee80211Element {
-    fn buffer_len(&self) -> usize {
-        Ieee80211ElementBuffer::LEN + self.length() as usize
-    }
+/// Length of the body of an HE Capabilities element, including the Element ID
+/// Extension field.
+fn he_cap_length(v: &Ieee80211ElementHeCap) -> usize {
+    let cap0 = v.phy_caps.0[0];
+    let mcs_nss_len = 4
+        + if cap0 & (1 << 3) != 0 { 4 } else { 0 }
+        + if cap0 & (1 << 4) != 0 { 4 } else { 0 };
+    1 + v.mac_caps.0.len()
+        + v.phy_caps.0.len()
+        + mcs_nss_len
+        + v.ppe_thresholds.as_ref().map_or(0, Vec::len)
+}
 
-    fn emit(&self, buffer: &mut [u8]) {
+impl Emitable for Ieee80211Element {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         let header = Ieee80211ElementBuffer::new(self.id(), self.length());
-        buffer[..Ieee80211ElementBuffer::LEN]
-            .copy_from_slice(header.as_bytes());
-        let buffer = &mut buffer[Ieee80211ElementBuffer::LEN
-            ..Ieee80211ElementBuffer::LEN + self.length() as usize];
+        append_bytes(out, header.as_bytes());
         match self {
             Self::Ssid(s) => {
                 // IEEE 802.11-2020 indicate it is optional to have NULL
                 // terminator for this string.
-                buffer.copy_from_slice(s.as_bytes());
+                append_bytes(out, s.as_bytes());
             }
-            Self::SsidRaw(s) => {
-                buffer.copy_from_slice(s.as_slice());
-            }
+            Self::SsidRaw(s) => append_bytes(out, s.as_slice()),
             Self::SupportedRatesAndSelectors(v) => {
-                let raw: Vec<u8> = v.iter().map(|v| u8::from(*v)).collect();
-                buffer.copy_from_slice(raw.as_slice());
+                for rate in v {
+                    append_u8(out, u8::from(*rate));
+                }
             }
-            Self::Channel(v) => buffer[0] = *v,
-            Self::Country(v) => v.emit(buffer),
-            Self::Rsn(v) => v.emit(buffer),
-            Self::RsnExt(v) => v.emit(buffer),
-            Self::Vendor(v) => buffer[..v.len()].copy_from_slice(v.as_slice()),
-            Self::HtCapability(v) => v.emit(buffer),
-            Self::VhtCapability(v) => v.emit(buffer),
-            Self::HeCapability(v) => v.emit(buffer),
-            Self::Other(_, data) => {
-                buffer.copy_from_slice(data.as_slice());
-            }
+            Self::Channel(v) => append_u8(out, *v),
+            Self::Country(v) => v.emit(out)?,
+            Self::Rsn(v) => v.emit(out)?,
+            Self::RsnExt(v) => v.emit(out)?,
+            Self::Vendor(v) => append_bytes(out, v.as_slice()),
+            Self::HtCapability(v) => v.emit(out)?,
+            Self::VhtCapability(v) => v.emit(out)?,
+            Self::HeCapability(v) => v.emit(out)?,
+            Self::Other(_, data) => append_bytes(out, data.as_slice()),
         }
+        Ok(())
     }
 }
 
@@ -515,32 +527,35 @@ impl<T: AsRef<[u8]> + ?Sized> Parseable<T> for Ieee80211ElementCountry {
     }
 }
 
-impl Emitable for Ieee80211ElementCountry {
-    fn buffer_len(&self) -> usize {
+impl Ieee80211ElementCountry {
+    pub fn buffer_len(&self) -> usize {
         (self.triplets.len() * 3 + 3).div_ceil(2) * 2
     }
+}
 
-    fn emit(&self, buffer: &mut [u8]) {
+impl Emitable for Ieee80211ElementCountry {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         if self.country.len() != 2 {
             log::warn!(
                 "Invalid country string {} for Ieee80211ElementCountry, \
                 should be 2 ASCII characters",
                 self.country
             );
+            append_bytes(out, &[0u8; 2]);
         } else {
-            buffer[0] = self.country.as_bytes()[0];
-            buffer[1] = self.country.as_bytes()[1];
+            append_bytes(out, &self.country.as_bytes()[..2]);
         }
-        buffer[2] = self.environment.into();
-        for (i, triplet) in self.triplets.iter().enumerate() {
-            triplet.emit(&mut buffer[(i + 1) * 3..(i + 2) * 3]);
+        append_u8(out, self.environment.into());
+        for triplet in self.triplets.iter() {
+            triplet.emit(out)?;
         }
         // IEEE 802.11-2024 9.4.2.7: a single zero padding octet is added when
         // needed so that the element length is evenly divisible by 2.
         let data_len = 3 + self.triplets.len() * 3;
         if data_len % 2 == 1 {
-            buffer[data_len] = 0;
+            append_u8(out, 0);
         }
+        Ok(())
     }
 }
 
@@ -587,15 +602,17 @@ pub enum Ieee80211ElementCountryTriplet {
     Operating(Ieee80211ElementOperating),
 }
 
-impl Emitable for Ieee80211ElementCountryTriplet {
-    fn buffer_len(&self) -> usize {
+impl Ieee80211ElementCountryTriplet {
+    pub fn buffer_len(&self) -> usize {
         3
     }
+}
 
-    fn emit(&self, buffer: &mut [u8]) {
+impl Emitable for Ieee80211ElementCountryTriplet {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
-            Self::Subband(v) => v.emit(buffer),
-            Self::Operating(v) => v.emit(buffer),
+            Self::Subband(v) => v.emit(out),
+            Self::Operating(v) => v.emit(out),
         }
     }
 }
@@ -630,15 +647,18 @@ pub struct Ieee80211ElementSubBand {
     pub max_power_level: i8,
 }
 
-impl Emitable for Ieee80211ElementSubBand {
-    fn buffer_len(&self) -> usize {
+impl Ieee80211ElementSubBand {
+    pub fn buffer_len(&self) -> usize {
         3
     }
+}
 
-    fn emit(&self, buffer: &mut [u8]) {
-        buffer[0] = self.channel_start;
-        buffer[1] = self.channel_count;
-        buffer[2] = self.max_power_level as u8;
+impl Emitable for Ieee80211ElementSubBand {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u8(out, self.channel_start);
+        append_u8(out, self.channel_count);
+        append_u8(out, self.max_power_level as u8);
+        Ok(())
     }
 }
 
@@ -661,15 +681,18 @@ pub struct Ieee80211ElementOperating {
     pub coverage_class: u8,
 }
 
-impl Emitable for Ieee80211ElementOperating {
-    fn buffer_len(&self) -> usize {
+impl Ieee80211ElementOperating {
+    pub fn buffer_len(&self) -> usize {
         3
     }
+}
 
-    fn emit(&self, buffer: &mut [u8]) {
-        buffer[0] = self.extension_id;
-        buffer[1] = self.operating_class;
-        buffer[2] = self.coverage_class;
+impl Emitable for Ieee80211ElementOperating {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u8(out, self.extension_id);
+        append_u8(out, self.operating_class);
+        append_u8(out, self.coverage_class);
+        Ok(())
     }
 }
 
@@ -820,8 +843,8 @@ impl Ieee80211ElementRsn {
     }
 }
 
-impl Emitable for Ieee80211ElementRsn {
-    fn buffer_len(&self) -> usize {
+impl Ieee80211ElementRsn {
+    pub fn buffer_len(&self) -> usize {
         // version field
         let mut len = 2usize;
         if self.group_cipher.is_none() {
@@ -862,14 +885,13 @@ impl Emitable for Ieee80211ElementRsn {
 
         len
     }
+}
 
-    fn emit(&self, buffer: &mut [u8]) {
-        let mut offset = 0;
-        write_u16_le(&mut buffer[0..2], self.version);
-        offset += 2;
+impl Emitable for Ieee80211ElementRsn {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u16_le(out, self.version);
         if let Some(g) = self.group_cipher {
-            write_u32_le(&mut buffer[offset..offset + 4], u32::from(g));
-            offset += 4;
+            append_u32_le(out, u32::from(g));
             if self.pairwise_ciphers.is_empty() {
                 if !self.akm_suits.is_empty()
                     || self.rsn_capbilities.is_some()
@@ -882,48 +904,33 @@ impl Emitable for Ieee80211ElementRsn {
                         list is empty"
                     );
                 }
-                return;
+                return Ok(());
             }
-            write_u16_le(
-                &mut buffer[offset..offset + 2],
-                self.pairwise_ciphers.len() as u16,
-            );
-            offset += 2;
+            append_u16_le(out, self.pairwise_ciphers.len() as u16);
         }
         for cipher in self.pairwise_ciphers.iter() {
-            write_u32_le(&mut buffer[offset..offset + 4], u32::from(*cipher));
-            offset += 4;
+            append_u32_le(out, u32::from(*cipher));
         }
         if !self.akm_suits.is_empty() {
-            write_u16_le(
-                &mut buffer[offset..offset + 2],
-                self.akm_suits.len() as u16,
-            );
-            offset += 2;
+            append_u16_le(out, self.akm_suits.len() as u16);
             for akm in self.akm_suits.as_slice() {
-                write_u32_le(&mut buffer[offset..offset + 4], u32::from(*akm));
-                offset += 4;
+                append_u32_le(out, u32::from(*akm));
             }
         }
         if let Some(rsn_cap) = self.rsn_capbilities {
-            write_u16_le(&mut buffer[offset..offset + 2], rsn_cap.bits());
-            offset += 2;
+            append_u16_le(out, rsn_cap.bits());
         }
 
         if !self.pmkids.is_empty() || self.group_mgmt_cipher.is_some() {
-            write_u16_le(
-                &mut buffer[offset..offset + 2],
-                self.pmkids.len() as u16,
-            );
-            offset += 2;
+            append_u16_le(out, self.pmkids.len() as u16);
             for pmkid in self.pmkids.as_slice() {
-                pmkid.emit(&mut buffer[offset..]);
-                offset += Ieee80211Pmkid::LENGTH;
+                append_bytes(out, &pmkid.0);
             }
             if let Some(c) = self.group_mgmt_cipher {
-                write_u32_le(&mut buffer[offset..offset + 4], u32::from(c));
+                append_u32_le(out, u32::from(c));
             }
         }
+        Ok(())
     }
 }
 
@@ -1274,13 +1281,16 @@ impl Ieee80211RsnCapbilities {
     }
 }
 
-impl Emitable for Ieee80211RsnCapbilities {
-    fn buffer_len(&self) -> usize {
+impl Ieee80211RsnCapbilities {
+    pub fn buffer_len(&self) -> usize {
         Self::LENGTH
     }
+}
 
-    fn emit(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&self.bits().to_le_bytes())
+impl Emitable for Ieee80211RsnCapbilities {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u16_le(out, self.bits());
+        Ok(())
     }
 }
 
@@ -1409,16 +1419,19 @@ impl Ieee80211ElementRsnExt {
     }
 }
 
-impl Emitable for Ieee80211ElementRsnExt {
-    fn buffer_len(&self) -> usize {
+impl Ieee80211ElementRsnExt {
+    pub fn buffer_len(&self) -> usize {
         self.octet_len()
     }
+}
 
-    fn emit(&self, buffer: &mut [u8]) {
+impl Emitable for Ieee80211ElementRsnExt {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         let octets = self.octet_len();
         let caps = self.capabilities.bits() & !RSNX_FIELD_LEN_MASK;
         let field = caps | ((octets as u128 - 1) & RSNX_FIELD_LEN_MASK);
-        buffer[..octets].copy_from_slice(&field.to_le_bytes()[..octets]);
+        append_bytes(out, &field.to_le_bytes()[..octets]);
+        Ok(())
     }
 }
 
@@ -1660,8 +1673,8 @@ pub fn sae_rsnxe() -> Vec<u8> {
         },
     )]);
 
-    let mut buf = vec![0u8; elements.buffer_len()];
-    elements.emit(&mut buf);
+    let mut buf = Vec::new();
+    elements.emit_value(&mut buf).unwrap();
     buf
 }
 
@@ -1698,8 +1711,8 @@ pub fn sae_ie_with_pmkid_cipher(
         }),
     ]);
 
-    let mut buf = vec![0u8; elements.buffer_len()];
-    elements.emit(&mut buf);
+    let mut buf = Vec::new();
+    elements.emit_value(&mut buf).unwrap();
     buf
 }
 
@@ -1731,8 +1744,8 @@ pub fn sae_ext_key_ie_with_pmkid_cipher(
         }),
     ]);
 
-    let mut buf = vec![0u8; elements.buffer_len()];
-    elements.emit(&mut buf);
+    let mut buf = Vec::new();
+    elements.emit_value(&mut buf).unwrap();
     buf
 }
 
@@ -1754,8 +1767,8 @@ pub fn ft_sae_ext_key_rsne_cipher(
             group_mgmt_cipher: Some(mgmt_cipher),
         })]);
 
-    let mut buf = vec![0u8; elements.buffer_len()];
-    elements.emit(&mut buf);
+    let mut buf = Vec::new();
+    elements.emit_value(&mut buf).unwrap();
     buf
 }
 
@@ -1785,8 +1798,8 @@ pub fn owe_ie_cipher(mgmt_cipher: Ieee80211CipherSuite) -> Vec<u8> {
             group_mgmt_cipher: Some(mgmt_cipher),
         })]);
 
-    let mut buf = vec![0u8; elements.buffer_len()];
-    elements.emit(&mut buf);
+    let mut buf = Vec::new();
+    elements.emit_value(&mut buf).unwrap();
     buf
 }
 
@@ -1813,8 +1826,8 @@ pub fn wpa2_psk_ie_with_pmkid_cipher(
             group_mgmt_cipher: Some(mgmt_cipher),
         })]);
 
-    let mut buf = vec![0u8; elements.buffer_len()];
-    elements.emit(&mut buf);
+    let mut buf = Vec::new();
+    elements.emit_value(&mut buf).unwrap();
     buf
 }
 
@@ -1841,8 +1854,8 @@ pub fn wpa2_psk_sha256_ie_with_pmkid_cipher(
             group_mgmt_cipher: Some(mgmt_cipher),
         })]);
 
-    let mut buf = vec![0u8; elements.buffer_len()];
-    elements.emit(&mut buf);
+    let mut buf = Vec::new();
+    elements.emit_value(&mut buf).unwrap();
     buf
 }
 
@@ -1860,8 +1873,8 @@ pub fn wpa2_ent_ie_cipher(mgmt_cipher: Ieee80211CipherSuite) -> Vec<u8> {
             group_mgmt_cipher: Some(mgmt_cipher),
         })]);
 
-    let mut buf = vec![0u8; elements.buffer_len()];
-    elements.emit(&mut buf);
+    let mut buf = Vec::new();
+    elements.emit_value(&mut buf).unwrap();
     buf
 }
 
@@ -1882,8 +1895,8 @@ pub fn wpa2_ent_sha256_ie_cipher(mgmt_cipher: Ieee80211CipherSuite) -> Vec<u8> {
             group_mgmt_cipher: Some(mgmt_cipher),
         })]);
 
-    let mut buf = vec![0u8; elements.buffer_len()];
-    elements.emit(&mut buf);
+    let mut buf = Vec::new();
+    elements.emit_value(&mut buf).unwrap();
     buf
 }
 
@@ -1908,8 +1921,8 @@ pub fn ft_sae_rsne_cipher(
             group_mgmt_cipher: Some(mgmt_cipher),
         })]);
 
-    let mut buf = vec![0u8; elements.buffer_len()];
-    elements.emit(&mut buf);
+    let mut buf = Vec::new();
+    elements.emit_value(&mut buf).unwrap();
     buf
 }
 
@@ -1930,8 +1943,8 @@ pub fn ft_psk_rsne_cipher(
             group_mgmt_cipher: Some(mgmt_cipher),
         })]);
 
-    let mut buf = vec![0u8; elements.buffer_len()];
-    elements.emit(&mut buf);
+    let mut buf = Vec::new();
+    elements.emit_value(&mut buf).unwrap();
     buf
 }
 

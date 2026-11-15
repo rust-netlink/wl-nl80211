@@ -8,7 +8,7 @@
 // value) padded to the 4-byte netlink alignment, mirroring the kernel's
 // `nla_put` wire format.
 
-use netlink_packet_core::{Emitable, NlaBuffer, NlasIterator, Parseable};
+use netlink_packet_core::{Emitable, Nla, NlaBuffer, NlasIterator, Parseable};
 
 use crate::{
     Nl80211Associate, Nl80211Attr, Nl80211Command, Nl80211Message, Nl80211Pmk,
@@ -18,10 +18,10 @@ use crate::{
 fn assert_roundtrip(expected: Nl80211Attr, raw: Vec<u8>) {
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -42,9 +42,7 @@ fn test_prev_bssid_roundtrip() {
 #[test]
 fn test_prev_bssid_invalid_len() {
     let raw = vec![0x08, 0x00, 0x4f, 0x00, 0x02, 0x00, 0x00, 0x00];
-    assert!(
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).is_err()
-    );
+    assert!(Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).is_err());
 }
 
 // NL80211_ATTR_PMKID (85): a 16-octet PMKID.
@@ -60,9 +58,7 @@ fn test_pmkid_roundtrip() {
 fn test_pmkid_invalid_len() {
     let mut raw = vec![0x0c, 0x00, 0x55, 0x00];
     raw.extend_from_slice(&[0x42; 8]);
-    assert!(
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).is_err()
-    );
+    assert!(Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).is_err());
 }
 
 // NL80211_ATTR_PMK (254): the PMK material (32 octets for the PSK/SAE
@@ -94,14 +90,15 @@ fn emit_message_attributes(
     attributes: Vec<Nl80211Attr>,
 ) -> Vec<u8> {
     let msg = Nl80211Message { cmd, attributes };
-    let mut buf = vec![0u8; msg.buffer_len()];
-    msg.emit(&mut buf);
+    let mut buf = Vec::new();
+    msg.emit(&mut buf).unwrap();
     buf
 }
 
 fn parse_message_attributes(raw: &[u8]) -> Vec<Nl80211Attr> {
     NlasIterator::new(raw)
-        .map(|nla| Nl80211Attr::parse(&nla.unwrap()).unwrap())
+        .unwrap()
+        .map(|nla| Nl80211Attr::parse(&nla).unwrap())
         .collect()
 }
 

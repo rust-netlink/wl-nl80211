@@ -30,9 +30,9 @@
  */
 
 use netlink_packet_core::{
-    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
-    NlasIterator, Parseable, ParseableParametrized, parse_u8, parse_u16,
-    parse_u32,
+    DecodeError, DefaultNla, Emitable, EncodeError, ErrorContext, Nla,
+    NlaBuffer, NlasIterator, Parseable, ParseableParametrized, append_bytes,
+    append_u8, parse_u8, parse_u16, parse_u32,
 };
 
 use crate::{
@@ -41,7 +41,7 @@ use crate::{
     Ieee80211HeMcsNssSupp, Ieee80211HePhyCapInfo, Ieee80211HePpeThreshold,
     Ieee80211HtCaps, Ieee80211HtMcsInfo, Ieee80211VhtCapInfo,
     Ieee80211VhtMcsInfo,
-    bytes::{write_u16, write_u32},
+    bytes::{append_u16, append_u32},
 };
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -51,29 +51,24 @@ pub struct Nl80211Band {
 }
 
 impl Nla for Nl80211Band {
-    fn value_len(&self) -> usize {
-        self.info.as_slice().buffer_len()
-    }
-
     fn kind(&self) -> u16 {
         self.kind.into()
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
-        self.info.as_slice().emit(buffer)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        self.info.as_slice().emit(out)
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Band {
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211Band {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let band_type = Nl80211BandType::from(buf.kind());
         let payload = buf.value();
         let mut nlas = Vec::new();
-        for nla in NlasIterator::new(payload) {
+        for nla in NlasIterator::new(payload)? {
             let err_msg =
                 format!("Invalid NL80211_ATTR_WIPHY_BANDS value {nla:?}");
-            let nla = &nla.context(err_msg.clone())?;
-            nlas.push(Nl80211BandInfo::parse(nla)?);
+            nlas.push(Nl80211BandInfo::parse(&nla).context(err_msg)?);
         }
         Ok(Self {
             kind: band_type,
@@ -156,12 +151,9 @@ impl Nl80211BandTypes {
 }
 
 impl Emitable for Nl80211BandTypes {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&self.bits().to_ne_bytes())
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u32(out, self.bits());
+        Ok(())
     }
 }
 
@@ -212,25 +204,6 @@ pub enum Nl80211BandInfo {
 }
 
 impl Nla for Nl80211BandInfo {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::Freqs(s) => s.as_slice().buffer_len(),
-            Self::Rates(s) => {
-                Nl80211RateAttrsList::from(s).as_slice().buffer_len()
-            }
-            Self::HtMcsSet(_) => Ieee80211HtMcsInfo::LENGTH,
-            Self::HtCapa(_) => 2,
-            Self::HtAmpduFactor(_) => 1,
-            Self::HtAmpduDensity(_) => 1,
-            Self::VhtMcsSet(_) => Ieee80211VhtMcsInfo::LENGTH,
-            Self::VhtCap(_) => Ieee80211VhtCapInfo::LENGTH,
-            Self::IftypeData(s) => s.as_slice().buffer_len(),
-            Self::EdmgChannels(_) => 1,
-            Self::EdmgBwConfig(_) => 1,
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::Freqs(_) => NL80211_BAND_ATTR_FREQS,
@@ -248,30 +221,32 @@ impl Nla for Nl80211BandInfo {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
-            Self::Freqs(d) => d.as_slice().emit(buffer),
+            Self::Freqs(d) => d.as_slice().emit(out),
             Self::Rates(s) => {
-                Nl80211RateAttrsList::from(s).as_slice().emit(buffer)
+                Nl80211RateAttrsList::from(s).as_slice().emit(out)
             }
-            Self::HtMcsSet(d) => d.emit(buffer),
-            Self::HtCapa(d) => d.emit(buffer),
-            Self::HtAmpduFactor(d) => buffer[0] = *d,
-            Self::HtAmpduDensity(d) => buffer[0] = *d,
-            Self::VhtMcsSet(d) => d.emit(buffer),
-            Self::VhtCap(d) => d.emit(buffer),
-            Self::IftypeData(d) => d.as_slice().emit(buffer),
-            Self::EdmgChannels(d) => buffer[0] = *d,
-            Self::EdmgBwConfig(d) => buffer[0] = *d,
-            Self::Other(attr) => attr.emit(buffer),
+            Self::HtMcsSet(d) => d.emit(out),
+            Self::HtCapa(d) => d.emit(out),
+            Self::HtAmpduFactor(d) | Self::HtAmpduDensity(d) => {
+                append_u8(out, *d);
+                Ok(())
+            }
+            Self::VhtMcsSet(d) => d.emit(out),
+            Self::VhtCap(d) => d.emit(out),
+            Self::IftypeData(d) => d.as_slice().emit(out),
+            Self::EdmgChannels(d) | Self::EdmgBwConfig(d) => {
+                append_u8(out, *d);
+                Ok(())
+            }
+            Self::Other(attr) => attr.emit_value(out),
         }
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211BandInfo
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211BandInfo {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_BAND_ATTR_FREQS => {
@@ -279,9 +254,11 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     "Invalid NL80211_BAND_ATTR_FREQS value {payload:?}"
                 );
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
-                    nlas.push(Nl80211Frequency::parse(nla)?);
+                for nla in NlasIterator::new(payload)? {
+                    nlas.push(
+                        Nl80211Frequency::parse(&nla)
+                            .context(err_msg.clone())?,
+                    );
                 }
                 Self::Freqs(nlas)
             }
@@ -290,10 +267,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     "Invalid NL80211_BAND_ATTR_RATES value {payload:?}"
                 );
                 let mut nlas = Vec::new();
-                for (index, nla) in NlasIterator::new(payload).enumerate() {
-                    let nla = &nla.context(err_msg.clone())?;
+                for (index, nla) in NlasIterator::new(payload)?.enumerate() {
                     nlas.push(
-                        Nl80211RateAttrs::parse_with_param(nla, index as u16)
+                        Nl80211RateAttrs::parse_with_param(&nla, index as u16)
                             .context(err_msg.clone())?
                             .attributes,
                     );
@@ -329,10 +305,9 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     "Invalid NL80211_BAND_ATTR_IFTYPE_DATA value {payload:?}"
                 );
                 let mut nlas = Vec::new();
-                for nla in NlasIterator::new(payload) {
-                    let nla = &nla.context(err_msg.clone())?;
+                for nla in NlasIterator::new(payload)? {
                     nlas.push(
-                        Nl80211BandIftypeData::parse(nla)
+                        Nl80211BandIftypeData::parse(&nla)
                             .context(err_msg.clone())?,
                     );
                 }
@@ -388,23 +363,6 @@ pub enum Nl80211BandIftypeData {
 }
 
 impl Nla for Nl80211BandIftypeData {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::IfTypes(s) => Nl80211IfTypeList(s.clone()).value_len(),
-            Self::HeCapMac(s) => s.buffer_len(),
-            Self::HeCapPhy(s) => s.buffer_len(),
-            Self::HeCapMcsSet(s) => s.buffer_len(),
-            Self::HeCapPpeThreshold(s) => s.buffer_len(),
-            Self::He6ghzCapa(s) => s.buffer_len(),
-            Self::VendorElems(s) => s.len(),
-            Self::EhtCapMac(s) => s.buffer_len(),
-            Self::EhtCapPhy(s) => s.buffer_len(),
-            Self::EhtCapMcsSet(s) => s.buffer_len(),
-            Self::EhtCapPpe(s) => s.buffer_len(),
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::IfTypes(_) => NL80211_BAND_IFTYPE_ATTR_IFTYPES,
@@ -422,30 +380,31 @@ impl Nla for Nl80211BandIftypeData {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
             Self::IfTypes(d) => {
-                Nl80211IfTypeList(d.clone()).0.as_slice().emit(buffer)
+                Nl80211IfTypeList(d.clone()).0.as_slice().emit(out)
             }
-            Self::HeCapMac(d) => d.emit(buffer),
-            Self::HeCapPhy(d) => d.emit(buffer),
-            Self::HeCapMcsSet(d) => d.emit(buffer),
-            Self::HeCapPpeThreshold(d) => d.emit(buffer),
-            Self::He6ghzCapa(d) => d.emit(buffer),
-            Self::VendorElems(d) => buffer[..d.len()].copy_from_slice(d),
-            Self::EhtCapMac(d) => d.emit(buffer),
-            Self::EhtCapPhy(d) => d.emit(buffer),
-            Self::EhtCapMcsSet(d) => d.emit(buffer),
-            Self::EhtCapPpe(d) => d.emit(buffer),
-            Self::Other(attr) => attr.emit(buffer),
+            Self::HeCapMac(d) => d.emit(out),
+            Self::HeCapPhy(d) => d.emit(out),
+            Self::HeCapMcsSet(d) => d.emit(out),
+            Self::HeCapPpeThreshold(d) => d.emit(out),
+            Self::He6ghzCapa(d) => d.emit(out),
+            Self::VendorElems(d) => {
+                append_bytes(out, d);
+                Ok(())
+            }
+            Self::EhtCapMac(d) => d.emit(out),
+            Self::EhtCapPhy(d) => d.emit(out),
+            Self::EhtCapMcsSet(d) => d.emit(out),
+            Self::EhtCapPpe(d) => d.emit(out),
+            Self::Other(attr) => attr.emit_value(out),
         }
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211BandIftypeData
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211BandIftypeData {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_BAND_IFTYPE_ATTR_IFTYPES => Self::IfTypes(
@@ -638,11 +597,9 @@ impl std::ops::Deref for Nl80211IfTypeList {
 }
 
 impl Nla for Nl80211IfType {
-    fn value_len(&self) -> usize {
-        0
+    fn emit_value(&self, _out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        Ok(())
     }
-
-    fn emit_value(&self, _buffer: &mut [u8]) {}
 
     fn kind(&self) -> u16 {
         self.into()
@@ -650,12 +607,8 @@ impl Nla for Nl80211IfType {
 }
 
 impl Nla for Nl80211IfTypeList {
-    fn value_len(&self) -> usize {
-        self.0.as_slice().buffer_len()
-    }
-
-    fn emit_value(&self, buffer: &mut [u8]) {
-        self.0.as_slice().emit(buffer)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        self.0.as_slice().emit(out)
     }
 
     fn kind(&self) -> u16 {
@@ -663,15 +616,11 @@ impl Nla for Nl80211IfTypeList {
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211IfTypeList
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211IfTypeList {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         let mut if_types: Vec<Nl80211IfType> = Vec::new();
-        for nla in NlasIterator::new(payload) {
-            let nla =
-                &nla.context("invalid NL80211_BAND_IFTYPE_ATTR_IFTYPES value")?;
+        for nla in NlasIterator::new(payload)? {
             if_types.push(nla.kind().into());
         }
         Ok(Self(if_types))
@@ -685,31 +634,24 @@ pub struct Nl80211Frequency {
 }
 
 impl Nla for Nl80211Frequency {
-    fn value_len(&self) -> usize {
-        self.info.as_slice().buffer_len()
-    }
-
     fn kind(&self) -> u16 {
         self.index
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
-        self.info.as_slice().emit(buffer)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        self.info.as_slice().emit(out)
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211Frequency
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211Frequency {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let index = buf.kind();
         let payload = buf.value();
         let mut nlas = Vec::new();
-        for nla in NlasIterator::new(payload) {
+        for nla in NlasIterator::new(payload)? {
             let err_msg =
                 format!("Invalid NL80211_BAND_ATTR_FREQS value {nla:?}");
-            let nla = &nla.context(err_msg.clone())?;
-            nlas.push(Nl80211FrequencyInfo::parse(nla)?);
+            nlas.push(Nl80211FrequencyInfo::parse(&nla).context(err_msg)?);
         }
         Ok(Self { index, info: nlas })
     }
@@ -850,46 +792,6 @@ pub enum Nl80211FrequencyInfo {
 }
 
 impl Nla for Nl80211FrequencyInfo {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::Freq(_) => 4,
-            Self::Disabled => 0,
-            Self::NoIr => 0,
-            Self::Radar => 0,
-            Self::NoIbss => 0,
-            Self::MaxTxPower(_) => 4,
-            Self::DfsState(_) => 4,
-            Self::DfsTime(_) => 4,
-            Self::NoHt40Minus => 0,
-            Self::NoHt40Plus => 0,
-            Self::No80Mhz => 0,
-            Self::No160Mhz => 0,
-            Self::DfsCacTime(_) => 4,
-            Self::IndoorOnly => 0,
-            Self::IrConcurrent => 0,
-            Self::No20Mhz => 0,
-            Self::No10Mhz => 0,
-            Self::Wmm(v) => {
-                Nl80211WmmRuleAttrsList::from(v).as_slice().buffer_len()
-            }
-            Self::NoHe => 0,
-            Self::Offset(_) => 4,
-            Self::Allow1Mhz => 0,
-            Self::Allow2Mhz => 0,
-            Self::Allow4Mhz => 0,
-            Self::Allow8Mhz => 0,
-            Self::Allow16Mhz => 0,
-            Self::No320Mhz => 0,
-            Self::NoEht => 0,
-            Self::Psd(_) => 1,
-            Self::DfsConcurrent => 0,
-            Self::No6GhzVlpClient => 0,
-            Self::No6GhzAfcclient => 0,
-            Self::CanMonitor => 0,
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::Freq(_) => NL80211_FREQUENCY_ATTR_FREQ,
@@ -928,13 +830,19 @@ impl Nla for Nl80211FrequencyInfo {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
             Self::Freq(d)
             | Self::MaxTxPower(d)
             | Self::DfsTime(d)
-            | Self::DfsCacTime(d) => write_u32(buffer, *d),
-            Self::DfsState(d) => write_u32(buffer, u32::from(d)),
+            | Self::DfsCacTime(d) => {
+                append_u32(out, *d);
+                Ok(())
+            }
+            Self::DfsState(d) => {
+                append_u32(out, u32::from(d));
+                Ok(())
+            }
             Self::Disabled
             | Self::NoIr
             | Self::NoIbss
@@ -958,21 +866,25 @@ impl Nla for Nl80211FrequencyInfo {
             | Self::DfsConcurrent
             | Self::No6GhzVlpClient
             | Self::No6GhzAfcclient
-            | Self::CanMonitor => (),
-            Self::Psd(d) => buffer[0] = *d as u8,
-            Self::Offset(d) => write_u32(buffer, *d),
-            Self::Wmm(v) => {
-                Nl80211WmmRuleAttrsList::from(v).as_slice().emit(buffer)
+            | Self::CanMonitor => Ok(()),
+            Self::Psd(d) => {
+                append_u8(out, *d as u8);
+                Ok(())
             }
-            Self::Other(attr) => attr.emit(buffer),
+            Self::Offset(d) => {
+                append_u32(out, *d);
+                Ok(())
+            }
+            Self::Wmm(v) => {
+                Nl80211WmmRuleAttrsList::from(v).as_slice().emit(out)
+            }
+            Self::Other(attr) => attr.emit_value(out),
         }
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211FrequencyInfo
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211FrequencyInfo {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_FREQUENCY_ATTR_FREQ => {
@@ -1020,11 +932,10 @@ impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
                     "Invalid NL80211_FREQUENCY_ATTR_WMM value {payload:?}"
                 );
                 let mut nlas = Vec::new();
-                for (index, nla) in NlasIterator::new(payload).enumerate() {
-                    let nla = &nla.context(err_msg.clone())?;
+                for (index, nla) in NlasIterator::new(payload)?.enumerate() {
                     nlas.push(
                         Nl80211WmmRuleAttrs::parse_with_param(
-                            nla,
+                            &nla,
                             index as u16,
                         )
                         .context(err_msg.clone())?
@@ -1101,34 +1012,26 @@ struct Nl80211RateAttrs {
 }
 
 impl Nla for Nl80211RateAttrs {
-    fn value_len(&self) -> usize {
-        self.attributes.as_slice().buffer_len()
-    }
-
     fn kind(&self) -> u16 {
         self.index
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
-        self.attributes.as_slice().emit(buffer);
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        self.attributes.as_slice().emit(out)
     }
 }
 
-impl<'a, T> ParseableParametrized<NlaBuffer<&'a T>, u16> for Nl80211RateAttrs
-where
-    T: AsRef<[u8]> + ?Sized,
-{
+impl<'a> ParseableParametrized<NlaBuffer<'a>, u16> for Nl80211RateAttrs {
     fn parse_with_param(
-        buf: &NlaBuffer<&'a T>,
+        buf: &NlaBuffer<'a>,
         index: u16,
     ) -> Result<Self, DecodeError> {
         let payload = buf.value();
         let err_msg =
             format!("Invalid NL80211_BAND_ATTR_RATES value {payload:?}");
         let mut attributes = Vec::new();
-        for nla in NlasIterator::new(payload) {
-            let nla = &nla.context(err_msg.clone())?;
-            attributes.push(Nl80211Rate::parse(nla)?);
+        for nla in NlasIterator::new(payload)? {
+            attributes.push(Nl80211Rate::parse(&nla).context(err_msg.clone())?);
         }
         Ok(Self { index, attributes })
     }
@@ -1147,14 +1050,6 @@ pub enum Nl80211Rate {
 }
 
 impl Nla for Nl80211Rate {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::Rate(_) => 4,
-            Self::Support2GhzShortpreamble => 0,
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::Rate(_) => NL80211_BITRATE_ATTR_RATE,
@@ -1165,17 +1060,20 @@ impl Nla for Nl80211Rate {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
-            Self::Rate(d) => write_u32(buffer, *d),
-            Self::Support2GhzShortpreamble => (),
-            Self::Other(attr) => attr.emit(buffer),
+            Self::Rate(d) => {
+                append_u32(out, *d);
+                Ok(())
+            }
+            Self::Support2GhzShortpreamble => Ok(()),
+            Self::Other(attr) => attr.emit_value(out),
         }
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>> for Nl80211Rate {
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211Rate {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_BITRATE_ATTR_RATE => {
@@ -1270,34 +1168,27 @@ struct Nl80211WmmRuleAttrs {
 }
 
 impl Nla for Nl80211WmmRuleAttrs {
-    fn value_len(&self) -> usize {
-        self.attributes.as_slice().buffer_len()
-    }
-
     fn kind(&self) -> u16 {
         self.index
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
-        self.attributes.as_slice().emit(buffer);
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        self.attributes.as_slice().emit(out)
     }
 }
 
-impl<'a, T> ParseableParametrized<NlaBuffer<&'a T>, u16> for Nl80211WmmRuleAttrs
-where
-    T: AsRef<[u8]> + ?Sized,
-{
+impl<'a> ParseableParametrized<NlaBuffer<'a>, u16> for Nl80211WmmRuleAttrs {
     fn parse_with_param(
-        buf: &NlaBuffer<&'a T>,
+        buf: &NlaBuffer<'a>,
         index: u16,
     ) -> Result<Self, DecodeError> {
         let payload = buf.value();
         let err_msg =
             format!("Invalid NL80211_FREQUENCY_ATTR_WMM value {payload:?}");
         let mut attributes = Vec::new();
-        for nla in NlasIterator::new(payload) {
-            let nla = &nla.context(err_msg.clone())?;
-            attributes.push(Nl80211WmmRule::parse(nla)?);
+        for nla in NlasIterator::new(payload)? {
+            attributes
+                .push(Nl80211WmmRule::parse(&nla).context(err_msg.clone())?);
         }
         Ok(Self { index, attributes })
     }
@@ -1324,14 +1215,6 @@ pub enum Nl80211WmmRule {
 }
 
 impl Nla for Nl80211WmmRule {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::CwMin(_) | Self::CwMax(_) | Self::Txop(_) => 2,
-            Self::Aifsn(_) => 1,
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::CwMin(_) => NL80211_WMMR_CW_MIN,
@@ -1342,21 +1225,23 @@ impl Nla for Nl80211WmmRule {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
             Self::CwMin(d) | Self::CwMax(d) | Self::Txop(d) => {
-                write_u16(buffer, *d)
+                append_u16(out, *d);
+                Ok(())
             }
-            Self::Aifsn(d) => buffer[0] = *d,
-            Self::Other(attr) => attr.emit(buffer),
+            Self::Aifsn(d) => {
+                append_u8(out, *d);
+                Ok(())
+            }
+            Self::Other(attr) => attr.emit_value(out),
         }
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211WmmRule
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211WmmRule {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_WMMR_CW_MIN => Self::CwMin(parse_u16(payload).context(

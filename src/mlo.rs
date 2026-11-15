@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 use netlink_packet_core::{
-    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer,
-    NlasIterator, Parseable, parse_u8,
+    DecodeError, DefaultNla, Emitable, EncodeError, ErrorContext, Nla,
+    NlaBuffer, NlasIterator, Parseable, append_bytes, append_u8, parse_u8,
 };
 
 use crate::attr::NL80211_ATTR_MAC;
@@ -18,14 +18,6 @@ enum Nl80211MloLinkNla {
 }
 
 impl Nla for Nl80211MloLinkNla {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::Id(_) => 1,
-            Self::Mac(_) => ETH_ALEN,
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::Id(_) => NL80211_ATTR_MLO_LINK_ID,
@@ -34,19 +26,18 @@ impl Nla for Nl80211MloLinkNla {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
-            Self::Id(d) => buffer[0] = *d,
-            Self::Mac(s) => buffer.copy_from_slice(s),
-            Self::Other(attr) => attr.emit(buffer),
+            Self::Id(d) => append_u8(out, *d),
+            Self::Mac(s) => append_bytes(out, s),
+            Self::Other(attr) => attr.emit_value(out)?,
         }
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211MloLinkNla
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211MloLinkNla {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_ATTR_MLO_LINK_ID => {
@@ -81,30 +72,24 @@ pub struct Nl80211MloLink {
 }
 
 impl Nla for Nl80211MloLink {
-    fn value_len(&self) -> usize {
-        Vec::<Nl80211MloLinkNla>::from(self).as_slice().buffer_len()
-    }
-
     fn kind(&self) -> u16 {
         self.id as u16 + 1
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
-        Vec::<Nl80211MloLinkNla>::from(self).as_slice().emit(buffer)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        Vec::<Nl80211MloLinkNla>::from(self).as_slice().emit(out)?;
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211MloLink
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211MloLink {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let mut ret = Self::default();
         let payload = buf.value();
         let err_msg =
             format!("Invalid NL80211_ATTR_MLO_LINKS value {payload:?}");
-        for nla in NlasIterator::new(payload) {
-            let nla = &nla.context(err_msg.clone())?;
-            match Nl80211MloLinkNla::parse(nla).context(err_msg.clone())? {
+        for nla in NlasIterator::new(payload)? {
+            match Nl80211MloLinkNla::parse(&nla).context(err_msg.clone())? {
                 Nl80211MloLinkNla::Id(d) => ret.id = d,
                 Nl80211MloLinkNla::Mac(s) => ret.mac = s,
                 Nl80211MloLinkNla::Other(attr) => {

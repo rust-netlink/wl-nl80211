@@ -31,11 +31,10 @@
 use std::fmt::Debug;
 
 use netlink_packet_core::{
-    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer, Parseable,
-    parse_i8, parse_u32, parse_u64,
+    DecodeError, DefaultNla, EncodeError, ErrorContext, Nla, NlaBuffer,
+    Parseable, append_bytes, append_u8, append_u32, append_u64, parse_i8,
+    parse_u32, parse_u64,
 };
-
-use crate::bytes::{write_u32, write_u64};
 
 const NL80211_SURVEY_INFO_FREQUENCY: u16 = 1;
 const NL80211_SURVEY_INFO_NOISE: u16 = 2;
@@ -74,19 +73,6 @@ pub enum Nl80211SurveyInfo {
 }
 
 impl Nla for Nl80211SurveyInfo {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::Frequency(v) => std::mem::size_of_val(v),
-            Self::Noise(v) => std::mem::size_of_val(v),
-            Self::ActiveTime(v)
-            | Self::BusyTime(v)
-            | Self::ExtensionBusyTime(v)
-            | Self::TimeRx(v)
-            | Self::TimeTx(v) => std::mem::size_of_val(v),
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::Frequency(_) => NL80211_SURVEY_INFO_FREQUENCY,
@@ -100,25 +86,24 @@ impl Nla for Nl80211SurveyInfo {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         #[allow(clippy::cast_sign_loss)]
         match self {
-            Self::Frequency(d) => write_u32(buffer, *d),
-            Self::Noise(d) => buffer[0] = *d as u8,
+            Self::Frequency(d) => append_u32(out, *d),
+            Self::Noise(d) => append_u8(out, *d as u8),
             Self::ActiveTime(d)
             | Self::BusyTime(d)
             | Self::ExtensionBusyTime(d)
             | Self::TimeRx(d)
-            | Self::TimeTx(d) => write_u64(buffer, *d),
-            Self::Other(attr) => attr.emit(buffer),
+            | Self::TimeTx(d) => append_u64(out, *d),
+            Self::Other(attr) => append_bytes(out, attr.value()),
         }
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211SurveyInfo
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211SurveyInfo {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_SURVEY_INFO_FREQUENCY => {

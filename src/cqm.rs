@@ -31,15 +31,16 @@
 
 use futures::TryStream;
 use netlink_packet_core::{
-    DecodeError, DefaultNla, ErrorContext, NLM_F_ACK, NLM_F_REQUEST, Nla,
-    NlaBuffer, NlasIterator, Parseable, parse_i32, parse_u32,
+    DecodeError, DefaultNla, EncodeError, ErrorContext, NLM_F_ACK,
+    NLM_F_REQUEST, Nla, NlaBuffer, NlasIterator, Parseable, append_i32,
+    append_u32, parse_i32, parse_u32,
 };
 use netlink_packet_generic::GenlMessage;
 
 use crate::mac::ETH_ALEN;
 use crate::{
     Nl80211Attr, Nl80211Command, Nl80211Error, Nl80211Handle, Nl80211Message,
-    bytes::write_i32, bytes::write_u32, nl80211_execute,
+    nl80211_execute,
 };
 
 // NL80211_ATTR_CQM nested sub-attribute ids (enum nl80211_attr_cqm).
@@ -125,16 +126,6 @@ pub enum Nl80211CqmAttr {
 }
 
 impl Nla for Nl80211CqmAttr {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::RssiThold(_)
-            | Self::RssiHyst(_)
-            | Self::RssiThresholdEvent(_)
-            | Self::RssiLevel(_) => 4,
-            Self::Other(v) => v.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::RssiThold(_) => NL80211_ATTR_CQM_RSSI_THOLD,
@@ -147,21 +138,20 @@ impl Nla for Nl80211CqmAttr {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
-            Self::RssiThold(d) => write_i32(buffer, *d),
-            Self::RssiHyst(d) => write_u32(buffer, *d),
-            Self::RssiThresholdEvent(d) => write_u32(buffer, u32::from(*d)),
-            Self::RssiLevel(d) => write_i32(buffer, *d),
-            Self::Other(v) => v.emit_value(buffer),
+            Self::RssiThold(d) => append_i32(out, *d),
+            Self::RssiHyst(d) => append_u32(out, *d),
+            Self::RssiThresholdEvent(d) => append_u32(out, u32::from(*d)),
+            Self::RssiLevel(d) => append_i32(out, *d),
+            Self::Other(v) => v.emit_value(out)?,
         }
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211CqmAttr
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211CqmAttr {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_ATTR_CQM_RSSI_THOLD => {
@@ -203,9 +193,8 @@ impl Nl80211CqmAttr {
         payload: &[u8],
     ) -> Result<Vec<Nl80211CqmAttr>, DecodeError> {
         let mut attrs = Vec::new();
-        for nla in NlasIterator::new(payload) {
-            let nla = &nla.context("invalid NL80211_ATTR_CQM")?;
-            attrs.push(Nl80211CqmAttr::parse(nla)?);
+        for nla in NlasIterator::new(payload)? {
+            attrs.push(Nl80211CqmAttr::parse(&nla)?);
         }
         Ok(attrs)
     }

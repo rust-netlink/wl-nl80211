@@ -12,36 +12,27 @@ use crate::wifi4::{
 #[test]
 fn caps() {
     let val: Ieee80211HtCaps = Ieee80211HtCaps::all();
-    let mut buffer = vec![0; val.buffer_len() + 1];
-    val.emit(buffer.as_mut_slice());
-    assert_eq!(
-        <Ieee80211HtCaps>::parse(&buffer[0..val.buffer_len()]).unwrap(),
-        val,
-    );
+    let mut buffer = Vec::new();
+    val.emit(&mut buffer).unwrap();
+    assert_eq!(<Ieee80211HtCaps>::parse(&buffer).unwrap(), val,);
 }
 
 #[test]
 fn asel_caps() {
     let val: Ieee80211HtAselCaps = Ieee80211HtAselCaps::all();
-    let mut buffer = vec![0; val.buffer_len() + 1];
-    val.emit(buffer.as_mut_slice());
-    assert_eq!(
-        <Ieee80211HtAselCaps>::parse(&buffer[0..val.buffer_len()]).unwrap(),
-        val,
-    );
+    let mut buffer = Vec::new();
+    val.emit(&mut buffer).unwrap();
+    assert_eq!(<Ieee80211HtAselCaps>::parse(&buffer).unwrap(), val,);
 }
 
 #[test]
 fn transmit_beamforming_cap() {
     let val: Ieee80211HtTransmitBeamformingCaps =
         Ieee80211HtTransmitBeamformingCaps::all();
-    let mut buffer = vec![0; val.buffer_len() + 1];
-    val.emit(buffer.as_mut_slice());
+    let mut buffer = Vec::new();
+    val.emit(&mut buffer).unwrap();
     assert_eq!(
-        <Ieee80211HtTransmitBeamformingCaps>::parse(
-            &buffer[0..val.buffer_len()]
-        )
-        .unwrap(),
+        <Ieee80211HtTransmitBeamformingCaps>::parse(&buffer).unwrap(),
         val,
     );
 }
@@ -91,12 +82,9 @@ fn mcs_info() {
             unequal_modulation_supported: false,
         },
     };
-    let mut buffer = vec![0; val.buffer_len() + 1];
-    val.emit(buffer.as_mut_slice());
-    assert_eq!(
-        <Ieee80211HtMcsInfo>::parse(&buffer[0..val.buffer_len()]).unwrap(),
-        val,
-    );
+    let mut buffer = Vec::new();
+    val.emit(&mut buffer).unwrap();
+    assert_eq!(<Ieee80211HtMcsInfo>::parse(&buffer).unwrap(), val,);
 }
 
 #[test]
@@ -151,10 +139,7 @@ fn cap_mask() {
         transmit_beamforming_cap: Ieee80211HtTransmitBeamformingCaps::all(),
         asel_cap: Ieee80211HtAselCaps::all(),
     };
-    let mut buffer = vec![0; val.buffer_len() + 1];
-    val.emit(buffer.as_mut_slice());
-    assert_eq!(
-        <Ieee80211ElementHtCap>::parse(&buffer[0..val.buffer_len()]).unwrap(),
-        val,
-    );
+    let mut buffer = Vec::new();
+    val.emit(&mut buffer).unwrap();
+    assert_eq!(<Ieee80211ElementHtCap>::parse(&buffer).unwrap(), val,);
 }

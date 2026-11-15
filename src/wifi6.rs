@@ -2,9 +2,11 @@
 
 // Hold WIFI6 (802.11ax) specific data types.
 
-use netlink_packet_core::{DecodeError, Emitable, Parseable};
+use netlink_packet_core::{
+    DecodeError, Emitable, EncodeError, Parseable, append_bytes, append_u8,
+};
 
-use crate::bytes::{get_bit, get_bits_as_u8, write_u16_le};
+use crate::bytes::{append_u16_le, get_bit, get_bits_as_u8};
 
 const HE_MAC_CAP_INFO_LEN: usize = 6;
 
@@ -139,19 +141,9 @@ impl Ieee80211HeMacCapInfo {
 }
 
 impl Emitable for Ieee80211HeMacCapInfo {
-    fn buffer_len(&self) -> usize {
-        HE_MAC_CAP_INFO_LEN
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < HE_MAC_CAP_INFO_LEN {
-            log::error!(
-                "Buffer size is smaller than HE_MAC_CAP_INFO_LEN \
-                {HE_MAC_CAP_INFO_LEN}"
-            );
-            return;
-        }
-        buffer[..Self::LENGTH].copy_from_slice(&self.0)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_bytes(out, &self.0);
+        Ok(())
     }
 }
 
@@ -184,19 +176,9 @@ impl Ieee80211HePhyCapInfo {
 }
 
 impl Emitable for Ieee80211HePhyCapInfo {
-    fn buffer_len(&self) -> usize {
-        HE_PHY_CAP_INFO_LEN
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < HE_PHY_CAP_INFO_LEN {
-            log::error!(
-                "Buffer size is smaller than HE_PHY_CAP_INFO_LEN \
-                {HE_PHY_CAP_INFO_LEN}"
-            );
-            return;
-        }
-        buffer[..HE_PHY_CAP_INFO_LEN].copy_from_slice(&self.0)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_bytes(out, &self.0);
+        Ok(())
     }
 }
 
@@ -235,24 +217,14 @@ impl Ieee80211HeMcsNssSupp {
 }
 
 impl Emitable for Ieee80211HeMcsNssSupp {
-    fn buffer_len(&self) -> usize {
-        NL80211_HE_MCS_NSS_SUPP_LEN
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < NL80211_HE_MCS_NSS_SUPP_LEN {
-            log::error!(
-                "Buffer size is smaller than NL80211_HE_MCS_NSS_SUPP_LEN \
-                {NL80211_HE_MCS_NSS_SUPP_LEN}"
-            );
-            return;
-        }
-        write_u16_le(&mut buffer[0..2], self.rx_mcs_80);
-        write_u16_le(&mut buffer[2..4], self.tx_mcs_80);
-        write_u16_le(&mut buffer[4..6], self.rx_mcs_160);
-        write_u16_le(&mut buffer[6..8], self.tx_mcs_160);
-        write_u16_le(&mut buffer[8..10], self.rx_mcs_80p80);
-        write_u16_le(&mut buffer[10..12], self.tx_mcs_80p80);
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u16_le(out, self.rx_mcs_80);
+        append_u16_le(out, self.tx_mcs_80);
+        append_u16_le(out, self.rx_mcs_160);
+        append_u16_le(out, self.tx_mcs_160);
+        append_u16_le(out, self.rx_mcs_80p80);
+        append_u16_le(out, self.tx_mcs_80p80);
+        Ok(())
     }
 }
 
@@ -324,19 +296,9 @@ impl Ieee80211HePpeThreshold {
 }
 
 impl Emitable for Ieee80211HePpeThreshold {
-    fn buffer_len(&self) -> usize {
-        IEEE80211_HE_PPE_THRES_MAX_LEN
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < IEEE80211_HE_PPE_THRES_MAX_LEN {
-            log::error!(
-                "Buffer size is smaller than IEEE80211_HE_PPE_THRES_MAX_LEN \
-                {IEEE80211_HE_PPE_THRES_MAX_LEN}"
-            );
-            return;
-        }
-        buffer[..IEEE80211_HE_PPE_THRES_MAX_LEN].copy_from_slice(&self.0)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_bytes(out, &self.0);
+        Ok(())
     }
 }
 
@@ -400,19 +362,9 @@ impl Ieee80211He6GhzCapa {
 }
 
 impl Emitable for Ieee80211He6GhzCapa {
-    fn buffer_len(&self) -> usize {
-        IEEE80211_HE_6GHZ_CAP_LEN
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < IEEE80211_HE_6GHZ_CAP_LEN {
-            log::error!(
-                "Buffer size is smaller than IEEE80211_HE_6GHZ_CAP_LEN \
-                {IEEE80211_HE_6GHZ_CAP_LEN}"
-            );
-            return;
-        }
-        buffer[..IEEE80211_HE_6GHZ_CAP_LEN].copy_from_slice(&self.0)
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_bytes(out, &self.0);
+        Ok(())
     }
 }
 
@@ -491,47 +443,27 @@ impl Ieee80211ElementHeCap {
 }
 
 impl Emitable for Ieee80211ElementHeCap {
-    fn buffer_len(&self) -> usize {
-        1 + Ieee80211HeMacCapInfo::LENGTH
-            + Ieee80211HePhyCapInfo::LENGTH
-            + Self::mcs_nss_len(&self.phy_caps)
-            + self.ppe_thresholds.as_ref().map_or(0, Vec::len)
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        if buffer.len() < self.buffer_len() {
-            log::error!(
-                "Ieee80211ElementHeCap buffer size is smaller than \
-                required size {}: {buffer:?}",
-                self.buffer_len()
-            );
-            return;
-        }
-        buffer[0] = ELEMENT_ID_EXTENSION_HE_CAP;
-        let mut offset = 1;
-        self.mac_caps.emit(&mut buffer[offset..]);
-        offset += Ieee80211HeMacCapInfo::LENGTH;
-        self.phy_caps.emit(&mut buffer[offset..]);
-        offset += Ieee80211HePhyCapInfo::LENGTH;
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u8(out, ELEMENT_ID_EXTENSION_HE_CAP);
+        self.mac_caps.emit(out)?;
+        self.phy_caps.emit(out)?;
 
         let mcs_len = Self::mcs_nss_len(&self.phy_caps);
         let mcs = self.mcs_nss_set;
-        write_u16_le(&mut buffer[offset..offset + 2], mcs.rx_mcs_80);
-        write_u16_le(&mut buffer[offset + 2..offset + 4], mcs.tx_mcs_80);
-        offset += 4;
+        append_u16_le(out, mcs.rx_mcs_80);
+        append_u16_le(out, mcs.tx_mcs_80);
         if mcs_len >= 8 {
-            write_u16_le(&mut buffer[offset..offset + 2], mcs.rx_mcs_160);
-            write_u16_le(&mut buffer[offset + 2..offset + 4], mcs.tx_mcs_160);
-            offset += 4;
+            append_u16_le(out, mcs.rx_mcs_160);
+            append_u16_le(out, mcs.tx_mcs_160);
         }
         if mcs_len >= 12 {
-            write_u16_le(&mut buffer[offset..offset + 2], mcs.rx_mcs_80p80);
-            write_u16_le(&mut buffer[offset + 2..offset + 4], mcs.tx_mcs_80p80);
-            offset += 4;
+            append_u16_le(out, mcs.rx_mcs_80p80);
+            append_u16_le(out, mcs.tx_mcs_80p80);
         }
 
         if let Some(ppe) = &self.ppe_thresholds {
-            buffer[offset..offset + ppe.len()].copy_from_slice(ppe);
+            append_bytes(out, ppe);
         }
+        Ok(())
     }
 }

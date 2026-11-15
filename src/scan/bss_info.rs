@@ -33,12 +33,12 @@ use std::convert::TryInto;
 use std::fmt::Debug;
 
 use netlink_packet_core::{
-    DecodeError, DefaultNla, Emitable, ErrorContext, Nla, NlaBuffer, Parseable,
-    parse_u8, parse_u16, parse_u32, parse_u64,
+    DecodeError, DefaultNla, Emitable, EncodeError, ErrorContext, Nla,
+    NlaBuffer, Parseable, append_bytes, append_i32, append_u8, append_u16,
+    append_u32, append_u64, parse_u8, parse_u16, parse_u32, parse_u64,
 };
 
 use crate::Ieee80211CapabilityInfo;
-use crate::bytes::{write_i32, write_u16, write_u32, write_u64};
 use crate::mac::ETH_ALEN;
 
 bitflags::bitflags! {
@@ -65,12 +65,9 @@ impl Nl80211BssUseFor {
 }
 
 impl Emitable for Nl80211BssUseFor {
-    fn buffer_len(&self) -> usize {
-        Self::LENGTH
-    }
-
-    fn emit(&self, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&self.bits().to_ne_bytes())
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
+        append_u32(out, self.bits());
+        Ok(())
     }
 }
 
@@ -142,27 +139,6 @@ pub enum Nl80211BssInfo {
 }
 
 impl Nla for Nl80211BssInfo {
-    fn value_len(&self) -> usize {
-        match self {
-            Self::Bssid(_) => ETH_ALEN,
-            Self::SignalUnspec(_) => 1,
-            Self::BeaconInterval(_) => 2,
-            Self::Frequency(_)
-            | Self::SignalMbm(_)
-            | Self::Status(_)
-            | Self::SeenMsAgo(_)
-            | Self::ChanWidth(_)
-            | Self::FrequencyOffset(_) => 4,
-            Self::BeaconTsf(_) | Self::Tsf(_) | Self::LastSeenBootTime(_) => 8,
-            Self::RawInformationElements(v)
-            | Self::RawBeaconInformationElements(v)
-            | Self::RawProbeResponseInformationElements(v) => v.len(),
-            Self::Capability(_) => Ieee80211CapabilityInfo::LENGTH,
-            Self::UseFor(_) => Nl80211BssUseFor::LENGTH,
-            Self::Other(attr) => attr.value_len(),
-        }
-    }
-
     fn kind(&self) -> u16 {
         match self {
             Self::Bssid(_) => NL80211_BSS_BSSID,
@@ -188,36 +164,35 @@ impl Nla for Nl80211BssInfo {
         }
     }
 
-    fn emit_value(&self, buffer: &mut [u8]) {
+    fn emit_value(&self, out: &mut Vec<u8>) -> Result<(), EncodeError> {
         match self {
-            Self::Bssid(v) => buffer[..ETH_ALEN].copy_from_slice(v),
-            Self::SignalUnspec(d) => buffer[0] = *d,
-            Self::BeaconInterval(d) => write_u16(buffer, *d),
+            Self::Bssid(v) => append_bytes(out, v),
+            Self::SignalUnspec(d) => append_u8(out, *d),
+            Self::BeaconInterval(d) => append_u16(out, *d),
             Self::Frequency(d)
             | Self::Status(d)
             | Self::SeenMsAgo(d)
             | Self::ChanWidth(d)
-            | Self::FrequencyOffset(d) => write_u32(buffer, *d),
-            Self::SignalMbm(d) => write_i32(buffer, *d),
+            | Self::FrequencyOffset(d) => append_u32(out, *d),
+            Self::SignalMbm(d) => append_i32(out, *d),
             Self::BeaconTsf(d) | Self::Tsf(d) | Self::LastSeenBootTime(d) => {
-                write_u64(buffer, *d)
+                append_u64(out, *d)
             }
             Self::RawInformationElements(v)
             | Self::RawBeaconInformationElements(v)
             | Self::RawProbeResponseInformationElements(v) => {
-                buffer[..v.len()].copy_from_slice(v)
+                append_bytes(out, v)
             }
-            Self::Capability(v) => v.emit(buffer),
-            Self::UseFor(v) => v.emit(buffer),
-            Self::Other(attr) => attr.emit(buffer),
+            Self::Capability(v) => v.emit(out)?,
+            Self::UseFor(v) => v.emit(out)?,
+            Self::Other(attr) => append_bytes(out, attr.value()),
         }
+        Ok(())
     }
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized> Parseable<NlaBuffer<&'a T>>
-    for Nl80211BssInfo
-{
-    fn parse(buf: &NlaBuffer<&'a T>) -> Result<Self, DecodeError> {
+impl<'a> Parseable<NlaBuffer<'a>> for Nl80211BssInfo {
+    fn parse(buf: &NlaBuffer<'a>) -> Result<Self, DecodeError> {
         let payload = buf.value();
         Ok(match buf.kind() {
             NL80211_BSS_BSSID => {

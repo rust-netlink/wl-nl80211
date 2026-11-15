@@ -9,7 +9,7 @@
 // stripped. They validate our parsing and emitting against what the kernel and
 // userspace exchange.
 
-use netlink_packet_core::{Emitable, NlaBuffer, Parseable};
+use netlink_packet_core::{Nla, NlaBuffer, Parseable};
 
 use crate::Nl80211Attr;
 
@@ -22,10 +22,10 @@ fn test_captured_reason_code() {
     let expected = Nl80211Attr::ReasonCode(3);
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -39,10 +39,10 @@ fn test_captured_deauthenticate_mac() {
     let expected = Nl80211Attr::Mac([0x02, 0x00, 0x00, 0x00, 0x01, 0x00]);
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }
 
@@ -63,9 +63,9 @@ fn test_captured_deauthenticate_frame() {
     ]);
     assert_eq!(
         expected,
-        Nl80211Attr::parse(&NlaBuffer::new_checked(&raw).unwrap()).unwrap()
+        Nl80211Attr::parse(&NlaBuffer::new(&raw).unwrap()).unwrap()
     );
-    let mut buf = vec![0; expected.buffer_len()];
-    expected.emit(&mut buf);
+    let mut buf = Vec::new();
+    expected.emit(&mut buf).unwrap();
     assert_eq!(buf, raw);
 }

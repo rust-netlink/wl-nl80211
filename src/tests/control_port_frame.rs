@@ -11,7 +11,8 @@ use crate::{Nl80211Attr, Nl80211ControlPortFrame};
 
 fn parse_message_attributes(raw: &[u8]) -> Vec<Nl80211Attr> {
     NlasIterator::new(raw)
-        .map(|nla| Nl80211Attr::parse(&nla.unwrap()).unwrap())
+        .unwrap()
+        .map(|nla| Nl80211Attr::parse(&nla).unwrap())
         .collect()
 }
 
@@ -105,9 +106,14 @@ fn test_control_port_ethertype_both_forms() {
     let value = Nl80211Attr::ControlPortEthertype(EthernetProtocol::Pae);
     let flag = Nl80211Attr::ControlPortEthertypeSupported;
 
+    let mut value_bytes = Vec::new();
+    value.emit_value(&mut value_bytes).unwrap();
+    let mut flag_bytes = Vec::new();
+    flag.emit_value(&mut flag_bytes).unwrap();
+
     assert_eq!(value.kind(), flag.kind());
-    assert_eq!(2, value.value_len());
-    assert_eq!(0, flag.value_len());
+    assert_eq!(2, value_bytes.len());
+    assert_eq!(0, flag_bytes.len());
 
     // The u16 form round-trips through a 2-byte payload.
     let raw = vec![0x06, 0x00, 0x66, 0x00, 0x8e, 0x88, 0x00, 0x00];
