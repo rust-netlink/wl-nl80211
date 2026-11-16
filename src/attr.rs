@@ -548,7 +548,7 @@ pub enum Nl80211Attr {
     /// Beacon interval in TUs (`NL80211_ATTR_BEACON_INTERVAL`).
     BeaconInterval(u32),
     /// DTIM period for beaconing (`NL80211_ATTR_DTIM_PERIOD`).
-    DtimPeriod(u8),
+    DtimPeriod(u32),
     /// Portion of the beacon before the TIM IE
     /// (`NL80211_ATTR_BEACON_HEAD`).
     BeaconHead(Vec<u8>),
@@ -1061,7 +1061,7 @@ impl Nla for Nl80211Attr {
                 out.extend_from_slice(s);
             }
             Self::BeaconInterval(d) => append_u32(out, *d),
-            Self::DtimPeriod(d) => out.push(*d),
+            Self::DtimPeriod(d) => append_u32(out, *d),
             Self::BeaconHead(b)
             | Self::BeaconTail(b)
             | Self::BssBasicRates(b)
