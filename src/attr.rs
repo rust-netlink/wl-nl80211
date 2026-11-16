@@ -795,8 +795,10 @@ pub enum Nl80211Attr {
     /// will perform the authentication (e.g. SAE) externally, via
     /// `NL80211_CMD_EXTERNAL_AUTH`.
     ExternalAuthSupport,
-    /// Flag attribute marking the AP control port as managed by userspace
-    /// (`NL80211_ATTR_CONTROL_PORT`), used with `NL80211_CMD_START_AP`.
+    /// Flag attribute indicating that userspace controls the IEEE 802.1X
+    /// port (sets/clears `NL80211_STA_FLAG_AUTHORIZED`). Used with
+    /// `NL80211_CMD_ASSOCIATE` in station mode and with `NL80211_CMD_START_AP`
+    /// in AP mode (`NL80211_ATTR_CONTROL_PORT`).
     ControlPort,
     /// Flag attribute requesting that the EAPOL (802.1X) control port frames
     /// are sent and received over nl80211 instead of a network interface.
