@@ -246,7 +246,7 @@ const NL80211_ATTR_WIPHY_RTS_THRESHOLD: u16 = 64;
 pub(crate) const NL80211_ATTR_TIMED_OUT: u16 = 65;
 const NL80211_ATTR_USE_MFP: u16 = 66;
 pub(crate) const NL80211_ATTR_STA_FLAGS2: u16 = 67;
-// const NL80211_ATTR_CONTROL_PORT:u16 = 68;
+const NL80211_ATTR_CONTROL_PORT: u16 = 68;
 // const NL80211_ATTR_TESTDATA:u16 = 69;
 const NL80211_ATTR_PRIVACY: u16 = 70;
 // const NL80211_ATTR_DISCONNECTED_BY_AP:u16 = 71;
@@ -795,6 +795,9 @@ pub enum Nl80211Attr {
     /// will perform the authentication (e.g. SAE) externally, via
     /// `NL80211_CMD_EXTERNAL_AUTH`.
     ExternalAuthSupport,
+    /// Flag attribute marking the AP control port as managed by userspace
+    /// (`NL80211_ATTR_CONTROL_PORT`), used with `NL80211_CMD_START_AP`.
+    ControlPort,
     /// Flag attribute requesting that the EAPOL (802.1X) control port frames
     /// are sent and received over nl80211 instead of a network interface.
     ControlPortOverNl80211,
@@ -998,6 +1001,7 @@ impl Nla for Nl80211Attr {
             Self::PrevBssid(_) => NL80211_ATTR_PREV_BSSID,
             Self::ExternalAuthAction(_) => NL80211_ATTR_EXTERNAL_AUTH_ACTION,
             Self::ExternalAuthSupport => NL80211_ATTR_EXTERNAL_AUTH_SUPPORT,
+            Self::ControlPort => NL80211_ATTR_CONTROL_PORT,
             Self::ControlPortOverNl80211 => {
                 NL80211_ATTR_CONTROL_PORT_OVER_NL80211
             }
@@ -1180,6 +1184,7 @@ impl Nla for Nl80211Attr {
             Self::Cookie(d) => append_u64(out, *d),
             Self::ExternalAuthAction(d) => append_u32(out, u32::from(*d)),
             Self::Privacy
+            | Self::ControlPort
             | Self::ControlPortOverNl80211
             | Self::ExternalAuthSupport
             | Self::Ack

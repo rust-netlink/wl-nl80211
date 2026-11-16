@@ -119,6 +119,15 @@ impl Nl80211AttrsBuilder<Nl80211StartAp> {
         self.replace(Nl80211Attr::ProbeResp(resp))
     }
 
+    /// Mark the AP control port as userspace-managed and set its EtherType.
+    pub fn control_port(
+        self,
+        ethertype: netlink_packet_core::EthernetProtocol,
+    ) -> Self {
+        self.replace(Nl80211Attr::ControlPort)
+            .replace(Nl80211Attr::ControlPortEthertype(ethertype))
+    }
+
     /// Inactivity timeout in seconds.
     pub fn inactivity_timeout(self, seconds: u16) -> Self {
         self.replace(Nl80211Attr::InactivityTimeout(seconds))
