@@ -35,6 +35,11 @@ impl Nl80211StartAp {
 }
 
 impl Nl80211AttrsBuilder<Nl80211StartAp> {
+    /// Operating channel frequency in MHz.
+    pub fn frequency(self, freq_mhz: u32) -> Self {
+        self.replace(Nl80211Attr::WiphyFreq(freq_mhz))
+    }
+
     /// Beacon interval in TUs.
     pub fn beacon_interval(self, interval: u32) -> Self {
         self.replace(Nl80211Attr::BeaconInterval(interval))
