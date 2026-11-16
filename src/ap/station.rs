@@ -27,55 +27,6 @@ macro_rules! station_builder {
             }
         }
 
-        impl Nl80211AttrsBuilder<$name> {
-            /// Association ID (`NL80211_ATTR_STA_AID`).
-            pub fn aid(self, aid: u16) -> Self {
-                self.replace(Nl80211Attr::StaAid(aid))
-            }
-
-            /// Listen interval (`NL80211_ATTR_STA_LISTEN_INTERVAL`).
-            pub fn listen_interval(self, interval: u16) -> Self {
-                self.replace(Nl80211Attr::StaListenInterval(interval))
-            }
-
-            /// Supported rates (`NL80211_ATTR_STA_SUPPORTED_RATES`).
-            pub fn supported_rates(self, rates: Vec<u8>) -> Self {
-                self.replace(Nl80211Attr::StaSupportedRates(rates))
-            }
-
-            /// Station capabilities (`NL80211_ATTR_STA_CAPABILITY`).
-            pub fn capability(self, capability: u16) -> Self {
-                self.replace(Nl80211Attr::StaCapability(capability))
-            }
-
-            /// Station flags mask/set (`NL80211_ATTR_STA_FLAGS2`).
-            pub fn flags2(
-                self,
-                update: Nl80211StationFlagUpdate,
-            ) -> Self {
-                self.replace(Nl80211Attr::StaFlags2(update))
-            }
-
-            /// Extended capabilities (`NL80211_ATTR_STA_EXT_CAPABILITY`).
-            pub fn ext_capability(self, capabilities: Vec<u8>) -> Self {
-                self.replace(Nl80211Attr::StaExtCapability(capabilities))
-            }
-
-            /// Supported channels (`NL80211_ATTR_STA_SUPPORTED_CHANNELS`).
-            pub fn supported_channels(self, channels: Vec<u8>) -> Self {
-                self.replace(Nl80211Attr::StaSupportedChannels(channels))
-            }
-
-            /// Supported operating classes
-            /// (`NL80211_ATTR_STA_SUPPORTED_OPER_CLASSES`).
-            pub fn supported_oper_classes(
-                self,
-                classes: Vec<u8>,
-            ) -> Self {
-                self.replace(Nl80211Attr::StaSupportedOperClasses(classes))
-            }
-        }
-
         pub struct $req {
             handle: Nl80211Handle,
             attributes: Vec<Nl80211Attr>,
@@ -113,6 +64,53 @@ macro_rules! station_builder {
     };
 }
 
+macro_rules! station_params_builder {
+    ($name:ident) => {
+        impl Nl80211AttrsBuilder<$name> {
+            /// Association ID (`NL80211_ATTR_STA_AID`).
+            pub fn aid(self, aid: u16) -> Self {
+                self.replace(Nl80211Attr::StaAid(aid))
+            }
+
+            /// Listen interval (`NL80211_ATTR_STA_LISTEN_INTERVAL`).
+            pub fn listen_interval(self, interval: u16) -> Self {
+                self.replace(Nl80211Attr::StaListenInterval(interval))
+            }
+
+            /// Supported rates (`NL80211_ATTR_STA_SUPPORTED_RATES`).
+            pub fn supported_rates(self, rates: Vec<u8>) -> Self {
+                self.replace(Nl80211Attr::StaSupportedRates(rates))
+            }
+
+            /// Station capabilities (`NL80211_ATTR_STA_CAPABILITY`).
+            pub fn capability(self, capability: u16) -> Self {
+                self.replace(Nl80211Attr::StaCapability(capability))
+            }
+
+            /// Station flags mask/set (`NL80211_ATTR_STA_FLAGS2`).
+            pub fn flags2(self, update: Nl80211StationFlagUpdate) -> Self {
+                self.replace(Nl80211Attr::StaFlags2(update))
+            }
+
+            /// Extended capabilities (`NL80211_ATTR_STA_EXT_CAPABILITY`).
+            pub fn ext_capability(self, capabilities: Vec<u8>) -> Self {
+                self.replace(Nl80211Attr::StaExtCapability(capabilities))
+            }
+
+            /// Supported channels (`NL80211_ATTR_STA_SUPPORTED_CHANNELS`).
+            pub fn supported_channels(self, channels: Vec<u8>) -> Self {
+                self.replace(Nl80211Attr::StaSupportedChannels(channels))
+            }
+
+            /// Supported operating classes
+            /// (`NL80211_ATTR_STA_SUPPORTED_OPER_CLASSES`).
+            pub fn supported_oper_classes(self, classes: Vec<u8>) -> Self {
+                self.replace(Nl80211Attr::StaSupportedOperClasses(classes))
+            }
+        }
+    };
+}
+
 station_builder!(
     Nl80211StationAdd,
     Nl80211StationAddRequest,
@@ -131,3 +129,6 @@ station_builder!(
     Nl80211Command::DelStation,
     "Builder for `NL80211_CMD_DEL_STATION`."
 );
+
+station_params_builder!(Nl80211StationAdd);
+station_params_builder!(Nl80211StationSet);
