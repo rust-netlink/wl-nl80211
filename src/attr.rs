@@ -47,9 +47,9 @@ use crate::{
     Nl80211IfTypeExtCapas, Nl80211IfaceComb, Nl80211IfaceFrameType,
     Nl80211InterfaceType, Nl80211InterfaceTypes, Nl80211KeyAttr,
     Nl80211MloLink, Nl80211RekeyData, Nl80211ScanFlags, Nl80211SchedScanMatch,
-    Nl80211SchedScanPlan, Nl80211StationInfo, Nl80211SurveyInfo,
-    Nl80211TransmitQueueStat, Nl80211UseMfp, Nl80211WowlanTriggersSupport,
-    Nl80211WpaVersions,
+    Nl80211SchedScanPlan, Nl80211StationFlagUpdate, Nl80211StationInfo,
+    Nl80211SurveyInfo, Nl80211TransmitQueueStat, Nl80211UseMfp,
+    Nl80211WowlanTriggersSupport, Nl80211WpaVersions,
     scan::{NestedIndexedNlaList, Nla80211ScanFreqNlas, Nla80211ScanSsidNlas},
     wiphy::Nl80211Commands,
 };
@@ -190,14 +190,14 @@ pub(crate) const NL80211_ATTR_MAC: u16 = 6;
 // const NL80211_ATTR_KEY_CIPHER:u16 = 9;
 // const NL80211_ATTR_KEY_SEQ:u16 = 10;
 // const NL80211_ATTR_KEY_DEFAULT:u16 = 11;
-// const NL80211_ATTR_BEACON_INTERVAL:u16 = 12;
-// const NL80211_ATTR_DTIM_PERIOD:u16 = 13;
-// const NL80211_ATTR_BEACON_HEAD:u16 = 14;
-// const NL80211_ATTR_BEACON_TAIL:u16 = 15;
-// const NL80211_ATTR_STA_AID:u16 = 16;
+const NL80211_ATTR_BEACON_INTERVAL: u16 = 12;
+const NL80211_ATTR_DTIM_PERIOD: u16 = 13;
+const NL80211_ATTR_BEACON_HEAD: u16 = 14;
+const NL80211_ATTR_BEACON_TAIL: u16 = 15;
+const NL80211_ATTR_STA_AID: u16 = 16;
 // const NL80211_ATTR_STA_FLAGS:u16 = 17;
-// const NL80211_ATTR_STA_LISTEN_INTERVAL:u16 = 18;
-// const NL80211_ATTR_STA_SUPPORTED_RATES:u16 = 19;
+const NL80211_ATTR_STA_LISTEN_INTERVAL: u16 = 18;
+const NL80211_ATTR_STA_SUPPORTED_RATES: u16 = 19;
 // const NL80211_ATTR_STA_VLAN:u16 = 20;
 const NL80211_ATTR_STA_INFO: u16 = 21;
 const NL80211_ATTR_WIPHY_BANDS: u16 = 22;
@@ -214,7 +214,7 @@ const NL80211_ATTR_SUPPORTED_IFTYPES: u16 = 32;
 // const NL80211_ATTR_REG_ALPHA2:u16 = 33;
 // const NL80211_ATTR_REG_RULES:u16 = 34;
 // const NL80211_ATTR_MESH_CONFIG:u16 = 35;
-// const NL80211_ATTR_BSS_BASIC_RATES:u16 = 36;
+const NL80211_ATTR_BSS_BASIC_RATES: u16 = 36;
 // const NL80211_ATTR_WIPHY_TXQ_PARAMS:u16 = 37;
 const NL80211_ATTR_WIPHY_FREQ: u16 = 38;
 const NL80211_ATTR_WIPHY_CHANNEL_TYPE: u16 = 39;
@@ -245,7 +245,7 @@ const NL80211_ATTR_WIPHY_FRAG_THRESHOLD: u16 = 63;
 const NL80211_ATTR_WIPHY_RTS_THRESHOLD: u16 = 64;
 pub(crate) const NL80211_ATTR_TIMED_OUT: u16 = 65;
 const NL80211_ATTR_USE_MFP: u16 = 66;
-// const NL80211_ATTR_STA_FLAGS2:u16 = 67;
+pub(crate) const NL80211_ATTR_STA_FLAGS2: u16 = 67;
 // const NL80211_ATTR_CONTROL_PORT:u16 = 68;
 // const NL80211_ATTR_TESTDATA:u16 = 69;
 const NL80211_ATTR_PRIVACY: u16 = 70;
@@ -306,10 +306,9 @@ const NL80211_ATTR_REKEY_DATA: u16 = 122;
 const NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS: u16 = 123;
 const NL80211_ATTR_MAX_SCHED_SCAN_IE_LEN: u16 = 124;
 // const NL80211_ATTR_SCAN_SUPP_RATES:u16 = 125;
-// const NL80211_ATTR_HIDDEN_SSID:u16 = 126;
-// const NL80211_ATTR_IE_PROBE_RESP:u16 = 127;
-// const NL80211_ATTR_IE_ASSOC_RESP:u16 = 128;
-// const NL80211_ATTR_STA_WME:u16 = 129;
+const NL80211_ATTR_HIDDEN_SSID: u16 = 126;
+const NL80211_ATTR_IE_PROBE_RESP: u16 = 127;
+const NL80211_ATTR_IE_ASSOC_RESP: u16 = 128;
 const NL80211_ATTR_SUPPORT_AP_UAPSD: u16 = 130;
 const NL80211_ATTR_ROAM_SUPPORT: u16 = 131;
 const NL80211_ATTR_SCHED_SCAN_MATCH: u16 = 132;
@@ -325,12 +324,12 @@ const NL80211_ATTR_TDLS_EXTERNAL_SETUP: u16 = 140;
 // const NL80211_ATTR_DONT_WAIT_FOR_ACK:u16 = 142;
 const NL80211_ATTR_FEATURE_FLAGS: u16 = 143;
 const NL80211_ATTR_PROBE_RESP_OFFLOAD: u16 = 144;
-// const NL80211_ATTR_PROBE_RESP:u16 = 145;
+const NL80211_ATTR_PROBE_RESP: u16 = 145;
 // const NL80211_ATTR_DFS_REGION:u16 = 146;
 // const NL80211_ATTR_DISABLE_HT:u16 = 147;
 const NL80211_ATTR_HT_CAPABILITY_MASK: u16 = 148;
 // const NL80211_ATTR_NOACK_MAP:u16 = 149;
-// const NL80211_ATTR_INACTIVITY_TIMEOUT:u16 = 150;
+const NL80211_ATTR_INACTIVITY_TIMEOUT: u16 = 150;
 // const NL80211_ATTR_RX_SIGNAL_DBM:u16 = 151;
 // const NL80211_ATTR_BG_SCAN_PERIOD:u16 = 152;
 const NL80211_ATTR_WDEV: u16 = 153;
@@ -351,8 +350,8 @@ const NL80211_ATTR_MAC_ADDRS: u16 = 166;
 // const NL80211_ATTR_RADAR_EVENT:u16 = 168;
 const NL80211_ATTR_EXT_CAPA: u16 = 169;
 const NL80211_ATTR_EXT_CAPA_MASK: u16 = 170;
-// const NL80211_ATTR_STA_CAPABILITY:u16 = 171;
-// const NL80211_ATTR_STA_EXT_CAPABILITY:u16 = 172;
+const NL80211_ATTR_STA_CAPABILITY: u16 = 171;
+const NL80211_ATTR_STA_EXT_CAPABILITY: u16 = 172;
 // const NL80211_ATTR_PROTOCOL_FEATURES:u16 = 173;
 const NL80211_ATTR_SPLIT_WIPHY_DUMP: u16 = 174;
 // const NL80211_ATTR_DISABLE_VHT:u16 = 175;
@@ -369,8 +368,8 @@ const NL80211_ATTR_VHT_CAPABILITY_MASK: u16 = 176;
 // const NL80211_ATTR_CNTDWN_OFFS_BEACON:u16 = 186;
 // const NL80211_ATTR_CNTDWN_OFFS_PRESP:u16 = 187;
 // const NL80211_ATTR_RXMGMT_FLAGS:u16 = 188;
-// const NL80211_ATTR_STA_SUPPORTED_CHANNELS:u16 = 189;
-// const NL80211_ATTR_STA_SUPPORTED_OPER_CLASSES:u16 = 190;
+const NL80211_ATTR_STA_SUPPORTED_CHANNELS: u16 = 189;
+const NL80211_ATTR_STA_SUPPORTED_OPER_CLASSES: u16 = 190;
 // const NL80211_ATTR_HANDLE_DFS:u16 = 191;
 // const NL80211_ATTR_SUPPORT_5_MHZ:u16 = 192;
 // const NL80211_ATTR_SUPPORT_10_MHZ:u16 = 193;
@@ -489,7 +488,7 @@ const NL80211_ATTR_WIPHY_FREQ_OFFSET: u16 = 290;
 // const NL80211_ATTR_MBSSID_CONFIG:u16 = 306;
 // const NL80211_ATTR_MBSSID_ELEMS:u16 = 307;
 // const NL80211_ATTR_RADAR_BACKGROUND:u16 = 308;
-// const NL80211_ATTR_AP_SETTINGS_FLAGS:u16 = 309;
+const NL80211_ATTR_AP_SETTINGS_FLAGS: u16 = 309;
 // const NL80211_ATTR_EHT_CAPABILITY:u16 = 310;
 // const NL80211_ATTR_DISABLE_EHT:u16 = 311;
 const NL80211_ATTR_MLO_LINKS: u16 = 312;
@@ -546,6 +545,49 @@ pub enum Nl80211Attr {
     /// the SSID, so the parser always stores the octets here instead of
     /// converting them to a string which could fail.
     SsidRaw(Vec<u8>),
+    /// Beacon interval in TUs (`NL80211_ATTR_BEACON_INTERVAL`).
+    BeaconInterval(u32),
+    /// DTIM period for beaconing (`NL80211_ATTR_DTIM_PERIOD`).
+    DtimPeriod(u8),
+    /// Portion of the beacon before the TIM IE
+    /// (`NL80211_ATTR_BEACON_HEAD`).
+    BeaconHead(Vec<u8>),
+    /// Portion of the beacon after the TIM IE
+    /// (`NL80211_ATTR_BEACON_TAIL`).
+    BeaconTail(Vec<u8>),
+    /// Basic rates for the BSS (`NL80211_ATTR_BSS_BASIC_RATES`).
+    BssBasicRates(Vec<u8>),
+    /// Association ID for a station (`NL80211_ATTR_STA_AID`).
+    StaAid(u16),
+    /// Station listen interval (`NL80211_ATTR_STA_LISTEN_INTERVAL`).
+    StaListenInterval(u16),
+    /// Station supported rates (`NL80211_ATTR_STA_SUPPORTED_RATES`).
+    StaSupportedRates(Vec<u8>),
+    /// Station flags mask/set (`NL80211_ATTR_STA_FLAGS2`).
+    StaFlags2(Nl80211StationFlagUpdate),
+    /// Station capabilities (`NL80211_ATTR_STA_CAPABILITY`).
+    StaCapability(u16),
+    /// Station extended capabilities (`NL80211_ATTR_STA_EXT_CAPABILITY`).
+    StaExtCapability(Vec<u8>),
+    /// Station supported channels (`NL80211_ATTR_STA_SUPPORTED_CHANNELS`).
+    StaSupportedChannels(Vec<u8>),
+    /// Station supported operating classes
+    /// (`NL80211_ATTR_STA_SUPPORTED_OPER_CLASSES`).
+    StaSupportedOperClasses(Vec<u8>),
+    /// Hidden SSID mode (`NL80211_ATTR_HIDDEN_SSID`).
+    HiddenSsid(u32),
+    /// Information elements for Probe Response frames
+    /// (`NL80211_ATTR_IE_PROBE_RESP`).
+    IeProbeResp(Vec<u8>),
+    /// Information elements for (Re)Association Response frames
+    /// (`NL80211_ATTR_IE_ASSOC_RESP`).
+    IeAssocResp(Vec<u8>),
+    /// Probe Response template data (`NL80211_ATTR_PROBE_RESP`).
+    ProbeResp(Vec<u8>),
+    /// Inactivity timeout in seconds (`NL80211_ATTR_INACTIVITY_TIMEOUT`).
+    InactivityTimeout(u16),
+    /// AP settings flags (`NL80211_ATTR_AP_SETTINGS_FLAGS`).
+    ApSettingsFlags(u32),
     StationInfo(Vec<Nl80211StationInfo>),
     SurveyInfo(Vec<Nl80211SurveyInfo>),
     TransmitQueueStats(Vec<Nl80211TransmitQueueStat>),
@@ -812,6 +854,29 @@ impl Nla for Nl80211Attr {
             Self::CenterFreq2(_) => NL80211_ATTR_CENTER_FREQ2,
             Self::WiphyTxPowerLevel(_) => NL80211_ATTR_WIPHY_TX_POWER_LEVEL,
             Self::Ssid(_) | Self::SsidRaw(_) => NL80211_ATTR_SSID,
+            Self::BeaconInterval(_) => NL80211_ATTR_BEACON_INTERVAL,
+            Self::DtimPeriod(_) => NL80211_ATTR_DTIM_PERIOD,
+            Self::BeaconHead(_) => NL80211_ATTR_BEACON_HEAD,
+            Self::BeaconTail(_) => NL80211_ATTR_BEACON_TAIL,
+            Self::BssBasicRates(_) => NL80211_ATTR_BSS_BASIC_RATES,
+            Self::StaAid(_) => NL80211_ATTR_STA_AID,
+            Self::StaListenInterval(_) => NL80211_ATTR_STA_LISTEN_INTERVAL,
+            Self::StaSupportedRates(_) => NL80211_ATTR_STA_SUPPORTED_RATES,
+            Self::StaFlags2(_) => NL80211_ATTR_STA_FLAGS2,
+            Self::StaCapability(_) => NL80211_ATTR_STA_CAPABILITY,
+            Self::StaExtCapability(_) => NL80211_ATTR_STA_EXT_CAPABILITY,
+            Self::StaSupportedChannels(_) => {
+                NL80211_ATTR_STA_SUPPORTED_CHANNELS
+            }
+            Self::StaSupportedOperClasses(_) => {
+                NL80211_ATTR_STA_SUPPORTED_OPER_CLASSES
+            }
+            Self::HiddenSsid(_) => NL80211_ATTR_HIDDEN_SSID,
+            Self::IeProbeResp(_) => NL80211_ATTR_IE_PROBE_RESP,
+            Self::IeAssocResp(_) => NL80211_ATTR_IE_ASSOC_RESP,
+            Self::ProbeResp(_) => NL80211_ATTR_PROBE_RESP,
+            Self::InactivityTimeout(_) => NL80211_ATTR_INACTIVITY_TIMEOUT,
+            Self::ApSettingsFlags(_) => NL80211_ATTR_AP_SETTINGS_FLAGS,
             Self::StationInfo(_) => NL80211_ATTR_STA_INFO,
             Self::SurveyInfo(_) => NL80211_ATTR_SURVEY_INFO,
             Self::SurveyRadioStats => NL80211_ATTR_SURVEY_RADIO_STATS,
@@ -994,6 +1059,29 @@ impl Nla for Nl80211Attr {
             }
             Self::SsidRaw(s) => {
                 out.extend_from_slice(s);
+            }
+            Self::BeaconInterval(d) => append_u32(out, *d),
+            Self::DtimPeriod(d) => out.push(*d),
+            Self::BeaconHead(b)
+            | Self::BeaconTail(b)
+            | Self::BssBasicRates(b)
+            | Self::StaSupportedRates(b)
+            | Self::StaExtCapability(b)
+            | Self::StaSupportedChannels(b)
+            | Self::StaSupportedOperClasses(b)
+            | Self::IeProbeResp(b)
+            | Self::IeAssocResp(b)
+            | Self::ProbeResp(b) => out.extend_from_slice(b),
+            Self::StaAid(d)
+            | Self::StaListenInterval(d)
+            | Self::StaCapability(d)
+            | Self::InactivityTimeout(d) => append_u16(out, *d),
+            Self::StaFlags2(d) => {
+                out.extend_from_slice(&d.mask.bits().to_ne_bytes());
+                out.extend_from_slice(&d.set.bits().to_ne_bytes());
+            }
+            Self::HiddenSsid(d) | Self::ApSettingsFlags(d) => {
+                append_u32(out, *d)
             }
             Self::Use4Addr(d) => out.push(*d as u8),
             Self::ControlPortEthertype(d) => append_u16(out, d.value()),

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+mod ap;
 mod attr;
 mod band;
 mod builder;
@@ -48,6 +49,13 @@ pub(crate) mod bytes;
 pub use netlink_packet_core as packet_core;
 pub use netlink_packet_generic as packet_generic;
 
+pub use self::ap::{
+    NL80211_HIDDEN_SSID_NOT_IN_USE, NL80211_HIDDEN_SSID_ZERO_CONTENTS,
+    NL80211_HIDDEN_SSID_ZERO_LEN, Nl80211StartAp, Nl80211StartApRequest,
+    Nl80211StationAdd, Nl80211StationAddRequest, Nl80211StationDel,
+    Nl80211StationDelRequest, Nl80211StationSet, Nl80211StationSetRequest,
+    Nl80211StopAp, Nl80211StopApRequest,
+};
 pub use self::attr::Nl80211Attr;
 pub use self::band::Ieee80211OperatingClass;
 pub use self::builder::Nl80211AttrsBuilder;

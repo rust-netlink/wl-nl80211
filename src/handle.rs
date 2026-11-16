@@ -7,8 +7,10 @@ use netlink_packet_generic::GenlMessage;
 
 use crate::{
     Nl80211ConnectionHandle, Nl80211Error, Nl80211InterfaceHandle,
-    Nl80211Message, Nl80211ScanHandle, Nl80211StationHandle,
-    Nl80211SurveyHandle, Nl80211WiphyHandle, try_nl80211,
+    Nl80211Message, Nl80211ScanHandle, Nl80211StartApRequest,
+    Nl80211StationAddRequest, Nl80211StationDelRequest, Nl80211StationHandle,
+    Nl80211StationSetRequest, Nl80211StopApRequest, Nl80211SurveyHandle,
+    Nl80211WiphyHandle, try_nl80211,
 };
 
 #[derive(Clone, Debug)]
@@ -49,6 +51,48 @@ impl Nl80211Handle {
     // equivalent to `iw DEVICE survey dump` command
     pub fn survey(&self) -> Nl80211SurveyHandle {
         Nl80211SurveyHandle::new(self.clone())
+    }
+
+    /// Start an access point (`NL80211_CMD_START_AP`). The attributes are
+    /// normally produced by [`crate::Nl80211StartAp`].
+    pub fn start_ap(
+        &mut self,
+        attributes: Vec<crate::Nl80211Attr>,
+    ) -> Nl80211StartApRequest {
+        Nl80211StartApRequest::new(self.clone(), attributes)
+    }
+
+    /// Stop an access point (`NL80211_CMD_STOP_AP`). The attributes are
+    /// normally produced by [`crate::Nl80211StopAp`].
+    pub fn stop_ap(
+        &mut self,
+        attributes: Vec<crate::Nl80211Attr>,
+    ) -> Nl80211StopApRequest {
+        Nl80211StopApRequest::new(self.clone(), attributes)
+    }
+
+    /// Add a station to an AP interface (`NL80211_CMD_NEW_STATION`).
+    pub fn station_add(
+        &mut self,
+        attributes: Vec<crate::Nl80211Attr>,
+    ) -> Nl80211StationAddRequest {
+        Nl80211StationAddRequest::new(self.clone(), attributes)
+    }
+
+    /// Modify a station (`NL80211_CMD_SET_STATION`).
+    pub fn station_set(
+        &mut self,
+        attributes: Vec<crate::Nl80211Attr>,
+    ) -> Nl80211StationSetRequest {
+        Nl80211StationSetRequest::new(self.clone(), attributes)
+    }
+
+    /// Delete a station (`NL80211_CMD_DEL_STATION`).
+    pub fn station_del(
+        &mut self,
+        attributes: Vec<crate::Nl80211Attr>,
+    ) -> Nl80211StationDelRequest {
+        Nl80211StationDelRequest::new(self.clone(), attributes)
     }
 
     pub async fn request(
