@@ -52,7 +52,7 @@ fn test_start_ap_attributes() {
     );
     assert_eq!(
         emit(find(&attrs, |a| matches!(a, Nl80211Attr::DtimPeriod(_)))),
-        vec![5, 0, 13, 0, 0x02, 0, 0, 0]
+        vec![8, 0, 13, 0, 0x02, 0, 0, 0]
     );
     assert_eq!(
         emit(find(&attrs, |a| matches!(a, Nl80211Attr::BeaconHead(_)))),

@@ -46,7 +46,7 @@ impl Nl80211AttrsBuilder<Nl80211StartAp> {
     }
 
     /// DTIM period.
-    pub fn dtim_period(self, period: u8) -> Self {
+    pub fn dtim_period(self, period: u32) -> Self {
         self.replace(Nl80211Attr::DtimPeriod(period))
     }
 
