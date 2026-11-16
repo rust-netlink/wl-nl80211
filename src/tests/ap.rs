@@ -14,10 +14,10 @@ fn emit(attr: &Nl80211Attr) -> Vec<u8> {
     buf
 }
 
-fn find<'a>(
-    attrs: &'a [Nl80211Attr],
+fn find(
+    attrs: &[Nl80211Attr],
     matcher: impl Fn(&Nl80211Attr) -> bool,
-) -> &'a Nl80211Attr {
+) -> &Nl80211Attr {
     attrs
         .iter()
         .find(|a| matcher(a))
