@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: MIT
 
-use netlink_packet_core::{NLM_F_ACK, NLM_F_REQUEST, Nla};
+// On-wire AP-mode netlink requests transmitted by hostapd on mac80211_hwsim,
+// captured on an `nlmon` interface. The attribute region of each captured
+// message must parse to the modelled attributes, parse/emit must reproduce
+// the exact captured bytes, and the `ap` builders must emit the same bytes as
+// the captured request.
+
+use netlink_packet_core::{EthernetProtocol, Nla, NlasIterator, Parseable};
 
 use crate::{
-    Ieee80211CipherSuite, Nl80211Attr, Nl80211AuthType, Nl80211Command,
-    Nl80211StartAp, Nl80211StationAdd, Nl80211StationFlagUpdate,
-    Nl80211StationFlags, Nl80211StopAp, Nl80211WpaVersions,
+    NL80211_HIDDEN_SSID_NOT_IN_USE, Nl80211Attr, Nl80211AuthType,
+    Nl80211Command, Nl80211StartAp, Nl80211StationAdd, Nl80211StationDel,
+    Nl80211StationFlagUpdate, Nl80211StationFlags, Nl80211StationSet,
+    Nl80211StopAp,
 };
 
 fn emit(attr: &Nl80211Attr) -> Vec<u8> {
@@ -14,118 +21,265 @@ fn emit(attr: &Nl80211Attr) -> Vec<u8> {
     buf
 }
 
-fn find(
-    attrs: &[Nl80211Attr],
-    matcher: impl Fn(&Nl80211Attr) -> bool,
-) -> &Nl80211Attr {
-    attrs
-        .iter()
-        .find(|a| matcher(a))
+fn parse_attrs(raw: &[u8]) -> Vec<Nl80211Attr> {
+    NlasIterator::new(raw)
+        .unwrap()
+        .map(|nla| Nl80211Attr::parse(&nla).unwrap())
+        .collect()
+}
+
+fn find_value(raw: &[u8], kind: u16) -> Vec<u8> {
+    NlasIterator::new(raw)
+        .unwrap()
+        .find(|nla| nla.kind() == kind)
+        .map(|nla| nla.value().to_vec())
         .expect("attribute present")
 }
 
-#[test]
-fn test_start_ap_attributes() {
-    let attrs = Nl80211StartAp::new(7)
-        .beacon_interval(100)
-        .dtim_period(2)
-        .beacon_head(vec![1, 2, 3])
-        .beacon_tail(vec![4, 5])
-        .hidden_ssid(crate::NL80211_HIDDEN_SSID_NOT_IN_USE)
-        .privacy(true)
-        .auth_type(Nl80211AuthType::OpenSystem)
-        .wpa_versions(Nl80211WpaVersions::WPA2)
-        .akm_suites(vec![crate::Ieee80211AkmSuite::Psk])
-        .ciphers_pairwise(vec![Ieee80211CipherSuite::Ccmp128])
-        .cipher_group(Ieee80211CipherSuite::Ccmp128)
-        .ie(vec![6, 7])
-        .ie_probe_resp(vec![8])
-        .ie_assoc_resp(vec![9])
-        .inactivity_timeout(300)
-        .basic_rates(vec![0x82, 0x84, 0x8b, 0x96])
-        .ssid("Test-WIFI")
-        .build();
+fn captured_nla(raw: &[u8], kind: u16) -> Option<Vec<u8>> {
+    let mut off = 0;
+    while off + 4 <= raw.len() {
+        let nlen = u16::from_ne_bytes([raw[off], raw[off + 1]]) as usize;
+        let ntype = u16::from_ne_bytes([raw[off + 2], raw[off + 3]]) & 0x3fff;
+        let aligned = (nlen + 3) & !3;
+        if ntype == kind {
+            return Some(raw[off..off + aligned].to_vec());
+        }
+        off += aligned;
+    }
+    None
+}
 
-    assert_eq!(
-        find(&attrs, |a| matches!(a, Nl80211Attr::BeaconInterval(_))).kind(),
-        12
-    );
-    assert_eq!(
-        emit(find(&attrs, |a| matches!(a, Nl80211Attr::DtimPeriod(_)))),
-        vec![8, 0, 13, 0, 0x02, 0, 0, 0]
-    );
-    assert_eq!(
-        emit(find(&attrs, |a| matches!(a, Nl80211Attr::BeaconHead(_)))),
-        vec![7, 0, 14, 0, 1, 2, 3, 0]
-    );
-    assert_eq!(
-        emit(find(&attrs, |a| matches!(a, Nl80211Attr::BeaconTail(_)))),
-        vec![6, 0, 15, 0, 4, 5, 0, 0]
-    );
-    assert!(matches!(
-        find(&attrs, |a| matches!(a, Nl80211Attr::HiddenSsid(_))),
-        Nl80211Attr::HiddenSsid(crate::NL80211_HIDDEN_SSID_NOT_IN_USE)
-    ));
-    assert!(matches!(
-        find(&attrs, |a| matches!(a, Nl80211Attr::Privacy)),
-        Nl80211Attr::Privacy
-    ));
-    assert!(matches!(
-        find(&attrs, |a| matches!(a, Nl80211Attr::IeProbeResp(_))),
-        Nl80211Attr::IeProbeResp(v) if v == &vec![8]
-    ));
-    assert!(matches!(
-        find(&attrs, |a| matches!(a, Nl80211Attr::IeAssocResp(_))),
-        Nl80211Attr::IeAssocResp(v) if v == &vec![9]
-    ));
-    assert_eq!(
-        emit(find(&attrs, |a| matches!(
-            a,
-            Nl80211Attr::InactivityTimeout(_)
-        ))),
-        vec![6, 0, 150, 0, 0x2c, 0x01, 0, 0]
-    );
+fn assert_parse_emit_roundtrip(raw: &[u8]) {
+    for nla in NlasIterator::new(raw).unwrap() {
+        let attr = Nl80211Attr::parse(&nla).unwrap();
+        assert_eq!(
+            emit(&attr),
+            captured_nla(raw, nla.kind()).unwrap(),
+            "parse/emit roundtrip mismatch for kind {}",
+            nla.kind()
+        );
+    }
+}
+
+fn assert_builder_matches(built: &[Nl80211Attr], raw: &[u8]) {
+    for attr in built {
+        if let Some(captured) = captured_nla(raw, attr.kind()) {
+            assert_eq!(
+                emit(attr),
+                captured,
+                "emit mismatch for kind {}",
+                attr.kind()
+            );
+        }
+    }
 }
 
 #[test]
-fn test_station_add_attributes() {
-    let update = Nl80211StationFlagUpdate {
-        mask: Nl80211StationFlags::Authorized
-            | Nl80211StationFlags::Authenticated
-            | Nl80211StationFlags::Associated,
-        set: Nl80211StationFlags::Authorized
-            | Nl80211StationFlags::Authenticated
-            | Nl80211StationFlags::Associated,
-    };
-    let attrs = Nl80211StationAdd::new(7, [0x02, 0, 0, 0, 0, 1])
-        .aid(1)
-        .listen_interval(10)
-        .supported_rates(vec![0x82, 0x84])
-        .capability(0x0431)
-        .flags2(update)
-        .ext_capability(vec![0x00, 0x00])
-        .build();
+fn test_captured_start_ap_request() {
+    // pkt 125 START_AP (256 bytes)
+    let raw = vec![
+        0x00, 0x01, 0x00, 0x00, 0x33, 0x00, 0x05, 0x00, 0x3e, 0x69, 0x04, 0x95,
+        0x53, 0x03, 0xc1, 0x6a, 0x0f, 0x00, 0x00, 0x00, 0x08, 0x00, 0x03, 0x00,
+        0x3b, 0x02, 0x00, 0x00, 0x40, 0x00, 0x0e, 0x00, 0x80, 0x00, 0x00, 0x00,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x64, 0x00, 0x01, 0x04, 0x00, 0x09, 0x54, 0x65,
+        0x73, 0x74, 0x2d, 0x57, 0x49, 0x46, 0x49, 0x01, 0x08, 0x82, 0x84, 0x8b,
+        0x96, 0x0c, 0x12, 0x18, 0x24, 0x03, 0x01, 0x01, 0x1b, 0x00, 0x0f, 0x00,
+        0x2a, 0x01, 0x04, 0x32, 0x04, 0x30, 0x48, 0x60, 0x6c, 0x3b, 0x02, 0x51,
+        0x00, 0x7f, 0x08, 0x04, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x40, 0x00,
+        0x08, 0x00, 0x0c, 0x00, 0x64, 0x00, 0x00, 0x00, 0x08, 0x00, 0x0d, 0x00,
+        0x02, 0x00, 0x00, 0x00, 0x0d, 0x00, 0x34, 0x00, 0x54, 0x65, 0x73, 0x74,
+        0x2d, 0x57, 0x49, 0x46, 0x49, 0x00, 0x00, 0x00, 0x08, 0x00, 0x7e, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x35, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x04, 0x00, 0x44, 0x00, 0x06, 0x00, 0x66, 0x00, 0x8e, 0x88, 0x00, 0x00,
+        0x04, 0x00, 0x08, 0x01, 0x04, 0x00, 0x1e, 0x01, 0x0e, 0x00, 0x2a, 0x00,
+        0x7f, 0x08, 0x04, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00,
+        0x0e, 0x00, 0x7f, 0x00, 0x7f, 0x08, 0x04, 0x00, 0x00, 0x02, 0x00, 0x00,
+        0x00, 0x40, 0x00, 0x00, 0x0e, 0x00, 0x80, 0x00, 0x7f, 0x08, 0x04, 0x00,
+        0x00, 0x02, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x08, 0x00, 0x26, 0x00,
+        0x6c, 0x09, 0x00, 0x00, 0x08, 0x00, 0x27, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x04, 0x00, 0xcc, 0x00,
+    ];
+    assert_eq!(256, raw.len());
+    let attr_raw = &raw[20..];
+    let attrs = parse_attrs(attr_raw);
+    assert_parse_emit_roundtrip(attr_raw);
 
-    assert!(matches!(
-        find(&attrs, |a| matches!(a, Nl80211Attr::Mac(_))),
-        Nl80211Attr::Mac([0x02, 0, 0, 0, 0, 1])
-    ));
-    assert_eq!(
-        emit(find(&attrs, |a| matches!(a, Nl80211Attr::StaAid(_)))),
-        vec![6, 0, 16, 0, 0x01, 0, 0, 0]
+    assert!(attrs.contains(&Nl80211Attr::IfIndex(571)));
+    assert!(attrs.contains(&Nl80211Attr::BeaconInterval(100)));
+    assert!(attrs.contains(&Nl80211Attr::DtimPeriod(2)));
+    assert!(attrs.contains(&Nl80211Attr::SsidRaw(b"Test-WIFI".to_vec())));
+    assert!(
+        attrs
+            .contains(&Nl80211Attr::HiddenSsid(NL80211_HIDDEN_SSID_NOT_IN_USE))
     );
-    assert_eq!(
-        emit(find(&attrs, |a| matches!(a, Nl80211Attr::StaCapability(_)))),
-        vec![6, 0, 171, 0, 0x31, 0x04, 0, 0]
+    assert!(
+        attrs.contains(&Nl80211Attr::AuthType(Nl80211AuthType::OpenSystem))
     );
-    assert_eq!(
-        emit(find(&attrs, |a| matches!(a, Nl80211Attr::StaFlags2(_)))),
-        vec![
-            12, 0, 67, 0, // length, type
-            0xa2, 0x00, 0x00, 0x00, // mask
-            0xa2, 0x00, 0x00, 0x00, // set
-        ]
+    assert!(attrs.contains(&Nl80211Attr::ControlPort));
+    assert!(
+        attrs.contains(&Nl80211Attr::ControlPortEthertype(
+            EthernetProtocol::Pae
+        ))
     );
+    assert!(attrs.contains(&Nl80211Attr::WiphyFreq(2412)));
+
+    let beacon_head = find_value(attr_raw, 14);
+    let beacon_tail = find_value(attr_raw, 15);
+    let ie = find_value(attr_raw, 42);
+    let ie_probe_resp = find_value(attr_raw, 127);
+    let ie_assoc_resp = find_value(attr_raw, 128);
+    assert_eq!(60, beacon_head.len());
+    assert_eq!(23, beacon_tail.len());
+    assert_eq!(10, ie.len());
+
+    let built = Nl80211StartAp::new(571)
+        .ssid("Test-WIFI")
+        .beacon_head(beacon_head)
+        .beacon_tail(beacon_tail)
+        .beacon_interval(100)
+        .dtim_period(2)
+        .hidden_ssid(NL80211_HIDDEN_SSID_NOT_IN_USE)
+        .auth_type(Nl80211AuthType::OpenSystem)
+        .control_port(EthernetProtocol::Pae)
+        .ie(ie)
+        .ie_probe_resp(ie_probe_resp)
+        .ie_assoc_resp(ie_assoc_resp)
+        .frequency(2412)
+        .build();
+    assert_builder_matches(&built, attr_raw);
+}
+
+#[test]
+fn test_captured_stop_ap_request() {
+    // pkt 305 STOP_AP (28 bytes)
+    let raw = vec![
+        0x1c, 0x00, 0x00, 0x00, 0x33, 0x00, 0x05, 0x00, 0x6e, 0x69, 0x04, 0x95,
+        0x53, 0x03, 0x81, 0xf2, 0x10, 0x00, 0x00, 0x00, 0x08, 0x00, 0x03, 0x00,
+        0x3b, 0x02, 0x00, 0x00,
+    ];
+    assert_eq!(28, raw.len());
+    let attr_raw = &raw[20..];
+    let attrs = parse_attrs(attr_raw);
+    assert_parse_emit_roundtrip(attr_raw);
+    assert_eq!(vec![Nl80211Attr::IfIndex(571)], attrs);
+
+    let built = Nl80211StopAp::new(571).build();
+    assert_eq!(attrs, built);
+    assert_builder_matches(&built, attr_raw);
+}
+
+#[test]
+fn test_captured_new_station_request() {
+    // pkt 222 NEW_STATION (96 bytes)
+    let raw = vec![
+        0x60, 0x00, 0x00, 0x00, 0x33, 0x00, 0x05, 0x00, 0x63, 0x69, 0x04, 0x95,
+        0x53, 0x03, 0x81, 0xf2, 0x13, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x99, 0x00,
+        0x01, 0x00, 0x00, 0x00, 0x82, 0x01, 0x00, 0x00, 0x08, 0x00, 0x13, 0x00,
+        0x02, 0x04, 0x0b, 0x16, 0x06, 0x00, 0xab, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x05, 0x00, 0xe4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x10, 0x00,
+        0x01, 0x00, 0x00, 0x00, 0x06, 0x00, 0x12, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x0c, 0x00, 0x43, 0x00, 0xa0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x0a, 0x00, 0x06, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+    ];
+    assert_eq!(96, raw.len());
+    let attr_raw = &raw[20..];
+    let attrs = parse_attrs(attr_raw);
+    assert_parse_emit_roundtrip(attr_raw);
+
+    let mac = [0x02, 0x00, 0x00, 0x00, 0x01, 0x00];
+    assert!(attrs.contains(&Nl80211Attr::Mac(mac)));
+    assert!(attrs.contains(&Nl80211Attr::StaAid(1)));
+    assert!(attrs.contains(&Nl80211Attr::StaListenInterval(0)));
+    assert!(attrs.contains(&Nl80211Attr::StaSupportedRates(vec![
+        0x02, 0x04, 0x0b, 0x16
+    ])));
+    assert!(attrs.contains(&Nl80211Attr::StaCapability(0)));
+    let update = Nl80211StationFlagUpdate {
+        mask: Nl80211StationFlags::Authenticated
+            | Nl80211StationFlags::Associated,
+        set: Nl80211StationFlags::empty(),
+    };
+    assert!(attrs.contains(&Nl80211Attr::StaFlags2(update.clone())));
+
+    let built = Nl80211StationAdd::new(571, mac)
+        .supported_rates(vec![0x02, 0x04, 0x0b, 0x16])
+        .capability(0)
+        .aid(1)
+        .listen_interval(0)
+        .flags2(update)
+        .build();
+    assert_builder_matches(&built, attr_raw);
+}
+
+#[test]
+fn test_captured_set_station_request() {
+    // pkt 236 SET_STATION (104 bytes)
+    let raw = vec![
+        0x68, 0x00, 0x00, 0x00, 0x33, 0x00, 0x05, 0x00, 0x66, 0x69, 0x04, 0x95,
+        0x53, 0x03, 0x81, 0xf2, 0x12, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x99, 0x00,
+        0x01, 0x00, 0x00, 0x00, 0x82, 0x01, 0x00, 0x00, 0x10, 0x00, 0x13, 0x00,
+        0x02, 0x04, 0x0b, 0x16, 0x0c, 0x12, 0x18, 0x24, 0x30, 0x48, 0x60, 0x6c,
+        0x06, 0x00, 0xab, 0x00, 0x20, 0x04, 0x00, 0x00, 0x05, 0x00, 0xe4, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x10, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x06, 0x00, 0x12, 0x00, 0x05, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x43, 0x00,
+        0xa4, 0x00, 0x00, 0x00, 0xa4, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x06, 0x00,
+        0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+    ];
+    assert_eq!(104, raw.len());
+    let attr_raw = &raw[20..];
+    let attrs = parse_attrs(attr_raw);
+    assert_parse_emit_roundtrip(attr_raw);
+
+    let mac = [0x02, 0x00, 0x00, 0x00, 0x01, 0x00];
+    let rates = vec![
+        0x02, 0x04, 0x0b, 0x16, 0x0c, 0x12, 0x18, 0x24, 0x30, 0x48, 0x60, 0x6c,
+    ];
+    assert!(attrs.contains(&Nl80211Attr::Mac(mac)));
+    assert!(attrs.contains(&Nl80211Attr::StaAid(1)));
+    assert!(attrs.contains(&Nl80211Attr::StaListenInterval(5)));
+    assert!(attrs.contains(&Nl80211Attr::StaCapability(0x0420)));
+    assert!(attrs.contains(&Nl80211Attr::StaSupportedRates(rates.clone())));
+    let flags = Nl80211StationFlags::ShortPreamble
+        | Nl80211StationFlags::Authenticated
+        | Nl80211StationFlags::Associated;
+    let update = Nl80211StationFlagUpdate {
+        mask: flags,
+        set: flags,
+    };
+    assert!(attrs.contains(&Nl80211Attr::StaFlags2(update.clone())));
+
+    let built = Nl80211StationSet::new(571, mac)
+        .supported_rates(rates)
+        .capability(0x0420)
+        .aid(1)
+        .listen_interval(5)
+        .flags2(update)
+        .build();
+    assert_builder_matches(&built, attr_raw);
+}
+
+#[test]
+fn test_captured_del_station_request() {
+    // pkt 281 DEL_STATION (44 bytes)
+    let raw = vec![
+        0x2c, 0x00, 0x00, 0x00, 0x33, 0x00, 0x05, 0x00, 0x6c, 0x69, 0x04, 0x95,
+        0x53, 0x03, 0x81, 0xf2, 0x14, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x99, 0x00,
+        0x01, 0x00, 0x00, 0x00, 0x82, 0x01, 0x00, 0x00, 0x0a, 0x00, 0x06, 0x00,
+        0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+    ];
+    assert_eq!(44, raw.len());
+    let attr_raw = &raw[20..];
+    let attrs = parse_attrs(attr_raw);
+    assert_parse_emit_roundtrip(attr_raw);
+
+    let mac = [0x02, 0x00, 0x00, 0x00, 0x01, 0x00];
+    assert!(attrs.contains(&Nl80211Attr::Mac(mac)));
+
+    let built = Nl80211StationDel::new(571, mac).build();
+    assert_builder_matches(&built, attr_raw);
 }
 
 #[test]
@@ -135,6 +289,4 @@ fn test_ap_commands() {
     assert_eq!(u8::from(Nl80211Command::NewStation), 19);
     assert_eq!(u8::from(Nl80211Command::SetStation), 18);
     assert_eq!(u8::from(Nl80211Command::DelStation), 20);
-    assert_eq!(NLM_F_REQUEST | NLM_F_ACK, 0x0005);
-    let _ = Nl80211StopAp::new(7);
 }
