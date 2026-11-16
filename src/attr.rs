@@ -47,9 +47,9 @@ use crate::{
     Nl80211IfTypeExtCapas, Nl80211IfaceComb, Nl80211IfaceFrameType,
     Nl80211InterfaceType, Nl80211InterfaceTypes, Nl80211KeyAttr,
     Nl80211MloLink, Nl80211RekeyData, Nl80211ScanFlags, Nl80211SchedScanMatch,
-    Nl80211SchedScanPlan, Nl80211StationFlagUpdate, Nl80211StationInfo,
-    Nl80211SurveyInfo, Nl80211TransmitQueueStat, Nl80211UseMfp,
-    Nl80211WowlanTriggersSupport, Nl80211WpaVersions,
+    Nl80211SchedScanPlan, Nl80211StationFlagUpdate, Nl80211StationFlags,
+    Nl80211StationInfo, Nl80211SurveyInfo, Nl80211TransmitQueueStat,
+    Nl80211UseMfp, Nl80211WowlanTriggersSupport, Nl80211WpaVersions,
     scan::{NestedIndexedNlaList, Nla80211ScanFreqNlas, Nla80211ScanSsidNlas},
     wiphy::Nl80211Commands,
 };
@@ -1364,6 +1364,93 @@ impl<'a> Parseable<NlaBuffer<'a>> for Nl80211Attr {
                 // must not fail the whole message.
                 Self::SsidRaw(payload.to_vec())
             }
+            NL80211_ATTR_BEACON_INTERVAL => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_BEACON_INTERVAL value {payload:?}"
+                );
+                Self::BeaconInterval(parse_u32(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_DTIM_PERIOD => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_DTIM_PERIOD value {payload:?}"
+                );
+                Self::DtimPeriod(parse_u32(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_BEACON_HEAD => Self::BeaconHead(payload.to_vec()),
+            NL80211_ATTR_BEACON_TAIL => Self::BeaconTail(payload.to_vec()),
+            NL80211_ATTR_BSS_BASIC_RATES => {
+                Self::BssBasicRates(payload.to_vec())
+            }
+            NL80211_ATTR_STA_AID => {
+                let err_msg =
+                    format!("Invalid NL80211_ATTR_STA_AID value {payload:?}");
+                Self::StaAid(parse_u16(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_STA_LISTEN_INTERVAL => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_STA_LISTEN_INTERVAL value {payload:?}"
+                );
+                Self::StaListenInterval(parse_u16(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_STA_SUPPORTED_RATES => {
+                Self::StaSupportedRates(payload.to_vec())
+            }
+            NL80211_ATTR_STA_FLAGS2 => {
+                if payload.len() != 8 {
+                    return Err(format!(
+                        "Invalid length of NL80211_ATTR_STA_FLAGS2, \
+                        expected length 8 got {payload:?}"
+                    )
+                    .into());
+                }
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_STA_FLAGS2 value {payload:?}"
+                );
+                let mask =
+                    parse_u32(&payload[0..4]).context(err_msg.clone())?;
+                let set = parse_u32(&payload[4..8]).context(err_msg)?;
+                Self::StaFlags2(Nl80211StationFlagUpdate {
+                    mask: Nl80211StationFlags::from_bits_retain(mask),
+                    set: Nl80211StationFlags::from_bits_retain(set),
+                })
+            }
+            NL80211_ATTR_STA_CAPABILITY => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_STA_CAPABILITY value {payload:?}"
+                );
+                Self::StaCapability(parse_u16(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_STA_EXT_CAPABILITY => {
+                Self::StaExtCapability(payload.to_vec())
+            }
+            NL80211_ATTR_STA_SUPPORTED_CHANNELS => {
+                Self::StaSupportedChannels(payload.to_vec())
+            }
+            NL80211_ATTR_STA_SUPPORTED_OPER_CLASSES => {
+                Self::StaSupportedOperClasses(payload.to_vec())
+            }
+            NL80211_ATTR_HIDDEN_SSID => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_HIDDEN_SSID value {payload:?}"
+                );
+                Self::HiddenSsid(parse_u32(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_IE_PROBE_RESP => Self::IeProbeResp(payload.to_vec()),
+            NL80211_ATTR_IE_ASSOC_RESP => Self::IeAssocResp(payload.to_vec()),
+            NL80211_ATTR_PROBE_RESP => Self::ProbeResp(payload.to_vec()),
+            NL80211_ATTR_INACTIVITY_TIMEOUT => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_INACTIVITY_TIMEOUT value {payload:?}"
+                );
+                Self::InactivityTimeout(parse_u16(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_AP_SETTINGS_FLAGS => {
+                let err_msg = format!(
+                    "Invalid NL80211_ATTR_AP_SETTINGS_FLAGS value {payload:?}"
+                );
+                Self::ApSettingsFlags(parse_u32(payload).context(err_msg)?)
+            }
+            NL80211_ATTR_CONTROL_PORT => Self::ControlPort,
             NL80211_ATTR_STA_INFO => {
                 let err_msg =
                     format!("Invalid NL80211_ATTR_STA_INFO value {payload:?}");
